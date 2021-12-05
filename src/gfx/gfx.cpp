@@ -19,10 +19,6 @@ void Gfx::logExtensions() {
     }
 
     spdlog::info("{} extensions supported.", extensionCount);
-
-    glm::mat4 matrix;
-    glm::vec4 vec;
-    auto test = matrix * vec;
 }
 
 }

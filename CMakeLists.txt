@@ -50,11 +50,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glfw)
 
-include(CTest)
-enable_testing()
-
 add_subdirectory(app)
 add_subdirectory(src)
+add_subdirectory(test)
+
+include(CTest)
+enable_testing()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

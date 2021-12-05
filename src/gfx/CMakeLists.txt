@@ -8,8 +8,8 @@ target_include_directories(gfx
 )
 
 target_link_libraries(gfx
+    PUBLIC glm::glm
     PRIVATE Vulkan::Vulkan
     PRIVATE glfw
-    PRIVATE glm::glm
     PRIVATE spdlog::spdlog
 )

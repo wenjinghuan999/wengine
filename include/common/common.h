@@ -24,9 +24,4 @@ protected:
     ICopyable() = default;
 };
 
-template<typename T>
-class THandle {
-public:
-};
-
 }

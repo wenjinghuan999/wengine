@@ -4,9 +4,9 @@
 
 #include <string>
 #include <memory>
-#include <any>
 #include <vector>
 #include <optional>
+#include <tuple>
 
 namespace wg {
 
@@ -15,7 +15,7 @@ public:
     static Monitor getPrimary();
 protected:
     friend class Window;
-    std::any impl_;
+    void* impl_{};
 };
 
 class Window : public IMovable {
@@ -26,16 +26,24 @@ public:
     );
     ~Window();
 protected:
-    friend class App;
     std::string title_;
-    std::any impl_;
+protected:
+    friend class App;
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 class App : IMovable {
 public:
-    App();
+    App(std::string name, std::tuple<int, int, int> version);
     void loop();
     ~App();
+
+    const std::string& name() const { return name_; }
+    int major_version() const { return std::get<0>(version_); }
+    int minor_version() const { return std::get<1>(version_); }
+    int patch_version() const { return std::get<2>(version_); }
+    std::string version_string() const;
 
     std::shared_ptr<Window> createWindow(
         int width, int height, std::string title, 
@@ -43,6 +51,8 @@ public:
     );
 protected:
     std::vector<std::shared_ptr<Window>> windows_;
+    const std::string name_;
+    const std::tuple<int, int, int> version_;
 };
 
 }

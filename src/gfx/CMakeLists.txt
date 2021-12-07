@@ -8,6 +8,9 @@ target_include_directories(gfx
 )
 
 target_link_libraries(gfx
+    PUBLIC engine
+    PUBLIC platform
+    
     PUBLIC glm::glm
     PRIVATE Vulkan::Vulkan
     PRIVATE glfw

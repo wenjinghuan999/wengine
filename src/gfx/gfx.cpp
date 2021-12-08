@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <map>
+#include <optional>
 #include <vector>
 
 #include "engine/engine.h"
@@ -108,7 +109,7 @@ namespace {
             type_string += 'P';
         }
 
-        VulkanLogger->log(level, "[{}|{}]{}", pCallbackData->pMessageIdName, type_string, pCallbackData->pMessage);
+        VulkanLogger->log(level, "[{}][{}] {}", pCallbackData->pMessageIdName, type_string, pCallbackData->pMessage);
 
         return false;
     }
@@ -220,15 +221,41 @@ Gfx::Gfx(const App& app)
 
 Gfx::~Gfx() {
     logger->info("Destroying gfx.");
+    logical_device_.reset();
+    physical_devices_.clear();
 }
 
 bool Gfx::valid() const {
-    return current_physical_device_index_ >= 0 && current_physical_device_index_ < static_cast<int>(physical_devices_.size());
+    return physical_device_valid();
 }
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphics_family;
+};
+
+namespace {
+
+QueueFamilyIndices FindQueueFamilies(const vk::raii::PhysicalDevice& vk_physical_device) {
+    auto queue_families = vk_physical_device.getQueueFamilyProperties();
+    QueueFamilyIndices indices;
+    for (size_t i = 0; i < queue_families.size(); ++i) {
+        auto& queue_family = queue_families[i];
+        if (queue_family.queueFlags & vk::QueueFlagBits::eGraphics) {
+            indices.graphics_family = static_cast<int>(i);
+        }
+    }
+    return indices;
+}
+
+}
+
 struct PhysicalDevice::Impl {
     vk::raii::PhysicalDevice vk_physical_device;
+    QueueFamilyIndices queue_families;
     
-    Impl(vk::raii::PhysicalDevice vk_physical_device) : vk_physical_device(std::move(vk_physical_device)) {}
+    Impl(vk::raii::PhysicalDevice vk_physical_device) 
+        : vk_physical_device(std::move(vk_physical_device)) {
+        queue_families = FindQueueFamilies(this->vk_physical_device);
+    }
 };
 
 PhysicalDevice::PhysicalDevice(const std::string& name)
@@ -252,6 +279,7 @@ void Gfx::updatePhysicalDevices() {
     }
 
     selectBestPhysicalDevice();
+    createLogicalDevice();
 }
 
 void Gfx::selectPhysicalDevice(int index) {
@@ -264,9 +292,13 @@ void Gfx::selectPhysicalDevice(int index) {
     }
 }
 
+bool Gfx::physical_device_valid() const {
+    return current_physical_device_index_ >= 0 && current_physical_device_index_ < static_cast<int>(physical_devices_.size());
+}
+
 void Gfx::selectBestPhysicalDevice(int hint_index) {
-    auto rateDevice = [](const PhysicalDevice& device) {
-        int score = 0;
+    auto rateDevice = [](const PhysicalDevice& device, int hint_score) {
+        int score = hint_score;
         auto property = device.impl_->vk_physical_device.getProperties();
         auto features = device.impl_->vk_physical_device.getFeatures();
 
@@ -284,15 +316,17 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
             score += 100;
         }
 
+        if (!device.impl_->queue_families.graphics_family.has_value()) {
+            score = 0;
+        }
+
         return score;
     };
 
     std::multimap<int, int> candidates;
     for (size_t i = 0; i < physical_devices_.size(); ++i) {
-        int score = rateDevice(*physical_devices_[i]);
-        if (hint_index == static_cast<int>(i)) {
-            score += 500;
-        }
+        int hint_score = hint_index == static_cast<int>(i) ? 500 : 0;
+        int score = rateDevice(*physical_devices_[i], hint_score);
         candidates.insert(std::make_pair(score, static_cast<int>(i)));
     }
 
@@ -304,6 +338,51 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
     }
 
     selectPhysicalDevice(index);
+}
+
+struct LogicalDevice::Impl {
+    vk::raii::Device vk_device;
+    
+    Impl(vk::raii::Device vk_device) 
+        : vk_device(std::move(vk_device)) {}
+};
+
+LogicalDevice::LogicalDevice()
+    : impl_() {}
+
+void Gfx::createLogicalDevice() {
+    logger->info("Creating logical device.");
+    if (!physical_device_valid()) {
+        logger->error("Failed to create logical device because physical device is invalid.");
+        return;
+    }
+
+    auto& vk_physical_device = physical_device().impl_->vk_physical_device;
+
+    std::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
+    std::vector<std::array<float, 1>> queue_priorities;
+    if (physical_device().impl_->queue_families.graphics_family.has_value()) {
+        vk::DeviceQueueCreateInfo queue_create_info{
+            .queueFamilyIndex = physical_device().impl_->queue_families.graphics_family.value()
+        };
+        queue_priorities.emplace_back(std::array{ 1.0f });
+        queue_create_info.setQueuePriorities(queue_priorities.back());
+        queue_create_infos.emplace_back(std::move(queue_create_info));
+    }
+
+    vk::PhysicalDeviceFeatures enabled_features;
+
+    vk::DeviceCreateInfo device_create_info{
+        .pEnabledFeatures = &enabled_features
+    };
+    device_create_info.setQueueCreateInfos(queue_create_infos);
+
+    vk::raii::Device vk_device = vk_physical_device.createDevice(device_create_info);
+
+    logical_device_ = std::make_unique<LogicalDevice>();
+    logical_device_->impl_ = std::make_unique<LogicalDevice::Impl>(std::move(vk_device));
+
+    logger->info("Logical device created.");
 }
 
 }

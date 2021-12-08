@@ -12,14 +12,14 @@ namespace {
 
 namespace wg {
 
-Monitor Monitor::getPrimary() {
+Monitor Monitor::GetPrimary() {
     Monitor monitor;
     monitor.impl_ = glfwGetPrimaryMonitor();
     return monitor;
 }
 
 struct Window::Impl {
-    GLFWwindow* raw_window{};
+    GLFWwindow* glfw_window{};
 };
 
 Window::Window(
@@ -27,22 +27,22 @@ Window::Window(
     std::optional<Monitor> monitor, std::shared_ptr<Window> share
 ) : title_(std::move(title)), impl_(std::make_unique<Window::Impl>()) {
 
-    GLFWmonitor* raw_monitor = monitor ? static_cast<GLFWmonitor*>(monitor->impl_) : nullptr;
-    GLFWwindow* raw_share = share ? share->impl_->raw_window : nullptr;
+    GLFWmonitor* glfw_monitor = monitor ? static_cast<GLFWmonitor*>(monitor->impl_) : nullptr;
+    GLFWwindow* glfw_window_share = share ? share->impl_->glfw_window : nullptr;
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    impl_->raw_window = glfwCreateWindow(width, height, title_.c_str(), raw_monitor, raw_share);
+    impl_->glfw_window = glfwCreateWindow(width, height, title_.c_str(), glfw_monitor, glfw_window_share);
 
     logger->info("Window created: \"{}\"({}x{}).", title_, width, height);
 }
 
 Window::~Window() {
-    GLFWwindow* raw_window = impl_->raw_window;
+    GLFWwindow* glfw_window = impl_->glfw_window;
     
     int width = 0, height = 0;
-    glfwGetWindowSize(raw_window, &width, &height);
+    glfwGetWindowSize(glfw_window, &width, &height);
 
-    glfwDestroyWindow(raw_window);
+    glfwDestroyWindow(glfw_window);
 
     logger->info("Window destroyed: \"{}\"({}x{}).", title_, width, height);
 }
@@ -68,8 +68,8 @@ void App::loop() {
 
     while (!windows_.empty()) {
         for (auto it = windows_.begin(); it != windows_.end(); ) {
-            GLFWwindow* raw_window = (*it)->impl_->raw_window;
-            if (glfwWindowShouldClose(raw_window)) {
+            GLFWwindow* glfw_window = (*it)->impl_->glfw_window;
+            if (glfwWindowShouldClose(glfw_window)) {
                 it = windows_.erase(it);
             } else {
                 ++it;

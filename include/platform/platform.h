@@ -12,8 +12,9 @@ namespace wg {
 
 class Monitor : public ICopyable {
 public:
-    static Monitor getPrimary();
+    static Monitor GetPrimary();
 protected:
+    Monitor() {}
     friend class Window;
     void* impl_{};
 };

@@ -7,6 +7,6 @@ target_include_directories(gfx-example
 )
 
 target_link_libraries(gfx-example
-    PRIVATE platform
-    PRIVATE gfx
+    PRIVATE wengine-platform
+    PRIVATE wengine-gfx
 )

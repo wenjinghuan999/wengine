@@ -12,6 +12,8 @@ public:
 protected:
     Singleton() {}
     ~Singleton() {}
+    Singleton(const Singleton&) = delete;
+    Singleton& operator=(const Singleton&) = delete;
 };
 
 }

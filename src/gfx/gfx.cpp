@@ -1,5 +1,6 @@
 #include "gfx/gfx.h"
 
+#define VK_ENABLE_BETA_EXTENSIONS
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 #include <vulkan/vulkan_raii.hpp>
 #include <GLFW/glfw3.h>
@@ -16,127 +17,217 @@
 #include <map>
 #include <optional>
 #include <vector>
+#include <string>
+#include <string_view>
 
 #include "engine/engine.h"
 #include "platform/platform.h"
 
+namespace wg {
+namespace gfx_features {
+
+const char* const FEATURE_NAMES[_NUM_FEATURES] = {
+    "_platform_required",
+    "_must_enable_if_valid",
+    "_debug_utils"
+};
+
+}
+}
+
 namespace {
 
-    auto logger = spdlog::stdout_color_mt("gfx");
-    const std::vector<const char*> VALIDATION_LAYER_NAMES = {
-        "VK_LAYER_KHRONOS_validation"
-    };
-    const std::vector<const char*> DEBUG_UTILS_EXTENSION_NAMES = {
-        "VK_EXT_debug_utils"
-    };
+auto logger = spdlog::stdout_color_mt("gfx");
 
-    bool CheckLayersAvailable(const std::vector<vk::LayerProperties>& available_layers, const std::vector<const char*>& layer_names) {
-        for (auto&& layer_name : layer_names) {
-            auto found = std::find_if(available_layers.begin(), available_layers.end(), 
-                [&layer_name](const vk::LayerProperties& layer) {
-                    return std::string_view(layer.layerName) == std::string_view(layer_name);
-                });
-            if (available_layers.end() == found) {
-                return false;
-            }
+inline void AppendRawStrings(std::vector<const char*>& to, const std::vector<const char*>& from) {
+    for (const char* s : from) {
+        if (std::find_if(to.begin(), to.end(), [s](const char* t){
+                return std::string_view(s) == std::string_view(t);
+            }) == to.end()) {
+            to.push_back(s);
         }
-        return true;
-    }
-
-    bool CheckExtensionsAvailable(const std::vector<vk::ExtensionProperties>& available_extensions, const std::vector<const char*>& extension_names) {
-        for (auto&& extensionName : extension_names) {
-            auto found = std::find_if(available_extensions.begin(), available_extensions.end(), 
-                [&extensionName](const vk::ExtensionProperties& extension) {
-                    return std::string_view(extension.extensionName) == std::string_view(extensionName);
-                });
-            if (available_extensions.end() == found) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    bool AddDebugUtils(
-        std::vector<const char*>& enabled_layer_names, std::vector<const char*>& enabled_extension_names,
-        const std::vector<vk::LayerProperties>& available_layers, const std::vector<vk::ExtensionProperties>& available_extensions
-        ) {
-#ifdef NDEBUG
-        return false;
-#else
-        if (CheckLayersAvailable(available_layers, VALIDATION_LAYER_NAMES)) {
-            enabled_layer_names.insert(enabled_layer_names.end(), VALIDATION_LAYER_NAMES.begin(), VALIDATION_LAYER_NAMES.end());
-        } else {
-            logger->warn("Debug validation layers unavailable.");
-        }
-        if (CheckExtensionsAvailable(available_extensions, DEBUG_UTILS_EXTENSION_NAMES)) {
-            enabled_extension_names.insert(enabled_extension_names.end(), DEBUG_UTILS_EXTENSION_NAMES.begin(), DEBUG_UTILS_EXTENSION_NAMES.end());
-            return true;
-        } else {
-            logger->warn("Debug utils extentions unavailable.");
-            return false;
-        }
-#endif
-    }
-
-    auto VulkanLogger = spdlog::stdout_color_mt("vulkan");
-
-    VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessageHandler(
-        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-        VkDebugUtilsMessengerCallbackDataEXT const * pCallbackData, void * /*pUserData*/ ) {
-        
-        spdlog::level::level_enum level;
-        auto severity = static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity);
-        if (severity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eError) {
-            level = spdlog::level::err;
-        } else if (severity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning) {
-            level = spdlog::level::warn;
-        } else if (severity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo) {
-            level = spdlog::level::info;
-        } else {
-            level = spdlog::level::debug;
-        }
-
-        std::string type_string;
-        type_string.reserve(3);
-        auto types = static_cast<vk::DebugUtilsMessageTypeFlagBitsEXT>(messageTypes);
-        if (types & vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral) {
-            type_string += 'G';
-        }
-        if (types & vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation) {
-            type_string += 'V';
-        }
-        if (types & vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance) {
-            type_string += 'P';
-        }
-
-        VulkanLogger->log(level, "[{}][{}] {}", pCallbackData->pMessageIdName, type_string, pCallbackData->pMessage);
-
-        return false;
-    }
-                                                    
-    std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> CreateDebugMessenger(const vk::raii::Instance& instance) {
-        vk::DebugUtilsMessengerCreateInfoEXT debug_utils_messenger_create_info{
-            .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-                               vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | 
-                               vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                               vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
-            .messageType     = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                               vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
-                               vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
-            .pfnUserCallback = &DebugMessageHandler
-        };
-        return std::make_unique<vk::raii::DebugUtilsMessengerEXT>(instance, debug_utils_messenger_create_info, nullptr);
-    }
-
-    void AddGlfwUtils(
-        std::vector<const char*>& enabled_layer_names, std::vector<const char*>& enabled_extension_names,
-        const std::vector<vk::LayerProperties>& available_layers, const std::vector<vk::ExtensionProperties>& available_extensions
-    ) {
-        uint32_t glfw_extension_count = 0;
-        const char** glfw_extension_names = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
-        enabled_extension_names.insert(enabled_extension_names.end(), glfw_extension_names, glfw_extension_names + glfw_extension_count);
     }
 }
+
+struct VulkanFeatures {
+    std::vector<const char*> instance_layers;
+    std::vector<const char*> instance_extensions;
+    std::vector<const char*> device_layers;
+    std::vector<const char*> device_extensions;
+    vk::PhysicalDeviceFeatures device_features;
+    using CheckPropertiesAndFeaturesFunc 
+        = std::function<bool(const vk::PhysicalDeviceProperties&, const vk::PhysicalDeviceFeatures&)>;
+    CheckPropertiesAndFeaturesFunc check_properties_and_features_func;
+
+    using SetFeaturesFunc = std::function<void(vk::PhysicalDeviceFeatures&)>;
+    SetFeaturesFunc set_feature_func;
+public:
+    VulkanFeatures& append(const VulkanFeatures& other) {
+        AppendRawStrings(instance_layers, other.instance_layers);
+        AppendRawStrings(instance_extensions, other.instance_extensions);
+        AppendRawStrings(device_layers, other.device_layers);
+        AppendRawStrings(device_extensions, other.device_extensions);
+        if (other.set_feature_func) {
+            other.set_feature_func(device_features);
+        }
+        return *this;
+    }
+};
+
+struct AvailableVulkanFeatures {
+    std::vector<vk::LayerProperties> instance_layers;
+    std::vector<vk::ExtensionProperties> instance_extensions;
+    std::vector<vk::LayerProperties> device_layers;
+    std::vector<vk::ExtensionProperties> device_extensions;
+    vk::PhysicalDeviceProperties device_properties;
+    vk::PhysicalDeviceFeatures device_features;
+public:
+    void getInstanceFeatures(const vk::raii::Context& context) {
+        instance_layers = context.enumerateInstanceLayerProperties();
+        instance_extensions = context.enumerateInstanceExtensionProperties();
+    }
+    void getDeviceFeatures(const vk::raii::PhysicalDevice& device) {
+        device_layers = device.enumerateDeviceLayerProperties();
+        device_extensions = device.enumerateDeviceExtensionProperties();
+        device_properties = device.getProperties();
+        device_features = device.getFeatures();
+    }
+public:
+    bool checkInstanceAvailable(const VulkanFeatures& feature) const {
+        for (auto&& layer_name : feature.instance_layers) {
+            if (!CheckLayerContains(instance_layers, layer_name)) {
+                return false;
+            }
+        }
+        for (auto&& extension_name : feature.instance_extensions) {
+            if (!CheckExtensionContains(instance_extensions, extension_name)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    bool checkDeviceAvailable(const VulkanFeatures& feature) const {
+        for (auto&& layer_name : feature.device_layers) {
+            if (!CheckLayerContains(device_layers, layer_name)) {
+                return false;
+            }
+        }
+        for (auto&& extension_name : feature.device_extensions) {
+            if (!CheckExtensionContains(device_extensions, extension_name)) {
+                return false;
+            }
+        }
+        return true;
+    }
+private:
+    static bool CheckLayerContains(const std::vector<vk::LayerProperties>& layers, const char* layer_name) {
+        return std::find_if(layers.begin(), layers.end(), 
+            [layer_name](const vk::LayerProperties& layer) {
+                return std::string_view(layer.layerName) == std::string_view(layer_name);
+            }) != layers.end();
+    }
+    static bool CheckExtensionContains(const std::vector<vk::ExtensionProperties>& extensions, const char* extension_name) {
+        return std::find_if(extensions.begin(), extensions.end(), 
+            [extension_name](const vk::ExtensionProperties& extension) {
+                return std::string_view(extension.extensionName) == std::string_view(extension_name);
+            }) != extensions.end();
+    }
+};
+
+VulkanFeatures GetGlfwRequiredFeatures() {
+    uint32_t glfw_extension_count = 0;
+    const char** glfw_extension_names = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
+    VulkanFeatures glfw_features;
+    glfw_features.instance_extensions = std::vector<const char*>(glfw_extension_names, glfw_extension_names + glfw_extension_count);
+    
+    static bool first_time = true;
+    if (first_time) {
+        logger->debug("GLFW requires {} extensions:", glfw_extension_count);
+        for (const char* extension_name : glfw_features.instance_extensions) {
+            logger->debug(" - {}", extension_name);
+        }
+        first_time = false;
+    }
+    return glfw_features;
+}
+
+VulkanFeatures GetVulkanFeatures(wg::gfx_features::FeatureId feature) {
+    switch (feature) {
+        case wg::gfx_features::_platform_required:
+            return GetGlfwRequiredFeatures();
+        case wg::gfx_features::_must_enable_if_valid:
+            // VUID-VkDeviceCreateInfo-pProperties-04451
+            // https://vulkan.lunarg.com/doc/view/1.2.198.1/mac/1.2-extensions/vkspec.html#VUID-VkDeviceCreateInfo-pProperties-04451
+            return {
+                .instance_extensions = { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME },
+                .device_extensions = { VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME }
+            };
+#ifndef NDEBUG
+        case wg::gfx_features::_debug_utils:
+            return {
+                .instance_layers = { "VK_LAYER_KHRONOS_validation" },
+                .instance_extensions = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME }
+            };
+#endif
+        default:
+            return {};
+    }
+}
+
+#ifndef NDEBUG
+VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessageHandler(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+    VkDebugUtilsMessengerCallbackDataEXT const * pCallbackData, void * /*pUserData*/ ) {
+    
+    static auto vulkan_logger = spdlog::stdout_color_mt("vulkan");
+
+    spdlog::level::level_enum level;
+    auto severity = static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity);
+    if (severity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eError) {
+        level = spdlog::level::err;
+    } else if (severity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning) {
+        level = spdlog::level::warn;
+    } else if (severity & vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo) {
+        level = spdlog::level::info;
+    } else {
+        level = spdlog::level::debug;
+    }
+
+    std::string type_string;
+    type_string.reserve(3);
+    auto types = static_cast<vk::DebugUtilsMessageTypeFlagBitsEXT>(messageTypes);
+    if (types & vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral) {
+        type_string += 'G';
+    }
+    if (types & vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation) {
+        type_string += 'V';
+    }
+    if (types & vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance) {
+        type_string += 'P';
+    }
+
+    vulkan_logger->log(level, "[{}][{}] {}", pCallbackData->pMessageIdName, type_string, pCallbackData->pMessage);
+
+    return false;
+}
+                                                
+std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> CreateDebugMessenger(const vk::raii::Instance& instance) {
+    vk::DebugUtilsMessengerCreateInfoEXT debug_utils_messenger_create_info{
+        .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+                           vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | 
+                           vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                           vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
+        .messageType     = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                           vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+                           vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
+        .pfnUserCallback = &DebugMessageHandler
+    };
+    return std::make_unique<vk::raii::DebugUtilsMessengerEXT>(instance, debug_utils_messenger_create_info, nullptr);
+}
+#endif
+
+} // unnamed namespace
+
 namespace wg {
 
 struct Gfx::Impl {
@@ -148,6 +239,9 @@ struct Gfx::Impl {
 Gfx::Gfx(const App& app)
     : impl_(std::make_unique<Gfx::Impl>()) {
     
+#ifndef NDEBUG
+    logger->set_level(spdlog::level::debug);
+#endif
     logger->info("Initializing gfx.");
 
     impl_->context = std::make_unique<vk::raii::Context>();
@@ -156,22 +250,24 @@ Gfx::Gfx(const App& app)
     logger->info("Instance version: {}.{}.{}", VK_API_VERSION_MAJOR(instance_version), 
         VK_API_VERSION_MINOR(instance_version), VK_API_VERSION_PATCH(instance_version));
     
-    std::vector<vk::ExtensionProperties> available_extensions = impl_->context->enumerateInstanceExtensionProperties();
-    logger->info("{} extensions available.", available_extensions.size());
-    for (auto&& extension : available_extensions) {
-        logger->debug(" - {} ({}.{}.{})", 
-            extension.extensionName, VK_API_VERSION_MAJOR(extension.specVersion), 
-            VK_API_VERSION_MINOR(extension.specVersion), VK_API_VERSION_PATCH(extension.specVersion));
-    }
-    
-    std::vector<vk::LayerProperties> available_layers = impl_->context->enumerateInstanceLayerProperties();
-    logger->info("{} layers available.", available_layers.size());
-    for (auto&& layer : available_layers) {
+    // Check and enable available vulkan features
+    AvailableVulkanFeatures available_features;
+    available_features.getInstanceFeatures(*impl_->context);
+
+    logger->info("{} instance layers available.", available_features.instance_layers.size());
+    for (auto&& layer : available_features.instance_layers) {
         logger->debug(" - {} ({}.{}.{}, {}.{}.{}) {}", 
             layer.layerName, VK_API_VERSION_MAJOR(layer.specVersion), 
             VK_API_VERSION_MINOR(layer.specVersion), VK_API_VERSION_PATCH(layer.specVersion), 
             VK_API_VERSION_MAJOR(layer.implementationVersion), VK_API_VERSION_MINOR(layer.implementationVersion), 
             VK_API_VERSION_PATCH(layer.implementationVersion), layer.description);
+    }
+
+    logger->info("{} instance extensions available.", available_features.instance_extensions.size());
+    for (auto&& extension : available_features.instance_extensions) {
+        logger->debug(" - {} ({}.{}.{})", 
+            extension.extensionName, VK_API_VERSION_MAJOR(extension.specVersion), 
+            VK_API_VERSION_MINOR(extension.specVersion), VK_API_VERSION_PATCH(extension.specVersion));
     }
 
     const Engine& engine = Engine::get();
@@ -184,36 +280,72 @@ Gfx::Gfx(const App& app)
         .apiVersion         = VK_API_VERSION_1_0
     };
 
-    std::vector<const char*> enabled_layer_names;
-    std::vector<const char*> enabled_extension_names;
-
+    GfxFeaturesManager& gfx_features_manager = GfxFeaturesManager::get();
+    GfxFeaturesManager::_AddFeatureImpl(gfx_features::_platform_required, gfx_features_manager.instance_enabled_);
+    GfxFeaturesManager::_AddFeatureImpl(gfx_features::_platform_required, gfx_features_manager.required_);
+    GfxFeaturesManager::_AddFeatureImpl(gfx_features::_must_enable_if_valid, gfx_features_manager.instance_enabled_);
+    GfxFeaturesManager::_AddFeatureImpl(gfx_features::_must_enable_if_valid, gfx_features_manager.defaults_);
+#ifndef NDEBUG
     // Adding debug layers and extensions
-    const bool debug_utils_added = AddDebugUtils(enabled_layer_names, enabled_extension_names, available_layers, available_extensions);
+    GfxFeaturesManager::_AddFeatureImpl(gfx_features::_debug_utils, gfx_features_manager.instance_enabled_);
+    GfxFeaturesManager::_AddFeatureImpl(gfx_features::_debug_utils, gfx_features_manager.defaults_);
+#endif
 
-    // Adding GLFW required extensions
-    AddGlfwUtils(enabled_layer_names, enabled_extension_names, available_layers, available_extensions);
+    for (int feature_id = 0; feature_id < gfx_features::NUM_FEATURES; ++feature_id) {
+        GfxFeaturesManager::_AddFeatureImpl(
+            static_cast<gfx_features::FeatureId>(feature_id), gfx_features_manager.instance_enabled_);
+        // TODO: add to default
+    }
+
+    VulkanFeatures enabled_features;
+
+    // Required features must be available
+    for (auto feature_id : gfx_features_manager.required_) {
+        VulkanFeatures feature = GetVulkanFeatures(feature_id);
+        if (!available_features.checkInstanceAvailable(feature)) {
+            logger->error("Gfx feature {} is required but not available on instance.", gfx_features::FEATURE_NAMES[feature_id]);
+        }
+        // May crash later
+        enabled_features.append(feature);
+    }
+
+    // Instance features are enabled if available
+    for (auto feature_id : gfx_features_manager.instance_enabled_) {
+        VulkanFeatures feature = GetVulkanFeatures(feature_id);
+        if (!available_features.checkInstanceAvailable(feature)) {
+            logger->info("Gfx feature {} is not available on instance.", gfx_features::FEATURE_NAMES[feature_id]);
+            GfxFeaturesManager::_RemoveFeatureImpl(feature_id, gfx_features_manager.instance_enabled_);
+            GfxFeaturesManager::_RemoveFeatureImpl(feature_id, gfx_features_manager.defaults_);
+        } else {
+            enabled_features.append(feature);
+        }
+    }
+
+    logger->info("Enabled engine features:");
+    for (auto feature_id : gfx_features_manager.instance_enabled_) {
+        logger->info(" - {}", gfx_features::FEATURE_NAMES[feature_id]);
+    }
 
     logger->info("Enabled layers:");
-    for (auto&& layer_name : enabled_layer_names) {
+    for (auto&& layer_name : enabled_features.instance_layers) {
         logger->info(" - {}", layer_name);
     }
 
     logger->info("Enabled extensions:");
-    for (auto&& extension_name : enabled_extension_names) {
+    for (auto&& extension_name : enabled_features.instance_extensions) {
         logger->info(" - {}", extension_name);
     }
 
-    vk::InstanceCreateInfo instance_create_info{
+    auto instance_create_info = vk::InstanceCreateInfo{
         .pApplicationInfo = &application_info
-    };
-    instance_create_info.setPEnabledLayerNames(enabled_layer_names);
-    instance_create_info.setPEnabledExtensionNames(enabled_extension_names);
+    }   .setPEnabledLayerNames(enabled_features.instance_layers)
+        .setPEnabledExtensionNames(enabled_features.instance_extensions);
 
     impl_->instance = std::make_unique<vk::raii::Instance>(*impl_->context, instance_create_info);
 
-    if (debug_utils_added) {
-        impl_->debug_messenger = CreateDebugMessenger(*impl_->instance.get());
-    }
+#ifndef NDEBUG
+    impl_->debug_messenger = CreateDebugMessenger(*impl_->instance.get());
+#endif
 
     // Devices
     updatePhysicalDevices();
@@ -359,6 +491,59 @@ void Gfx::createLogicalDevice() {
 
     auto& vk_physical_device = physical_device().impl_->vk_physical_device;
 
+    // Check and enable available device features
+    AvailableVulkanFeatures available_features;
+    available_features.getDeviceFeatures(vk_physical_device);
+
+    logger->info("{} device layers available.", available_features.device_layers.size());
+    for (auto&& layer : available_features.device_layers) {
+        logger->debug(" - {} ({}.{}.{}, {}.{}.{}) {}", 
+            layer.layerName, VK_API_VERSION_MAJOR(layer.specVersion), 
+            VK_API_VERSION_MINOR(layer.specVersion), VK_API_VERSION_PATCH(layer.specVersion), 
+            VK_API_VERSION_MAJOR(layer.implementationVersion), VK_API_VERSION_MINOR(layer.implementationVersion), 
+            VK_API_VERSION_PATCH(layer.implementationVersion), layer.description);
+    }
+
+    logger->info("{} device extensions available.", available_features.device_extensions.size());
+    for (auto&& extension : available_features.device_extensions) {
+        logger->debug(" - {} ({}.{}.{})", 
+            extension.extensionName, VK_API_VERSION_MAJOR(extension.specVersion), 
+            VK_API_VERSION_MINOR(extension.specVersion), VK_API_VERSION_PATCH(extension.specVersion));
+    }
+
+    VulkanFeatures enabled_features;
+    GfxFeaturesManager& gfx_features_manager = GfxFeaturesManager::get();
+
+    for (auto feature_id : gfx_features_manager.instance_enabled_) {
+        VulkanFeatures feature = GetVulkanFeatures(feature_id);
+        const bool enabled = 
+            GfxFeaturesManager::_Contains(feature_id, gfx_features_manager.user_enabled_) ||
+            (!GfxFeaturesManager::_Contains(feature_id, gfx_features_manager.user_disabled_) && 
+                GfxFeaturesManager::_Contains(feature_id, gfx_features_manager.defaults_));
+
+        if (enabled && !available_features.checkDeviceAvailable(feature)) {
+            logger->info("Gfx feature {} is not available on device.", gfx_features::FEATURE_NAMES[feature_id]);
+        } else if (enabled) {
+            GfxFeaturesManager::_AddFeatureImpl(feature_id, gfx_features_manager.enabled_);
+            enabled_features.append(feature);
+        }
+    }
+
+    logger->info("Enabled device features:");
+    for (auto feature_id : gfx_features_manager.enabled_) {
+        logger->info(" - {}", gfx_features::FEATURE_NAMES[feature_id]);
+    }
+
+    logger->info("Enabled device layers:");
+    for (auto&& layer_name : enabled_features.device_layers) {
+        logger->info(" - {}", layer_name);
+    }
+
+    logger->info("Enabled device extensions:");
+    for (auto&& extension_name : enabled_features.device_extensions) {
+        logger->info(" - {}", extension_name);
+    }
+
     std::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
     std::vector<std::array<float, 1>> queue_priorities;
     if (physical_device().impl_->queue_families.graphics_family.has_value()) {
@@ -370,12 +555,11 @@ void Gfx::createLogicalDevice() {
         queue_create_infos.emplace_back(std::move(queue_create_info));
     }
 
-    vk::PhysicalDeviceFeatures enabled_features;
-
-    vk::DeviceCreateInfo device_create_info{
-        .pEnabledFeatures = &enabled_features
-    };
-    device_create_info.setQueueCreateInfos(queue_create_infos);
+    auto device_create_info = vk::DeviceCreateInfo{}
+        .setPEnabledLayerNames(enabled_features.device_layers)
+        .setPEnabledExtensionNames(enabled_features.device_extensions)
+        .setPEnabledFeatures(&enabled_features.device_features)
+        .setQueueCreateInfos(queue_create_infos);
 
     vk::raii::Device vk_device = vk_physical_device.createDevice(device_create_info);
 
@@ -385,4 +569,24 @@ void Gfx::createLogicalDevice() {
     logger->info("Logical device created.");
 }
 
+void GfxFeaturesManager::_AddFeatureImpl(gfx_features::FeatureId feature, 
+    std::vector<gfx_features::FeatureId>& features) {
+    
+    if (std::find(features.begin(), features.end(), feature) == features.end()) {
+        features.push_back(feature);
+    }
 }
+
+void GfxFeaturesManager::_RemoveFeatureImpl(gfx_features::FeatureId feature, 
+    std::vector<gfx_features::FeatureId>& features) {
+    
+    std::remove(features.begin(), features.end(), feature);
+}
+
+bool GfxFeaturesManager::_Contains(gfx_features::FeatureId feature, 
+    const std::vector<gfx_features::FeatureId>& features) {
+    
+    return std::find(features.begin(), features.end(), feature) != features.end();
+}
+
+} // namespace wg

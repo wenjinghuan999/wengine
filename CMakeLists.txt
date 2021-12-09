@@ -52,7 +52,12 @@ FetchContent_Declare(
 set(GLFW_BUILD_EXAMPLES OFF)
 set(GLFW_BUILD_TESTS OFF)
 FetchContent_MakeAvailable(glfw)
-target_compile_options(glfw PUBLIC -w)
+if (MSVC)
+    target_compile_options(glfw PUBLIC /W3)
+else()
+    target_compile_options(glfw PUBLIC -w)
+endif()
+
 
 add_subdirectory(app)
 add_subdirectory(src)

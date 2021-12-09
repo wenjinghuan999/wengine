@@ -30,6 +30,7 @@ protected:
     std::string title_;
 protected:
     friend class App;
+    friend class Gfx;
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

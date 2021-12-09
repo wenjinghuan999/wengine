@@ -1,7 +1,6 @@
 #include "platform/platform.h"
 
-#include <vulkan/vulkan.hpp>
-#include <GLFW/glfw3.h>
+#include "vulkan-glfw.h"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -17,10 +16,6 @@ Monitor Monitor::GetPrimary() {
     monitor.impl_ = glfwGetPrimaryMonitor();
     return monitor;
 }
-
-struct Window::Impl {
-    GLFWwindow* glfw_window{};
-};
 
 Window::Window(
     int width, int height, std::string title, 

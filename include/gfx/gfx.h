@@ -2,6 +2,7 @@
 
 #include "common/common.h"
 #include "common/singleton.h"
+#include "platform/platform.h"
 
 #include <memory>
 #include <string>
@@ -9,6 +10,7 @@
 
 namespace wg {
 
+class Surface;
 class PhysicalDevice;
 class LogicalDevice;
 class GfxFeatures;
@@ -18,6 +20,9 @@ public:
     Gfx(const class App& app);
     ~Gfx();
     bool valid() const;
+
+    // Surface
+    std::shared_ptr<Surface> createSurface(std::shared_ptr<Window> window);
 
     // Physical device
     void updatePhysicalDevices();
@@ -31,10 +36,22 @@ public:
     // Logical device
     void createLogicalDevice();
 protected:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+    std::vector<std::shared_ptr<Surface>> surfaces_;
     std::vector<std::unique_ptr<PhysicalDevice>> physical_devices_;
     int current_physical_device_index_{ -1 };
     std::unique_ptr<LogicalDevice> logical_device_;
+};
+
+class Surface : public IMovable {
+public:
+    Surface(std::shared_ptr<Window> window);
+    ~Surface() = default;
 protected:
+    std::shared_ptr<Window> window_;
+protected:
+    friend class Gfx;
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

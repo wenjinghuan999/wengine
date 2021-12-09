@@ -1,9 +1,6 @@
 #include "gfx/gfx.h"
 
-#define VK_ENABLE_BETA_EXTENSIONS
-#define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
-#include <vulkan/vulkan_raii.hpp>
-#include <GLFW/glfw3.h>
+#include "vulkan-glfw.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -19,6 +16,7 @@
 #include <vector>
 #include <string>
 #include <string_view>
+#include <tuple>
 
 #include "engine/engine.h"
 #include "platform/platform.h"
@@ -211,7 +209,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessageHandler(
     return false;
 }
                                                 
-std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> CreateDebugMessenger(const vk::raii::Instance& instance) {
+vk::raii::DebugUtilsMessengerEXT CreateDebugMessenger(const vk::raii::Instance& instance) {
     vk::DebugUtilsMessengerCreateInfoEXT debug_utils_messenger_create_info{
         .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
                            vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | 
@@ -222,7 +220,7 @@ std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> CreateDebugMessenger(const vk:
                            vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
         .pfnUserCallback = &DebugMessageHandler
     };
-    return std::make_unique<vk::raii::DebugUtilsMessengerEXT>(instance, debug_utils_messenger_create_info, nullptr);
+    return instance.createDebugUtilsMessengerEXT(debug_utils_messenger_create_info);
 }
 #endif
 
@@ -231,9 +229,9 @@ std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> CreateDebugMessenger(const vk:
 namespace wg {
 
 struct Gfx::Impl {
-    std::unique_ptr<vk::raii::Context> context;
-    std::unique_ptr<vk::raii::Instance> instance;
-    std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> debug_messenger;
+    vk::raii::Context context;
+    vk::raii::Instance instance{nullptr};
+    vk::raii::DebugUtilsMessengerEXT debug_messenger{nullptr};
 };
 
 Gfx::Gfx(const App& app)
@@ -244,15 +242,13 @@ Gfx::Gfx(const App& app)
 #endif
     logger->info("Initializing gfx.");
 
-    impl_->context = std::make_unique<vk::raii::Context>();
-
-    auto instance_version = impl_->context->enumerateInstanceVersion();
+    auto instance_version = impl_->context.enumerateInstanceVersion();
     logger->info("Instance version: {}.{}.{}", VK_API_VERSION_MAJOR(instance_version), 
         VK_API_VERSION_MINOR(instance_version), VK_API_VERSION_PATCH(instance_version));
     
     // Check and enable available vulkan features
     AvailableVulkanFeatures available_features;
-    available_features.getInstanceFeatures(*impl_->context);
+    available_features.getInstanceFeatures(impl_->context);
 
     logger->info("{} instance layers available.", available_features.instance_layers.size());
     for (auto&& layer : available_features.instance_layers) {
@@ -341,10 +337,10 @@ Gfx::Gfx(const App& app)
     }   .setPEnabledLayerNames(enabled_features.instance_layers)
         .setPEnabledExtensionNames(enabled_features.instance_extensions);
 
-    impl_->instance = std::make_unique<vk::raii::Instance>(*impl_->context, instance_create_info);
+    impl_->instance = impl_->context.createInstance(instance_create_info);
 
 #ifndef NDEBUG
-    impl_->debug_messenger = CreateDebugMessenger(*impl_->instance.get());
+    impl_->debug_messenger = CreateDebugMessenger(impl_->instance);
 #endif
 
     // Devices
@@ -353,18 +349,48 @@ Gfx::Gfx(const App& app)
 
 Gfx::~Gfx() {
     logger->info("Destroying gfx.");
-    logical_device_.reset();
-    physical_devices_.clear();
 }
 
 bool Gfx::valid() const {
     return physical_device_valid();
 }
-struct QueueFamilyIndices {
-    std::optional<uint32_t> graphics_family;
+
+struct Surface::Impl {
+    vk::raii::SurfaceKHR vk_surface;
 };
 
+Surface::Surface(std::shared_ptr<Window> window)
+    : window_(std::move(window)), impl_() {}
+
+std::shared_ptr<Surface> Gfx::createSurface(std::shared_ptr<Window> window) {
+    auto surface = std::make_shared<Surface>(window);
+
+    vk::Win32SurfaceCreateInfoKHR surface_create_info{
+        .hinstance = GetModuleHandle(nullptr),
+        .hwnd = glfwGetWin32Window(window->impl_->glfw_window)
+    };
+
+    surface->impl_->vk_surface = impl_->instance.createWin32SurfaceKHR(surface_create_info);
+    surfaces_.push_back(surface);
+
+    return surface;
+}
+
+} // namespace wg
+
 namespace {
+
+struct QueueRequirements {
+    vk::QueueFlags flags;
+    
+};
+
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphics_family;
+    std::optional<uint32_t> compute_family;
+    std::optional<uint32_t> transfer_family;
+    std::optional<uint32_t> sparse_binding_family;
+};
 
 QueueFamilyIndices FindQueueFamilies(const vk::raii::PhysicalDevice& vk_physical_device) {
     auto queue_families = vk_physical_device.getQueueFamilyProperties();
@@ -378,7 +404,10 @@ QueueFamilyIndices FindQueueFamilies(const vk::raii::PhysicalDevice& vk_physical
     return indices;
 }
 
-}
+} // unnamed namespace
+
+
+namespace wg {
 
 struct PhysicalDevice::Impl {
     vk::raii::PhysicalDevice vk_physical_device;
@@ -396,7 +425,7 @@ PhysicalDevice::PhysicalDevice(const std::string& name)
 void Gfx::updatePhysicalDevices() {
     physical_devices_.clear();
 
-    auto vk_physical_devices = vk::raii::PhysicalDevices(*impl_->instance.get());
+    auto vk_physical_devices = impl_->instance.enumeratePhysicalDevices();
     
     for (auto&& vk_physical_device : vk_physical_devices) {
         std::string name = vk_physical_device.getProperties().deviceName;
@@ -580,7 +609,7 @@ void GfxFeaturesManager::_AddFeatureImpl(gfx_features::FeatureId feature,
 void GfxFeaturesManager::_RemoveFeatureImpl(gfx_features::FeatureId feature, 
     std::vector<gfx_features::FeatureId>& features) {
     
-    std::remove(features.begin(), features.end(), feature);
+    std::ignore = std::remove(features.begin(), features.end(), feature);
 }
 
 bool GfxFeaturesManager::_Contains(gfx_features::FeatureId feature, 

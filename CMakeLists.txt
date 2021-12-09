@@ -4,7 +4,7 @@ project(wengine
     VERSION 0.0.1
     LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use")
+set(CMAKE_CXX_STANDARD 20 CACHE STRING "The C++ standard to use")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -23,7 +23,7 @@ find_package(Vulkan REQUIRED)
 FetchContent_Declare(
     fmtlib
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-    GIT_TAG        8.0.1
+    GIT_TAG        7.1.3
 )
 FetchContent_MakeAvailable(fmtlib)
 
@@ -52,6 +52,7 @@ FetchContent_Declare(
 set(GLFW_BUILD_EXAMPLES OFF)
 set(GLFW_BUILD_TESTS OFF)
 FetchContent_MakeAvailable(glfw)
+target_compile_options(glfw PUBLIC -w)
 
 add_subdirectory(app)
 add_subdirectory(src)

@@ -23,7 +23,7 @@ find_package(Vulkan REQUIRED)
 FetchContent_Declare(
     fmtlib
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-    GIT_TAG        7.1.3
+    GIT_TAG        ac1b5f3da532fc9dca349c1bc06de65178f44eb3 # 8.0.1-master
 )
 FetchContent_MakeAvailable(fmtlib)
 
@@ -41,6 +41,8 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/gabime/spdlog.git
     GIT_TAG        v1.9.2
 )
+set(SPDLOG_FMT_EXTERNAL ON)
+set(SPDLOG_NO_EXCEPTIONS ON)
 FetchContent_MakeAvailable(spdlog)
 
 # Adds glfw

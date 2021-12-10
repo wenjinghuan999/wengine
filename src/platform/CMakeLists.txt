@@ -1,7 +1,7 @@
 add_library(wengine-platform
     platform.cpp
     ${PROJECT_SOURCE_DIR}/include/platform/platform.h
-    ${PROJECT_SOURCE_DIR}/src/inc/vulkan-glfw.h
+    ${PROJECT_SOURCE_DIR}/src/inc/platform-private.h
 )
 
 target_include_directories(wengine-platform

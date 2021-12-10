@@ -1,6 +1,5 @@
 #include "gfx/gfx.h"
-
-#include "vulkan-glfw.h"
+#include "platform-private.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -204,7 +203,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessageHandler(
         type_string += 'P';
     }
 
-    vulkan_logger->log(level, "[{}][{}] {}", pCallbackData->pMessageIdName, type_string, pCallbackData->pMessage);
+    vulkan_logger->log(level, "[{}][{}] {}", 
+        pCallbackData->pMessageIdName ? pCallbackData->pMessageIdName : "-", type_string, pCallbackData->pMessage);
 
     return false;
 }
@@ -365,14 +365,14 @@ Surface::Surface(std::shared_ptr<Window> window)
 std::shared_ptr<Surface> Gfx::createSurface(std::shared_ptr<Window> window) {
     auto surface = std::make_shared<Surface>(window);
 
-    vk::Win32SurfaceCreateInfoKHR surface_create_info{
-        .hinstance = GetModuleHandle(nullptr),
-        .hwnd = glfwGetWin32Window(window->impl_->glfw_window)
-    };
+    VkSurfaceKHR vk_surface;
+    VkResult err = glfwCreateWindowSurface(*impl_->instance, window->impl_->glfw_window, NULL, &vk_surface);
+    if (err != VK_SUCCESS) {
+        spdlog::error("Failed to create surface for window \"{}\". Error code {}.", window->title_, err);
+    }
+    surface->impl_->vk_surface = vk::raii::SurfaceKHR(impl_->instance, vk_surface);
 
-    surface->impl_->vk_surface = impl_->instance.createWin32SurfaceKHR(surface_create_info);
     surfaces_.push_back(surface);
-
     return surface;
 }
 

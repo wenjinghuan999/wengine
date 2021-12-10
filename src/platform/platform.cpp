@@ -1,6 +1,5 @@
 #include "platform/platform.h"
-
-#include "vulkan-glfw.h"
+#include "platform-private.h"
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>

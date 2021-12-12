@@ -427,15 +427,13 @@ std::shared_ptr<Surface> Gfx::createSurface(std::shared_ptr<Window> window) {
 struct PhysicalDevice::Impl {
     vk::raii::PhysicalDevice vk_physical_device;
     // num_queues_total[queue_id] = total num of queues available in all families
-    std::array<int, gfx_queues::NUM_QUEUES> num_queues_total;
+    std::array<int, gfx_queues::NUM_QUEUES> num_queues_total{};
     // num_queues[queue_id] = <queue_family_index, num_queues_of_family>[]
-    std::array<std::vector<std::pair<uint32_t, int>>, gfx_queues::NUM_QUEUES> num_queues;
+    std::array<std::vector<std::pair<uint32_t, uint32_t>>, gfx_queues::NUM_QUEUES> num_queues{};
     
     Impl(vk::raii::PhysicalDevice vk_physical_device) 
         : vk_physical_device(std::move(vk_physical_device)) {
         auto queue_families = this->vk_physical_device.getQueueFamilyProperties();
-        num_queues_total.fill(0);
-        num_queues.fill(std::vector<std::pair<uint32_t, int>>());
         for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
             auto queue_id = static_cast<gfx_queues::QueueId>(i);
             vk::QueueFlags required_flags = GetRequiredQueueFlags(queue_id);
@@ -726,15 +724,13 @@ std::vector<gfx_features::FeatureId> GfxFeaturesManager::features_enabled() cons
 }
 
 std::array<int, gfx_queues::NUM_QUEUES> GfxFeaturesManager::queues_required() const {
-    std::array<int, gfx_queues::NUM_QUEUES> result;
-    result.fill(0);
+    std::array<int, gfx_queues::NUM_QUEUES> result{};
     _GetQueuesImpl(result, features_required());
     return result;
 }
 
 std::array<int, gfx_queues::NUM_QUEUES> GfxFeaturesManager::queues_enabled() const {
-    std::array<int, gfx_queues::NUM_QUEUES> result;
-    result.fill(0);
+    std::array<int, gfx_queues::NUM_QUEUES> result{};
     _GetQueuesImpl(result, features_enabled());
     return result;
 }

@@ -82,14 +82,23 @@ protected:
 namespace gfx_features {
     enum FeatureId {
         // User controlled features
-        NUM_FEATURES,
+        window_surface,
         // Engine controlled features
-        _platform_required = NUM_FEATURES,
-        _must_enable_if_valid,
+        _must_enable_if_valid, NUM_FEATURES = _must_enable_if_valid,
         _debug_utils,
         _NUM_FEATURES
     };
     extern const char* const FEATURE_NAMES[_NUM_FEATURES];
+}
+
+namespace gfx_queues {
+    enum QueueId {
+        graphics,
+        transfer,
+        compute,
+        NUM_QUEUES
+    };
+    extern const char* const QUEUE_NAMES[NUM_QUEUES];
 }
 
 class GfxFeaturesManager : public Singleton<GfxFeaturesManager> {
@@ -97,14 +106,26 @@ class GfxFeaturesManager : public Singleton<GfxFeaturesManager> {
     friend class Gfx;
     friend class LogicalDevice;
 public:
+    // Enable device feature
     bool enableFeature(gfx_features::FeatureId feature);
+    // Disable device feature
     bool disableFeature(gfx_features::FeatureId feature);
+    // Features required
+    std::vector<gfx_features::FeatureId> features_required() const;
+    // Features enabled
+    std::vector<gfx_features::FeatureId> features_enabled() const;
+    // Queues required
+    std::array<int, gfx_queues::NUM_QUEUES> queues_required() const;
+    // Queues enabled
+    std::array<int, gfx_queues::NUM_QUEUES> queues_enabled() const;
 protected:
     static void _AddFeatureImpl(gfx_features::FeatureId feature, 
         std::vector<gfx_features::FeatureId>& features);
     static void _RemoveFeatureImpl(gfx_features::FeatureId feature, 
         std::vector<gfx_features::FeatureId>& features);
     static bool _Contains(gfx_features::FeatureId feature, 
+        const std::vector<gfx_features::FeatureId>& features);
+    static void _GetQueuesImpl(std::array<int, gfx_queues::NUM_QUEUES>& queues,
         const std::vector<gfx_features::FeatureId>& features);
 protected:
     // Features required by engine (initialized by Gfx)
@@ -113,12 +134,14 @@ protected:
     std::vector<gfx_features::FeatureId> instance_enabled_;
     // Features enable by default (initialized by Gfx)
     std::vector<gfx_features::FeatureId> defaults_;
-    // Features currently enabled
-    std::vector<gfx_features::FeatureId> enabled_;
-    // Features enabled by user
+    // Features enabled by user (set after Gfx initialization)
     std::vector<gfx_features::FeatureId> user_enabled_;
-    // Features disabled by user
+    // Features disabled by user (set after Gfx initialization)
     std::vector<gfx_features::FeatureId> user_disabled_;
+    // Features currently enabled (initialized by device)
+    std::vector<gfx_features::FeatureId> features_enabled_;
+    // Queues currently enabled (initialized by device)
+    std::vector<gfx_queues::QueueId> queues_enabled_;
 };
 
 }

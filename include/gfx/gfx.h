@@ -94,6 +94,7 @@ namespace gfx_features {
 namespace gfx_queues {
     enum QueueId {
         graphics,
+        present,
         transfer,
         compute,
         NUM_QUEUES

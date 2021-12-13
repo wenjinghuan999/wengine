@@ -26,6 +26,7 @@ public:
         std::optional<Monitor> monitor = {}, std::shared_ptr<Window> share = {}
     );
     ~Window();
+    const std::string& title() const { return title_; }
 protected:
     std::string title_;
 protected:

@@ -36,6 +36,7 @@ namespace gfx_queues {
 
 const char* const QUEUE_NAMES[NUM_QUEUES] = {
     "graphics",
+    "present",
     "transfer",
     "compute"
 };
@@ -61,6 +62,8 @@ vk::QueueFlags GetRequiredQueueFlags(wg::gfx_queues::QueueId queue_id) {
     switch (queue_id)
     {
     case wg::gfx_queues::graphics:
+        return vk::QueueFlagBits::eGraphics;
+    case wg::gfx_queues::present:
         return vk::QueueFlagBits::eGraphics;
     case wg::gfx_queues::transfer:
         return vk::QueueFlagBits::eTransfer;
@@ -191,7 +194,9 @@ VulkanFeatures GetVulkanFeatures(wg::gfx_features::FeatureId feature) {
         case wg::gfx_features::window_surface:
             return [](){
                 auto vk_features = GetGlfwRequiredFeatures();
+                vk_features.device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
                 vk_features.device_queues[wg::gfx_queues::graphics] = 1;
+                vk_features.device_queues[wg::gfx_queues::present] = 1;
                 return vk_features;
             }();
         case wg::gfx_features::_must_enable_if_valid:
@@ -491,7 +496,7 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
     auto features_required = gfx_features_manager.features_required();
     auto queues_required = gfx_features_manager.queues_required();
     
-    auto rateDevice = [&features_required, &queues_required]
+    auto rateDevice = [this, &features_required, &queues_required]
         (const PhysicalDevice& device, int hint_score) {
         
         int score = hint_score;
@@ -518,6 +523,32 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
             }
         }
 
+        for (auto&& surface : surfaces_) {
+            const auto& num_queues = device.impl_->num_queues[gfx_queues::present];
+            bool has_any_family = false;
+            for (auto&& [queue_family_index, num_queues_of_family] : num_queues) {
+                if (!device.impl_->vk_physical_device.getSurfaceSupportKHR(queue_family_index, *surface->impl_->vk_surface)) {
+                    continue;
+                }
+                has_any_family = true;
+            }
+            if (!has_any_family) {
+                logger->info("Physical device {} does not support surface of window \"{}\" (no suitable queue family).",
+                    device.name(), surface->window_->title());
+                return 0;
+            }
+            if (device.impl_->vk_physical_device.getSurfaceFormatsKHR(*surface->impl_->vk_surface).empty()) {
+                logger->info("Physical device {} does not support surface of window \"{}\" (no format).",
+                    device.name(), surface->window_->title());
+                return 0;
+            }
+            if (device.impl_->vk_physical_device.getSurfacePresentModesKHR(*surface->impl_->vk_surface).empty()) {
+                logger->info("Physical device {} does not support surface of window \"{}\" (no present mode).",
+                    device.name(), surface->window_->title());
+                return 0;
+            }
+        }
+
         return score;
     };
 
@@ -538,10 +569,18 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
     selectPhysicalDevice(index);
 }
 
+struct QueueInfo {
+    uint32_t queue_family_index;
+    uint32_t queue_index_in_family;
+    vk::raii::Queue vk_queue{nullptr};
+};
+
 struct LogicalDevice::Impl {
     vk::raii::Device vk_device;
-    // queues[queue_id][queue_index] = vk_queue
-    std::map<gfx_queues::QueueId, std::vector<std::unique_ptr<vk::raii::Queue>>> vk_queues;
+    // queues[queue_id][queue_index] = <queue_family_index, vk_queue>
+    std::map<gfx_queues::QueueId, std::vector<std::unique_ptr<QueueInfo>>> queues;
+    // vk_swapchains[surface_index] = swapchain
+    std::vector<std::unique_ptr<vk::raii::SwapchainKHR>> vk_swapchains;
     
     Impl(vk::raii::Device vk_device) 
         : vk_device(std::move(vk_device)) {}
@@ -549,6 +588,89 @@ struct LogicalDevice::Impl {
 
 LogicalDevice::LogicalDevice()
     : impl_() {}
+
+} // namespace wg
+
+namespace {
+
+std::unique_ptr<vk::raii::SwapchainKHR> CreateSwapchainForSurface(
+    const vk::raii::PhysicalDevice& physical_device, const vk::raii::Device& device, const vk::raii::SurfaceKHR& surface, GLFWwindow* window,
+    uint32_t graphics_family_index, uint32_t present_family_index
+) {
+    auto format = [&physical_device, &surface]() {
+        auto available_formats = physical_device.getSurfaceFormatsKHR(*surface);
+        for (auto&& available_format : available_formats) {
+            if (available_format.format == vk::Format::eR8G8B8A8Srgb && available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+                return available_format;
+            } 
+        }
+        return available_formats[0];
+    }();
+    auto present_mode = [&physical_device, &surface]() {
+        auto available_modes = physical_device.getSurfacePresentModesKHR(*surface);
+        for (auto&& available_mode : available_modes) {
+            if (available_mode == vk::PresentModeKHR::eMailbox) {
+                return available_mode;
+            }
+        }        
+        for (auto&& available_mode : available_modes) {
+            if (available_mode == vk::PresentModeKHR::eFifo) {
+                return available_mode;
+            }
+        }
+        return available_modes[0];
+    }();
+    auto capabilities = physical_device.getSurfaceCapabilitiesKHR(*surface);
+    auto extent = [&capabilities, &physical_device, &surface, window]() {
+        if (capabilities.currentExtent.width != UINT32_MAX) {
+            return capabilities.currentExtent;
+        }
+        int width, height;
+        glfwGetFramebufferSize(window, &width, &height);
+
+        vk::Extent2D extent = {
+            .width  = static_cast<uint32_t>(width),
+            .height = static_cast<uint32_t>(height)
+        };
+
+        extent.width = std::clamp(extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+        extent.height = std::clamp(extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+        return extent;
+    }();
+    uint32_t image_count = capabilities.minImageCount + 1;
+    if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount) {
+        image_count = capabilities.maxImageCount;
+    }
+
+    std::array<uint32_t, 2> queue_family_indices{ graphics_family_index, present_family_index };
+
+    auto swapchain_create_info = vk::SwapchainCreateInfoKHR{
+        .surface          = *surface,
+        .minImageCount    = image_count,
+        .imageFormat      = format.format,
+        .imageColorSpace  = format.colorSpace,
+        .imageExtent      = extent,
+        .imageArrayLayers = 1,
+        .imageUsage       = vk::ImageUsageFlagBits::eColorAttachment,
+        .preTransform     = capabilities.currentTransform,
+        .compositeAlpha   = vk::CompositeAlphaFlagBitsKHR::eOpaque,
+        .presentMode      = present_mode,
+        .clipped          = true,
+        .oldSwapchain     = nullptr
+    };
+
+    if (graphics_family_index == present_family_index) {
+        swapchain_create_info.setImageSharingMode(vk::SharingMode::eExclusive);
+    } else {
+        swapchain_create_info.setImageSharingMode(vk::SharingMode::eConcurrent);
+        swapchain_create_info.setQueueFamilyIndices(queue_family_indices);
+    }
+    return std::make_unique<vk::raii::SwapchainKHR>(device, swapchain_create_info);
+}
+
+} // unnamed namespace
+
+namespace wg {
 
 void Gfx::createLogicalDevice() {
     logger->info("Creating logical device.");
@@ -641,7 +763,23 @@ void Gfx::createLogicalDevice() {
         auto queue_id = static_cast<gfx_queues::QueueId>(i);
         int queue_num = enabled_features.device_queues[i];
         int queue_index = 0;
+        
         for (auto&& [queue_family_index, queue_num_of_family] : physical_device().impl_->num_queues[i]) {
+            // Check queue family available to all surfaces
+            const bool support_all_surfaces = [this, queue_family_index](){
+                for (auto&& surface : surfaces_) {
+                    if (!physical_device().impl_->vk_physical_device.getSurfaceSupportKHR(queue_family_index, *surface->impl_->vk_surface)) {
+                        logger->debug("Queue family {} does not support surface of window \"{}\".", 
+                            queue_family_index, surface->window_->title());
+                        return false;
+                    }
+                }
+                return true;
+            }();
+            if (!support_all_surfaces) {
+                continue;
+            }
+            // Allocate queues
             while (queue_index < queue_num && queue_counts[queue_family_index] < queue_num_of_family) {
                 queue_index_remap[std::make_pair(queue_id, queue_index)] 
                     = std::make_pair(queue_family_index, queue_counts[queue_family_index]);
@@ -696,12 +834,34 @@ void Gfx::createLogicalDevice() {
         uint32_t queue_family_index = kv.second.first;
         uint32_t queue_index_in_family = kv.second.second;
 
-        logical_device_->impl_->vk_queues[queue_id].push_back(
-            std::make_unique<vk::raii::Queue>(logical_device_->impl_->vk_device, queue_family_index, queue_index_in_family)
+        logical_device_->impl_->queues[queue_id].push_back(
+            std::make_unique<QueueInfo>()
         );
+        auto& queue_info = logical_device_->impl_->queues[queue_id].back();
+        queue_info->queue_family_index = queue_family_index;
+        queue_info->queue_index_in_family = queue_index_in_family;
+        queue_info->vk_queue = logical_device_->impl_->vk_device.getQueue(queue_family_index, queue_index_in_family);
     }
 
     logger->info("Logical device created.");
+
+    // Create swapchains for surfaces
+    if (!surfaces_.empty() && 
+        !logical_device_->impl_->queues[gfx_queues::graphics].empty() && 
+        !logical_device_->impl_->queues[gfx_queues::present].empty()) {
+        
+        uint32_t graphics_family_index = logical_device_->impl_->queues[gfx_queues::graphics][0]->queue_family_index;
+        uint32_t present_family_index = logical_device_->impl_->queues[gfx_queues::present][0]->queue_family_index;
+        logger->info("Creating swapchains for surfaces. Graphics family: {}, present family: {}.", graphics_family_index, present_family_index);
+        
+        for (auto&& surface : surfaces_) {
+            logical_device_->impl_->vk_swapchains.push_back(
+                CreateSwapchainForSurface(physical_device().impl_->vk_physical_device, logical_device_->impl_->vk_device,
+                surface->impl_->vk_surface, surface->window_->impl_->glfw_window,
+                graphics_family_index, present_family_index
+            ));
+        }
+    }
 }
 
 bool GfxFeaturesManager::enableFeature(gfx_features::FeatureId feature) {

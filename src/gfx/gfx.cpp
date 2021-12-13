@@ -540,6 +540,8 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
 
 struct LogicalDevice::Impl {
     vk::raii::Device vk_device;
+    // queues[queue_id][queue_index] = vk_queue
+    std::map<gfx_queues::QueueId, std::vector<std::unique_ptr<vk::raii::Queue>>> vk_queues;
     
     Impl(vk::raii::Device vk_device) 
         : vk_device(std::move(vk_device)) {}
@@ -686,6 +688,18 @@ void Gfx::createLogicalDevice() {
 
     logical_device_ = std::make_unique<LogicalDevice>();
     logical_device_->impl_ = std::make_unique<LogicalDevice::Impl>(std::move(vk_device));
+
+    // Get all queues
+    for (auto&& kv : queue_index_remap) {
+        gfx_queues::QueueId queue_id = kv.first.first;
+        int index_in_queue_id = kv.first.second;
+        uint32_t queue_family_index = kv.second.first;
+        uint32_t queue_index_in_family = kv.second.second;
+
+        logical_device_->impl_->vk_queues[queue_id].push_back(
+            std::make_unique<vk::raii::Queue>(logical_device_->impl_->vk_device, queue_family_index, queue_index_in_family)
+        );
+    }
 
     logger->info("Logical device created.");
 }

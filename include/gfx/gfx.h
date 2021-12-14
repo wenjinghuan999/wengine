@@ -13,25 +13,24 @@ namespace wg {
 class Surface;
 class PhysicalDevice;
 class LogicalDevice;
-class GfxFeatures;
 
 class Gfx : public IMovable {
 public:
-    Gfx(const class App& app);
-    ~Gfx();
-    bool valid() const;
+    explicit Gfx(const class App& app);
+    ~Gfx() override;
+    [[nodiscard]] bool valid() const;
 
     // Surface
-    std::shared_ptr<Surface> createSurface(std::shared_ptr<Window> window);
+    std::shared_ptr<Surface> createSurface(const std::shared_ptr<Window>& window);
 
     // Physical device
     void updatePhysicalDevices();
-    int getNumPhysicalDevices() const { return static_cast<int>(physical_devices_.size()); }
-    const PhysicalDevice& getPhysicalDevice(int index) const { return *physical_devices_[index]; }
+    [[nodiscard]] int getNumPhysicalDevices() const { return static_cast<int>(physical_devices_.size()); }
+    [[nodiscard]] const PhysicalDevice& getPhysicalDevice(int index) const { return *physical_devices_[index]; }
     void selectPhysicalDevice(int index);
     void selectBestPhysicalDevice(int hint_index = 0);
-    const PhysicalDevice& physical_device() const { return *physical_devices_[current_physical_device_index_]; }
-    bool physical_device_valid() const;
+    [[nodiscard]] const PhysicalDevice& physical_device() const { return *physical_devices_[current_physical_device_index_]; }
+    [[nodiscard]] bool physical_device_valid() const;
 
     // Logical device
     void createLogicalDevice();
@@ -46,8 +45,8 @@ protected:
 
 class Surface : public IMovable {
 public:
-    Surface(std::shared_ptr<Window> window);
-    ~Surface() = default;
+    explicit Surface(std::shared_ptr<Window> window);
+    ~Surface() override = default;
 protected:
     std::shared_ptr<Window> window_;
 protected:
@@ -58,9 +57,9 @@ protected:
 
 class PhysicalDevice : public IMovable {
 public:
-    PhysicalDevice(const std::string& name);
-    ~PhysicalDevice() = default;
-    const std::string& name() const { return name_; };
+    explicit PhysicalDevice(std::string  name);
+    ~PhysicalDevice() override = default;
+    [[nodiscard]] const std::string& name() const { return name_; };
 protected:
     std::string name_;
 protected:
@@ -72,7 +71,7 @@ protected:
 class LogicalDevice : public IMovable {
 public:
     LogicalDevice();
-    ~LogicalDevice() = default;
+    ~LogicalDevice() override = default;
 protected:
     friend class Gfx;
     struct Impl;
@@ -86,9 +85,9 @@ namespace gfx_features {
         // Engine controlled features
         _must_enable_if_valid, NUM_FEATURES = _must_enable_if_valid,
         _debug_utils,
-        _NUM_FEATURES
+        NUM_FEATURES_TOTAL
     };
-    extern const char* const FEATURE_NAMES[_NUM_FEATURES];
+    extern const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL];
 }
 
 namespace gfx_queues {
@@ -112,26 +111,26 @@ public:
     // Disable device feature
     bool disableFeature(gfx_features::FeatureId feature);
     // Features required
-    std::vector<gfx_features::FeatureId> features_required() const;
+    [[nodiscard]] std::vector<gfx_features::FeatureId> features_required() const;
     // Features enabled
-    std::vector<gfx_features::FeatureId> features_enabled() const;
+    [[nodiscard]] std::vector<gfx_features::FeatureId> features_enabled() const;
     // Queues required
-    std::array<int, gfx_queues::NUM_QUEUES> queues_required() const;
+    [[nodiscard]] std::array<int, gfx_queues::NUM_QUEUES> queues_required() const;
     // Queues enabled
-    std::array<int, gfx_queues::NUM_QUEUES> queues_enabled() const;
+    [[nodiscard]] std::array<int, gfx_queues::NUM_QUEUES> queues_enabled() const;
 protected:
-    static void _AddFeatureImpl(gfx_features::FeatureId feature, 
+    static void AddFeatureImpl(gfx_features::FeatureId feature, 
         std::vector<gfx_features::FeatureId>& features);
-    static void _RemoveFeatureImpl(gfx_features::FeatureId feature, 
+    static void RemoveFeatureImpl(gfx_features::FeatureId feature, 
         std::vector<gfx_features::FeatureId>& features);
-    static bool _Contains(gfx_features::FeatureId feature, 
+    static bool ContainsImpl(gfx_features::FeatureId feature, 
         const std::vector<gfx_features::FeatureId>& features);
-    static void _GetQueuesImpl(std::array<int, gfx_queues::NUM_QUEUES>& queues,
+    static void GetQueuesImpl(std::array<int, gfx_queues::NUM_QUEUES>& queues,
         const std::vector<gfx_features::FeatureId>& features);
 protected:
     // Features required by engine (initialized by Gfx)
     std::vector<gfx_features::FeatureId> required_;
-    // Features might be enabled by user so we should enable on instance (initialized by Gfx)
+    // Features might be enabled by user, so we should enable on instance (initialized by Gfx)
     std::vector<gfx_features::FeatureId> instance_enabled_;
     // Features enable by default (initialized by Gfx)
     std::vector<gfx_features::FeatureId> defaults_;

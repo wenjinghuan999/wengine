@@ -9,11 +9,12 @@ public:
         static T instance;
         return instance;
     }
-protected:
-    Singleton() {}
-    ~Singleton() {}
+public:
     Singleton(const Singleton&) = delete;
     Singleton& operator=(const Singleton&) = delete;
+protected:
+    Singleton() = default;
+    ~Singleton() = default;
 };
 
 }

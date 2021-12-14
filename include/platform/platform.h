@@ -14,7 +14,7 @@ class Monitor : public ICopyable {
 public:
     static Monitor GetPrimary();
 protected:
-    Monitor() {}
+    Monitor() = default;
     friend class Window;
     void* impl_{};
 };
@@ -23,10 +23,10 @@ class Window : public IMovable {
 public:
     Window(
         int width, int height, std::string title, 
-        std::optional<Monitor> monitor = {}, std::shared_ptr<Window> share = {}
+        const std::optional<Monitor>& monitor = {}, const std::shared_ptr<Window>& share = {}
     );
-    ~Window();
-    const std::string& title() const { return title_; }
+    ~Window() override;
+    [[nodiscard]] const std::string& title() const { return title_; }
 protected:
     std::string title_;
 protected:
@@ -40,17 +40,17 @@ class App : IMovable {
 public:
     App(std::string name, std::tuple<int, int, int> version);
     void loop();
-    ~App();
+    ~App() override;
 
-    const std::string& name() const { return name_; }
-    int major_version() const { return std::get<0>(version_); }
-    int minor_version() const { return std::get<1>(version_); }
-    int patch_version() const { return std::get<2>(version_); }
-    std::string version_string() const;
+    [[nodiscard]] const std::string& name() const { return name_; }
+    [[nodiscard]] int major_version() const { return std::get<0>(version_); }
+    [[nodiscard]] int minor_version() const { return std::get<1>(version_); }
+    [[nodiscard]] int patch_version() const { return std::get<2>(version_); }
+    [[nodiscard]] std::string version_string() const;
 
     std::shared_ptr<Window> createWindow(
-        int width, int height, std::string title, 
-        std::optional<Monitor> monitor = {}, std::shared_ptr<Window> share = {}
+        int width, int height, const std::string& title, 
+        const std::optional<Monitor>& monitor = {}, const std::shared_ptr<Window>& share = {}
     );
 protected:
     std::vector<std::shared_ptr<Window>> windows_;

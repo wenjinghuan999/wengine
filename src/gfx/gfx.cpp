@@ -1,30 +1,26 @@
-#include "gfx/gfx.h"
-#include "platform-private.h"
-
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-
 #include <algorithm>
 #include <map>
-#include <optional>
 #include <vector>
-#include <string>
 #include <string_view>
 #include <tuple>
+#include <utility>
 
+#include "gfx/gfx.h"
+#include "common/logger.h"
 #include "engine/engine.h"
 #include "platform/platform.h"
+#include "platform-private.h"
 
 namespace wg {
 
 namespace gfx_features {
 
-const char* const FEATURE_NAMES[_NUM_FEATURES] = {
+const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL] = {
     "window_surface",
     "_must_enable_if_valid",
     "_debug_utils"
@@ -45,8 +41,11 @@ const char* const QUEUE_NAMES[NUM_QUEUES] = {
 }
 
 namespace {
-
-auto logger = spdlog::stdout_color_mt("gfx");
+    
+auto& logger() {
+    static auto logger_ = wg::Logger::Get("gfx");
+    return *logger_;
+}
 
 inline void AppendRawStrings(std::vector<const char*>& to, const std::vector<const char*>& from) {
     for (const char* s : from) {
@@ -62,7 +61,6 @@ vk::QueueFlags GetRequiredQueueFlags(wg::gfx_queues::QueueId queue_id) {
     switch (queue_id)
     {
     case wg::gfx_queues::graphics:
-        return vk::QueueFlagBits::eGraphics;
     case wg::gfx_queues::present:
         return vk::QueueFlagBits::eGraphics;
     case wg::gfx_queues::transfer:
@@ -70,7 +68,7 @@ vk::QueueFlags GetRequiredQueueFlags(wg::gfx_queues::QueueId queue_id) {
     case wg::gfx_queues::compute:
         return vk::QueueFlagBits::eCompute;
     default:
-        return vk::QueueFlags();
+        return {};
     }
 }
 
@@ -111,7 +109,7 @@ struct AvailableVulkanFeatures {
     std::vector<vk::ExtensionProperties> device_extensions;
     vk::PhysicalDeviceProperties device_properties;
     vk::PhysicalDeviceFeatures device_features;
-    std::array<int, wg::gfx_queues::NUM_QUEUES> device_queues;
+    std::array<int, wg::gfx_queues::NUM_QUEUES> device_queues{};
 public:
     void getInstanceFeatures(const vk::raii::Context& context) {
         instance_layers = context.enumerateInstanceLayerProperties();
@@ -123,32 +121,31 @@ public:
         device_extensions = device.enumerateDeviceExtensionProperties();
         device_properties = device.getProperties();
         device_features = device.getFeatures();
-        device_queues = std::move(num_queues_total);
+        device_queues = num_queues_total;
     }
 public:
-    bool checkInstanceAvailable(const VulkanFeatures& feature) const {
-        for (auto&& layer_name : feature.instance_layers) {
-            if (!CheckLayerContains(instance_layers, layer_name)) {
-                return false;
-            }
-        }
-        for (auto&& extension_name : feature.instance_extensions) {
-            if (!CheckExtensionContains(instance_extensions, extension_name)) {
-                return false;
-            }
-        }
-        return true;
+    [[nodiscard]] bool checkInstanceAvailable(const VulkanFeatures& feature) const {
+        return std::all_of(feature.instance_layers.begin(), feature.instance_layers.end(), 
+                [this](const char* layer_name) {
+                    return CheckLayerContains(instance_layers, layer_name);
+            }) && 
+            std::all_of(feature.instance_extensions.begin(), feature.instance_extensions.end(),
+                [this](const char* extension_name) {
+                    return CheckExtensionContains(instance_extensions, extension_name);
+            });
     }
-    bool checkDeviceAvailable(const VulkanFeatures& feature) const {
-        for (auto&& layer_name : feature.device_layers) {
-            if (!CheckLayerContains(device_layers, layer_name)) {
-                return false;
-            }
-        }
-        for (auto&& extension_name : feature.device_extensions) {
-            if (!CheckExtensionContains(device_extensions, extension_name)) {
-                return false;
-            }
+    [[nodiscard]] bool checkDeviceAvailable(const VulkanFeatures& feature) const {
+        bool layers_and_extensions_available = 
+                std::all_of(feature.device_layers.begin(), feature.device_layers.end(),
+                    [this](const char *layer_name) {
+                        return CheckLayerContains(device_layers, layer_name);
+                }) && 
+                std::all_of(feature.device_extensions.begin(), feature.device_extensions.end(),
+                   [this](const char *extension_name) {
+                       return CheckExtensionContains(device_extensions, extension_name);
+                });
+        if (!layers_and_extensions_available) {
+            return false;
         }
         for (int i = 0; i < wg::gfx_queues::NUM_QUEUES; ++i) {
             if (device_queues[i] < feature.device_queues[i]) {
@@ -180,9 +177,9 @@ VulkanFeatures GetGlfwRequiredFeatures() {
     
     static bool first_time = true;
     if (first_time) {
-        logger->debug("GLFW requires {} extensions:", glfw_extension_count);
+        logger().debug("GLFW requires {} extensions:", glfw_extension_count);
         for (const char* extension_name : glfw_features.instance_extensions) {
-            logger->debug(" - {}", extension_name);
+            logger().debug(" - {}", extension_name);
         }
         first_time = false;
     }
@@ -284,31 +281,28 @@ struct Gfx::Impl {
 Gfx::Gfx(const App& app)
     : impl_(std::make_unique<Gfx::Impl>()) {
     
-#ifndef NDEBUG
-    logger->set_level(spdlog::level::debug);
-#endif
-    logger->info("Initializing gfx.");
+    logger().info("Initializing gfx.");
 
     auto instance_version = impl_->context.enumerateInstanceVersion();
-    logger->info("Instance version: {}.{}.{}", VK_API_VERSION_MAJOR(instance_version), 
+    logger().info("Instance version: {}.{}.{}", VK_API_VERSION_MAJOR(instance_version), 
         VK_API_VERSION_MINOR(instance_version), VK_API_VERSION_PATCH(instance_version));
     
     // Check and enable available vulkan features
     AvailableVulkanFeatures available_features;
     available_features.getInstanceFeatures(impl_->context);
 
-    logger->info("{} instance layers available.", available_features.instance_layers.size());
+    logger().info("{} instance layers available.", available_features.instance_layers.size());
     for (auto&& layer : available_features.instance_layers) {
-        logger->debug(" - {} ({}.{}.{}, {}.{}.{}) {}", 
+        logger().debug(" - {} ({}.{}.{}, {}.{}.{}) {}", 
             layer.layerName, VK_API_VERSION_MAJOR(layer.specVersion), 
             VK_API_VERSION_MINOR(layer.specVersion), VK_API_VERSION_PATCH(layer.specVersion), 
             VK_API_VERSION_MAJOR(layer.implementationVersion), VK_API_VERSION_MINOR(layer.implementationVersion), 
             VK_API_VERSION_PATCH(layer.implementationVersion), layer.description);
     }
 
-    logger->info("{} instance extensions available.", available_features.instance_extensions.size());
+    logger().info("{} instance extensions available.", available_features.instance_extensions.size());
     for (auto&& extension : available_features.instance_extensions) {
-        logger->debug(" - {} ({}.{}.{})", 
+        logger().debug(" - {} ({}.{}.{})", 
             extension.extensionName, VK_API_VERSION_MAJOR(extension.specVersion), 
             VK_API_VERSION_MINOR(extension.specVersion), VK_API_VERSION_PATCH(extension.specVersion));
     }
@@ -324,17 +318,17 @@ Gfx::Gfx(const App& app)
     };
 
     GfxFeaturesManager& gfx_features_manager = GfxFeaturesManager::Get();
-    GfxFeaturesManager::_AddFeatureImpl(gfx_features::_must_enable_if_valid, gfx_features_manager.instance_enabled_);
-    GfxFeaturesManager::_AddFeatureImpl(gfx_features::_must_enable_if_valid, gfx_features_manager.defaults_);
+    GfxFeaturesManager::AddFeatureImpl(gfx_features::_must_enable_if_valid, gfx_features_manager.instance_enabled_);
+    GfxFeaturesManager::AddFeatureImpl(gfx_features::_must_enable_if_valid, gfx_features_manager.defaults_);
 #ifndef NDEBUG
     // Adding debug layers and extensions
-    GfxFeaturesManager::_AddFeatureImpl(gfx_features::_debug_utils, gfx_features_manager.instance_enabled_);
-    GfxFeaturesManager::_AddFeatureImpl(gfx_features::_debug_utils, gfx_features_manager.defaults_);
+    GfxFeaturesManager::AddFeatureImpl(gfx_features::_debug_utils, gfx_features_manager.instance_enabled_);
+    GfxFeaturesManager::AddFeatureImpl(gfx_features::_debug_utils, gfx_features_manager.defaults_);
 #endif
 
     for (int feature_id = 0; feature_id < gfx_features::NUM_FEATURES; ++feature_id) {
-        GfxFeaturesManager::_AddFeatureImpl(
-            static_cast<gfx_features::FeatureId>(feature_id), gfx_features_manager.instance_enabled_);
+        GfxFeaturesManager::AddFeatureImpl(
+                static_cast<gfx_features::FeatureId>(feature_id), gfx_features_manager.instance_enabled_);
         // TODO: add to default
     }
 
@@ -344,7 +338,7 @@ Gfx::Gfx(const App& app)
     for (auto feature_id : gfx_features_manager.required_) {
         VulkanFeatures feature = GetVulkanFeatures(feature_id);
         if (!available_features.checkInstanceAvailable(feature)) {
-            logger->error("Gfx feature {} is required but not available on instance.", gfx_features::FEATURE_NAMES[feature_id]);
+            logger().error("Gfx feature {} is required but not available on instance.", gfx_features::FEATURE_NAMES[feature_id]);
         }
         // May crash later
         enabled_features.append(feature);
@@ -354,27 +348,27 @@ Gfx::Gfx(const App& app)
     for (auto feature_id : gfx_features_manager.instance_enabled_) {
         VulkanFeatures feature = GetVulkanFeatures(feature_id);
         if (!available_features.checkInstanceAvailable(feature)) {
-            logger->info("Gfx feature {} is not available on instance.", gfx_features::FEATURE_NAMES[feature_id]);
-            GfxFeaturesManager::_RemoveFeatureImpl(feature_id, gfx_features_manager.instance_enabled_);
-            GfxFeaturesManager::_RemoveFeatureImpl(feature_id, gfx_features_manager.defaults_);
+            logger().info("Gfx feature {} is not available on instance.", gfx_features::FEATURE_NAMES[feature_id]);
+            GfxFeaturesManager::RemoveFeatureImpl(feature_id, gfx_features_manager.instance_enabled_);
+            GfxFeaturesManager::RemoveFeatureImpl(feature_id, gfx_features_manager.defaults_);
         } else {
             enabled_features.append(feature);
         }
     }
 
-    logger->info("Enabled engine features:");
+    logger().info("Enabled engine features:");
     for (auto feature_id : gfx_features_manager.instance_enabled_) {
-        logger->info(" - {}", gfx_features::FEATURE_NAMES[feature_id]);
+        logger().info(" - {}", gfx_features::FEATURE_NAMES[feature_id]);
     }
 
-    logger->info("Enabled layers:");
+    logger().info("Enabled layers:");
     for (auto&& layer_name : enabled_features.instance_layers) {
-        logger->info(" - {}", layer_name);
+        logger().info(" - {}", layer_name);
     }
 
-    logger->info("Enabled extensions:");
+    logger().info("Enabled extensions:");
     for (auto&& extension_name : enabled_features.instance_extensions) {
-        logger->info(" - {}", extension_name);
+        logger().info(" - {}", extension_name);
     }
 
     auto instance_create_info = vk::InstanceCreateInfo{
@@ -393,7 +387,7 @@ Gfx::Gfx(const App& app)
 }
 
 Gfx::~Gfx() {
-    logger->info("Destroying gfx.");
+    logger().info("Destroying gfx.");
 }
 
 bool Gfx::valid() const {
@@ -408,7 +402,7 @@ struct Surface::Impl {
 Surface::Surface(std::shared_ptr<Window> window)
     : window_(std::move(window)), impl_(std::make_unique<Surface::Impl>()) {}
 
-std::shared_ptr<Surface> Gfx::createSurface(std::shared_ptr<Window> window) {
+std::shared_ptr<Surface> Gfx::createSurface(const std::shared_ptr<Window>& window) {
     auto surface = std::make_shared<Surface>(window);
 
     auto& gfxFeaturesManager = GfxFeaturesManager::Get();
@@ -418,7 +412,7 @@ std::shared_ptr<Surface> Gfx::createSurface(std::shared_ptr<Window> window) {
     }
 
     VkSurfaceKHR vk_surface;
-    VkResult err = glfwCreateWindowSurface(*impl_->instance, window->impl_->glfw_window, NULL, &vk_surface);
+    VkResult err = glfwCreateWindowSurface(*impl_->instance, window->impl_->glfw_window, nullptr, &vk_surface);
     if (err != VK_SUCCESS) {
         spdlog::error("Failed to create surface for window \"{}\". Error code {}.", window->title_, err);
     } else {
@@ -436,7 +430,7 @@ struct PhysicalDevice::Impl {
     // num_queues[queue_id] = <queue_family_index, num_queues_of_family>[]
     std::array<std::vector<std::pair<uint32_t, uint32_t>>, gfx_queues::NUM_QUEUES> num_queues{};
     
-    Impl(vk::raii::PhysicalDevice vk_physical_device) 
+    explicit Impl(vk::raii::PhysicalDevice vk_physical_device) 
         : vk_physical_device(std::move(vk_physical_device)) {
         auto queue_families = this->vk_physical_device.getQueueFamilyProperties();
         for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
@@ -449,15 +443,15 @@ struct PhysicalDevice::Impl {
                 const auto& queue_family = queue_families[queue_family_index];
                 if (queue_family.queueFlags & required_flags) {
                     num_queues[i].emplace_back(queue_family_index, queue_family.queueCount);
-                    num_queues_total[i] += queue_family.queueCount;
+                    num_queues_total[i] += static_cast<int>(queue_family.queueCount);
                 }
             }
         }
     }
 };
 
-PhysicalDevice::PhysicalDevice(const std::string& name)
-    : name_(name), impl_() {}
+PhysicalDevice::PhysicalDevice(std::string name)
+    : name_(std::move(name)), impl_() {}
 
 void Gfx::updatePhysicalDevices() {
     physical_devices_.clear();
@@ -471,9 +465,9 @@ void Gfx::updatePhysicalDevices() {
         physical_device->impl_ = std::make_unique<PhysicalDevice::Impl>(std::move(vk_physical_device));
     }
 
-    logger->info("Physical devices:");
+    logger().info("Physical devices:");
     for (size_t i = 0; i < physical_devices_.size(); ++i) {
-        logger->info(" - [{}] {}", i, physical_devices_[i]->name());
+        logger().info(" - [{}] {}", i, physical_devices_[i]->name());
     }
 }
 
@@ -481,9 +475,9 @@ void Gfx::selectPhysicalDevice(int index) {
     current_physical_device_index_ = std::max(std::min(index, static_cast<int>(physical_devices_.size()) - 1), -1);
     
     if (valid()) {
-        logger->info("Selected physical devices: [{}] {}", current_physical_device_index_, physical_device().name());
+        logger().info("Selected physical devices: [{}] {}", current_physical_device_index_, physical_device().name());
     } else {
-        logger->info("Selected none physical device.");
+        logger().info("Selected none physical device.");
     }
 }
 
@@ -507,7 +501,7 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
             score += 1000;
         }
 
-        score += property.limits.maxImageDimension2D;
+        score += static_cast<int>(property.limits.maxImageDimension2D);
 
         if (features.geometryShader) {
             score += 100;
@@ -533,17 +527,17 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
                 has_any_family = true;
             }
             if (!has_any_family) {
-                logger->info("Physical device {} does not support surface of window \"{}\" (no suitable queue family).",
+                logger().info("Physical device {} does not support surface of window \"{}\" (no suitable queue family).",
                     device.name(), surface->window_->title());
                 return 0;
             }
             if (device.impl_->vk_physical_device.getSurfaceFormatsKHR(*surface->impl_->vk_surface).empty()) {
-                logger->info("Physical device {} does not support surface of window \"{}\" (no format).",
+                logger().info("Physical device {} does not support surface of window \"{}\" (no format).",
                     device.name(), surface->window_->title());
                 return 0;
             }
             if (device.impl_->vk_physical_device.getSurfacePresentModesKHR(*surface->impl_->vk_surface).empty()) {
-                logger->info("Physical device {} does not support surface of window \"{}\" (no present mode).",
+                logger().info("Physical device {} does not support surface of window \"{}\" (no present mode).",
                     device.name(), surface->window_->title());
                 return 0;
             }
@@ -563,15 +557,15 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
     if (!candidates.empty() && candidates.rbegin()->first > 0) {
         index = candidates.rbegin()->second;
     } else {
-        logger->error("Failed to find available physical device.");
+        logger().error("Failed to find available physical device.");
     }
 
     selectPhysicalDevice(index);
 }
 
 struct QueueInfo {
-    uint32_t queue_family_index;
-    uint32_t queue_index_in_family;
+    uint32_t queue_family_index{};
+    uint32_t queue_index_in_family{};
     vk::raii::Queue vk_queue{nullptr};
 };
 
@@ -582,7 +576,7 @@ struct LogicalDevice::Impl {
     // vk_swapchains[surface_index] = swapchain
     std::vector<std::unique_ptr<vk::raii::SwapchainKHR>> vk_swapchains;
     
-    Impl(vk::raii::Device vk_device) 
+    explicit Impl(vk::raii::Device vk_device) 
         : vk_device(std::move(vk_device)) {}
 };
 
@@ -621,7 +615,7 @@ std::unique_ptr<vk::raii::SwapchainKHR> CreateSwapchainForSurface(
         return available_modes[0];
     }();
     auto capabilities = physical_device.getSurfaceCapabilitiesKHR(*surface);
-    auto extent = [&capabilities, &physical_device, &surface, window]() {
+    auto extent = [&capabilities, window]() {
         if (capabilities.currentExtent.width != UINT32_MAX) {
             return capabilities.currentExtent;
         }
@@ -673,9 +667,9 @@ std::unique_ptr<vk::raii::SwapchainKHR> CreateSwapchainForSurface(
 namespace wg {
 
 void Gfx::createLogicalDevice() {
-    logger->info("Creating logical device.");
+    logger().info("Creating logical device.");
     if (!physical_device_valid()) {
-        logger->error("Failed to create logical device because physical device is invalid.");
+        logger().error("Failed to create logical device because physical device is invalid.");
         return;
     }
 
@@ -686,29 +680,29 @@ void Gfx::createLogicalDevice() {
     AvailableVulkanFeatures available_features;
     available_features.getDeviceFeatures(vk_physical_device, num_queues_total);
 
-    logger->info("{} device layers available.", available_features.device_layers.size());
+    logger().info("{} device layers available.", available_features.device_layers.size());
     for (auto&& layer : available_features.device_layers) {
-        logger->debug(" - {} ({}.{}.{}, {}.{}.{}) {}", 
+        logger().debug(" - {} ({}.{}.{}, {}.{}.{}) {}", 
             layer.layerName, VK_API_VERSION_MAJOR(layer.specVersion), 
             VK_API_VERSION_MINOR(layer.specVersion), VK_API_VERSION_PATCH(layer.specVersion), 
             VK_API_VERSION_MAJOR(layer.implementationVersion), VK_API_VERSION_MINOR(layer.implementationVersion), 
             VK_API_VERSION_PATCH(layer.implementationVersion), layer.description);
     }
 
-    logger->info("{} device extensions available.", available_features.device_extensions.size());
+    logger().info("{} device extensions available.", available_features.device_extensions.size());
     for (auto&& extension : available_features.device_extensions) {
-        logger->debug(" - {} ({}.{}.{})", 
+        logger().debug(" - {} ({}.{}.{})", 
             extension.extensionName, VK_API_VERSION_MAJOR(extension.specVersion), 
             VK_API_VERSION_MINOR(extension.specVersion), VK_API_VERSION_PATCH(extension.specVersion));
     }
 
-    logger->info("Device queues:");
+    logger().info("Device queues:");
     for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
         auto& num_queues = physical_device().impl_->num_queues[i];
         if (!num_queues.empty()) {
-            logger->info(" - {}", gfx_queues::QUEUE_NAMES[i]);
+            logger().info(" - {}", gfx_queues::QUEUE_NAMES[i]);
             for (auto&& [queue_family_index, queue_count] : num_queues) {
-                logger->info("   - family {}: {}", queue_family_index, queue_count);
+                logger().info("   - family {}: {}", queue_family_index, queue_count);
             }
         }
     }
@@ -718,43 +712,42 @@ void Gfx::createLogicalDevice() {
 
     for (auto feature_id : gfx_features_manager.instance_enabled_) {
         VulkanFeatures feature = GetVulkanFeatures(feature_id);
-        const bool enabled = 
-            GfxFeaturesManager::_Contains(feature_id, gfx_features_manager.user_enabled_) ||
-            (!GfxFeaturesManager::_Contains(feature_id, gfx_features_manager.user_disabled_) && 
-                GfxFeaturesManager::_Contains(feature_id, gfx_features_manager.defaults_));
+        const bool enabled =
+                GfxFeaturesManager::ContainsImpl(feature_id, gfx_features_manager.user_enabled_) ||
+                (!GfxFeaturesManager::ContainsImpl(feature_id, gfx_features_manager.user_disabled_) &&
+                 GfxFeaturesManager::ContainsImpl(feature_id, gfx_features_manager.defaults_));
 
         if (enabled && !available_features.checkDeviceAvailable(feature)) {
-            logger->info("Gfx feature {} is not available on device.", gfx_features::FEATURE_NAMES[feature_id]);
+            logger().info("Gfx feature {} is not available on device.", gfx_features::FEATURE_NAMES[feature_id]);
         } else if (enabled) {
-            GfxFeaturesManager::_AddFeatureImpl(feature_id, gfx_features_manager.features_enabled_);
+            GfxFeaturesManager::AddFeatureImpl(feature_id, gfx_features_manager.features_enabled_);
             enabled_features.append(feature);
         }
     }
 
-    logger->info("Enabled device features:");
+    logger().info("Enabled device features:");
     for (auto feature_id : gfx_features_manager.features_enabled_) {
-        logger->info(" - {}", gfx_features::FEATURE_NAMES[feature_id]);
+        logger().info(" - {}", gfx_features::FEATURE_NAMES[feature_id]);
     }
 
-    logger->info("Enabled device layers:");
+    logger().info("Enabled device layers:");
     for (auto&& layer_name : enabled_features.device_layers) {
-        logger->info(" - {}", layer_name);
+        logger().info(" - {}", layer_name);
     }
 
-    logger->info("Enabled device extensions:");
+    logger().info("Enabled device extensions:");
     for (auto&& extension_name : enabled_features.device_extensions) {
-        logger->info(" - {}", extension_name);
+        logger().info(" - {}", extension_name);
     }
 
-    logger->info("Enabled device queues:");
+    logger().info("Enabled device queues:");
     for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
         int queue_num = enabled_features.device_queues[i];
         if (queue_num > 0) {
-            logger->info(" - {}[{}]", gfx_queues::QUEUE_NAMES[i], queue_num);
+            logger().info(" - {}[{}]", gfx_queues::QUEUE_NAMES[i], queue_num);
         }
     }
 
-    auto num_queues = physical_device().impl_->num_queues;
     // <queue_id, index_in_queue_id> => <queue_family_index, queue_index_in_family>
     std::map<std::pair<gfx_queues::QueueId, int>, std::pair<uint32_t, uint32_t>> queue_index_remap;
     // queue_counts[queue_family_index] = num of queues to be allocated in queue family
@@ -766,16 +759,15 @@ void Gfx::createLogicalDevice() {
         
         for (auto&& [queue_family_index, queue_num_of_family] : physical_device().impl_->num_queues[i]) {
             // Check queue family available to all surfaces
-            const bool support_all_surfaces = [this, queue_family_index](){
-                for (auto&& surface : surfaces_) {
-                    if (!physical_device().impl_->vk_physical_device.getSurfaceSupportKHR(queue_family_index, *surface->impl_->vk_surface)) {
-                        logger->debug("Queue family {} does not support surface of window \"{}\".", 
-                            queue_family_index, surface->window_->title());
-                        return false;
-                    }
+            const bool support_all_surfaces = std::all_of(surfaces_.begin(), surfaces_.end(),
+                [this, queue_family_index1=queue_family_index](const std::shared_ptr<Surface>& surface){
+                if (!physical_device().impl_->vk_physical_device.getSurfaceSupportKHR(queue_family_index1, *surface->impl_->vk_surface)) {
+                    logger().debug("Queue family {} does not support surface of window \"{}\".", 
+                        queue_family_index1, surface->window_->title());
+                    return false;
                 }
                 return true;
-            }();
+            });
             if (!support_all_surfaces) {
                 continue;
             }
@@ -791,28 +783,28 @@ void Gfx::createLogicalDevice() {
             }
         }
         if (queue_index < queue_num) {
-            logger->error("No enough queues on device. Requesting {}[{}], allocated {}.", gfx_queues::QUEUE_NAMES[i], queue_num, queue_index);
+            logger().error("No enough queues on device. Requesting {}[{}], allocated {}.", gfx_queues::QUEUE_NAMES[i], queue_num, queue_index);
         }
     }
 
-    logger->info("Creating device queues:");
+    logger().info("Creating device queues:");
     std::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
     std::vector<std::vector<float>> queue_priorities;
     for (auto&& [queue_family_index, queue_count] : queue_counts) {
         if (queue_count > 0) {
-            logger->info(" - family {}: {}", queue_family_index, queue_count);
+            logger().info(" - family {}: {}", queue_family_index, queue_count);
             vk::DeviceQueueCreateInfo queue_create_info{
                 .queueFamilyIndex = queue_family_index,
                 .queueCount = queue_count
             };
-            queue_priorities.push_back(std::vector<float>(queue_count, 1.0f));
+            queue_priorities.emplace_back(std::vector<float>(queue_count, 1.0f));
             queue_create_info.setQueuePriorities(queue_priorities.back());
-            queue_create_infos.emplace_back(std::move(queue_create_info));
+            queue_create_infos.emplace_back(queue_create_info);
         }
     }
 
     if (queue_create_infos.empty()) {
-        logger->warn("Not creating logical device because no queues needed.");
+        logger().warn("Not creating logical device because no queues needed.");
         return;
     }
 
@@ -830,7 +822,6 @@ void Gfx::createLogicalDevice() {
     // Get all queues
     for (auto&& kv : queue_index_remap) {
         gfx_queues::QueueId queue_id = kv.first.first;
-        int index_in_queue_id = kv.first.second;
         uint32_t queue_family_index = kv.second.first;
         uint32_t queue_index_in_family = kv.second.second;
 
@@ -843,7 +834,7 @@ void Gfx::createLogicalDevice() {
         queue_info->vk_queue = logical_device_->impl_->vk_device.getQueue(queue_family_index, queue_index_in_family);
     }
 
-    logger->info("Logical device created.");
+    logger().info("Logical device created.");
 
     // Create swapchains for surfaces
     if (!surfaces_.empty() && 
@@ -852,7 +843,7 @@ void Gfx::createLogicalDevice() {
         
         uint32_t graphics_family_index = logical_device_->impl_->queues[gfx_queues::graphics][0]->queue_family_index;
         uint32_t present_family_index = logical_device_->impl_->queues[gfx_queues::present][0]->queue_family_index;
-        logger->info("Creating swapchains for surfaces. Graphics family: {}, present family: {}.", graphics_family_index, present_family_index);
+        logger().info("Creating swapchains for surfaces. Graphics family: {}, present family: {}.", graphics_family_index, present_family_index);
         
         for (auto&& surface : surfaces_) {
             logical_device_->impl_->vk_swapchains.push_back(
@@ -865,30 +856,30 @@ void Gfx::createLogicalDevice() {
 }
 
 bool GfxFeaturesManager::enableFeature(gfx_features::FeatureId feature) {
-    if (!_Contains(feature, instance_enabled_)) {
+    if (!ContainsImpl(feature, instance_enabled_)) {
         return false;
     }
-    _AddFeatureImpl(feature, user_enabled_);
-    _RemoveFeatureImpl(feature, user_disabled_);
+    AddFeatureImpl(feature, user_enabled_);
+    RemoveFeatureImpl(feature, user_disabled_);
     return true;
 }
 
 bool GfxFeaturesManager::disableFeature(gfx_features::FeatureId feature) {
-    _RemoveFeatureImpl(feature, user_enabled_);
-    _AddFeatureImpl(feature, user_disabled_);
+    RemoveFeatureImpl(feature, user_enabled_);
+    AddFeatureImpl(feature, user_disabled_);
     return true;
 }
 
 std::vector<gfx_features::FeatureId> GfxFeaturesManager::features_required() const {
     std::vector<gfx_features::FeatureId> result;
     for (auto&& feature_id : defaults_) {
-        _AddFeatureImpl(feature_id, result);
+        AddFeatureImpl(feature_id, result);
     }
     for (auto&& feature_id : user_enabled_) {
-        _AddFeatureImpl(feature_id, result);
+        AddFeatureImpl(feature_id, result);
     }
     for (auto&& feature_id : user_disabled_) {
-        _RemoveFeatureImpl(feature_id, result);
+        RemoveFeatureImpl(feature_id, result);
     }
     return instance_enabled_;
 }
@@ -899,37 +890,37 @@ std::vector<gfx_features::FeatureId> GfxFeaturesManager::features_enabled() cons
 
 std::array<int, gfx_queues::NUM_QUEUES> GfxFeaturesManager::queues_required() const {
     std::array<int, gfx_queues::NUM_QUEUES> result{};
-    _GetQueuesImpl(result, features_required());
+    GetQueuesImpl(result, features_required());
     return result;
 }
 
 std::array<int, gfx_queues::NUM_QUEUES> GfxFeaturesManager::queues_enabled() const {
     std::array<int, gfx_queues::NUM_QUEUES> result{};
-    _GetQueuesImpl(result, features_enabled());
+    GetQueuesImpl(result, features_enabled());
     return result;
 }
 
-void GfxFeaturesManager::_AddFeatureImpl(gfx_features::FeatureId feature, 
-    std::vector<gfx_features::FeatureId>& features) {
+void GfxFeaturesManager::AddFeatureImpl(gfx_features::FeatureId feature,
+                                        std::vector<gfx_features::FeatureId>& features) {
     
     if (std::find(features.begin(), features.end(), feature) == features.end()) {
         features.push_back(feature);
     }
 }
 
-void GfxFeaturesManager::_RemoveFeatureImpl(gfx_features::FeatureId feature, 
+void GfxFeaturesManager::RemoveFeatureImpl(gfx_features::FeatureId feature, 
     std::vector<gfx_features::FeatureId>& features) {
     
     std::ignore = std::remove(features.begin(), features.end(), feature);
 }
 
-bool GfxFeaturesManager::_Contains(gfx_features::FeatureId feature, 
+bool GfxFeaturesManager::ContainsImpl(gfx_features::FeatureId feature, 
     const std::vector<gfx_features::FeatureId>& features) {
     
     return std::find(features.begin(), features.end(), feature) != features.end();
 }
 
-void GfxFeaturesManager::_GetQueuesImpl(std::array<int, gfx_queues::NUM_QUEUES>& queues,
+void GfxFeaturesManager::GetQueuesImpl(std::array<int, gfx_queues::NUM_QUEUES>& queues,
     const std::vector<gfx_features::FeatureId>& features) {
     
     for (auto&& feature_id : features) {

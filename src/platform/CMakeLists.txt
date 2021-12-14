@@ -10,8 +10,9 @@ target_include_directories(wengine-platform
 )
 
 target_link_libraries(wengine-platform
+    PUBLIC wengine-logger
+
     PRIVATE Vulkan::Vulkan
     PRIVATE glfw
     PRIVATE glm::glm
-    PRIVATE spdlog::spdlog
 )

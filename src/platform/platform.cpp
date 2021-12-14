@@ -1,11 +1,14 @@
 #include "platform/platform.h"
+#include "common/logger.h"
 #include "platform-private.h"
 
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-
 namespace {
-    auto logger = spdlog::stdout_color_mt("platform");
+
+auto& logger() {
+    static auto logger_ = wg::Logger::Get("platform");
+    return *logger_;
+}
+
 }
 
 namespace wg {
@@ -18,7 +21,7 @@ Monitor Monitor::GetPrimary() {
 
 Window::Window(
     int width, int height, std::string title, 
-    std::optional<Monitor> monitor, std::shared_ptr<Window> share
+    const std::optional<Monitor>& monitor, const std::shared_ptr<Window>& share
 ) : title_(std::move(title)), impl_(std::make_unique<Window::Impl>()) {
 
     GLFWmonitor* glfw_monitor = monitor ? static_cast<GLFWmonitor*>(monitor->impl_) : nullptr;
@@ -27,7 +30,7 @@ Window::Window(
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     impl_->glfw_window = glfwCreateWindow(width, height, title_.c_str(), glfw_monitor, glfw_window_share);
 
-    logger->info("Window created: \"{}\"({}x{}).", title_, width, height);
+    logger().info("Window created: \"{}\"({}x{}).", title_, width, height);
 }
 
 Window::~Window() {
@@ -38,18 +41,18 @@ Window::~Window() {
 
     glfwDestroyWindow(glfw_window);
 
-    logger->info("Window destroyed: \"{}\"({}x{}).", title_, width, height);
+    logger().info("Window destroyed: \"{}\"({}x{}).", title_, width, height);
 }
 
 App::App(std::string name, std::tuple<int, int, int> version)
     : name_(std::move(name)), version_(std::move(version)) {
 
-    logger->info("Initializing: {} {}.", this->name(), version_string());
+    logger().info("Initializing: {} {}.", this->name(), version_string());
     glfwInit();
 }
 
 App::~App() {
-    logger->info("Terminating {}.", name());
+    logger().info("Terminating {}.", name());
     glfwTerminate();
 }
 
@@ -58,7 +61,7 @@ std::string App::version_string() const {
 }
 
 void App::loop() {
-    logger->info("Event loop start.");
+    logger().info("Event loop start.");
 
     while (!windows_.empty()) {
         for (auto it = windows_.begin(); it != windows_.end(); ) {
@@ -76,13 +79,13 @@ void App::loop() {
         glfwPollEvents();
     }
     
-    logger->info("Event loop end.");
+    logger().info("Event loop end.");
 }
 
 
 std::shared_ptr<Window> App::createWindow(
-    int width, int height, std::string title, 
-    std::optional<Monitor> monitor, std::shared_ptr<Window> share
+    int width, int height, const std::string& title, 
+    const std::optional<Monitor>& monitor, const std::shared_ptr<Window>& share
 ){
     std::shared_ptr<Window> window = std::make_shared<Window>(width, height, title, monitor, share);
     windows_.push_back(window);

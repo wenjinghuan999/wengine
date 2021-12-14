@@ -4,6 +4,7 @@
 #include "common/singleton.h"
 #include "platform/platform.h"
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -21,7 +22,8 @@ public:
     [[nodiscard]] bool valid() const;
 
     // Surface
-    std::shared_ptr<Surface> createSurface(const std::shared_ptr<Window>& window);
+    void createWindowSurface(const std::shared_ptr<Window>& window);
+    void destroyWindowSurface(const std::shared_ptr<Window>& window);
 
     // Physical device
     void updatePhysicalDevices();
@@ -34,10 +36,12 @@ public:
 
     // Logical device
     void createLogicalDevice();
+    void recreateWindowSurfaceResources(const std::shared_ptr<Window>& window);
+    void destroyWindowSurfaceResources(const std::shared_ptr<Window>& window);
 protected:
     struct Impl;
     std::unique_ptr<Impl> impl_;
-    std::vector<std::shared_ptr<Surface>> surfaces_;
+    std::map<std::shared_ptr<Window>, std::unique_ptr<Surface>> window_surfaces_;
     std::vector<std::unique_ptr<PhysicalDevice>> physical_devices_;
     int current_physical_device_index_{ -1 };
     std::unique_ptr<LogicalDevice> logical_device_;
@@ -45,10 +49,8 @@ protected:
 
 class Surface : public IMovable {
 public:
-    explicit Surface(std::shared_ptr<Window> window);
+    explicit Surface();
     ~Surface() override = default;
-protected:
-    std::shared_ptr<Window> window_;
 protected:
     friend class Gfx;
     struct Impl;

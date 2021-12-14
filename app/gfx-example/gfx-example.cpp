@@ -6,11 +6,12 @@ int main(int, char**) {
     auto window = app.createWindow(800, 600, "WEngine gfx example");
 
     wg::Gfx gfx(app);
-    auto surface = gfx.createSurface(window);
+    gfx.createWindowSurface(window);
     gfx.selectBestPhysicalDevice();
     gfx.createLogicalDevice();
 
     app.loop();
+    gfx.destroyWindowSurface(window);
 
     return 0;
 }

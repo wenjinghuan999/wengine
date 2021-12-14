@@ -394,10 +394,18 @@ bool Gfx::valid() const {
     return physical_device_valid();
 }
 
+struct SurfaceResources {
+    vk::raii::SwapchainKHR vk_swapchain{nullptr};
+    vk::SurfaceFormatKHR vk_format;
+    vk::Extent2D vk_extent;
+    std::vector<VkImage> vk_images;
+    std::vector<vk::raii::ImageView> vk_image_views;
+};
+
 struct Surface::Impl {
     vk::raii::SurfaceKHR vk_surface;
-    std::weak_ptr<vk::raii::SwapchainKHR> vk_swapchain;
-    Impl() : vk_surface(nullptr), vk_swapchain() {}
+    std::weak_ptr<SurfaceResources> resources;
+    Impl() : vk_surface(nullptr), resources() {}
 };
 
 Surface::Surface()
@@ -578,8 +586,8 @@ struct LogicalDevice::Impl {
     vk::raii::Device vk_device;
     // queues[queue_id][queue_index] = <queue_family_index, vk_queue>
     std::map<gfx_queues::QueueId, std::vector<std::unique_ptr<QueueInfo>>> queues;
-    // vk_swapchains[swapchain_index] = swapchain
-    std::vector<std::shared_ptr<vk::raii::SwapchainKHR>> vk_swapchains;
+    // resources of surfaces (may be accessed by surface using weak_ptr)
+    std::vector<std::shared_ptr<SurfaceResources>> surface_resources;
     
     explicit Impl(vk::raii::Device vk_device) 
         : vk_device(std::move(vk_device)) {}
@@ -592,11 +600,11 @@ LogicalDevice::LogicalDevice()
 
 namespace {
 
-std::shared_ptr<vk::raii::SwapchainKHR> CreateSwapchainForSurface(
+vk::raii::SwapchainKHR CreateSwapchainForSurface(
     const vk::raii::PhysicalDevice& physical_device, const vk::raii::Device& device, const vk::raii::SurfaceKHR& surface, GLFWwindow* window,
-    uint32_t graphics_family_index, uint32_t present_family_index
+    uint32_t graphics_family_index, uint32_t present_family_index, vk::SurfaceFormatKHR& out_format, vk::Extent2D out_extent
 ) {
-    auto format = [&physical_device, &surface]() {
+    out_format = [&physical_device, &surface]() {
         auto available_formats = physical_device.getSurfaceFormatsKHR(*surface);
         for (auto&& available_format : available_formats) {
             if (available_format.format == vk::Format::eR8G8B8A8Srgb && available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
@@ -620,7 +628,7 @@ std::shared_ptr<vk::raii::SwapchainKHR> CreateSwapchainForSurface(
         return available_modes[0];
     }();
     auto capabilities = physical_device.getSurfaceCapabilitiesKHR(*surface);
-    auto extent = [&capabilities, window]() {
+    out_extent = [&capabilities, window]() {
         if (capabilities.currentExtent.width != UINT32_MAX) {
             return capabilities.currentExtent;
         }
@@ -643,12 +651,12 @@ std::shared_ptr<vk::raii::SwapchainKHR> CreateSwapchainForSurface(
 
     std::array<uint32_t, 2> queue_family_indices{ graphics_family_index, present_family_index };
 
-    auto swapchain_create_info = vk::SwapchainCreateInfoKHR{
+    vk::SwapchainCreateInfoKHR swapchain_create_info{
         .surface          = *surface,
         .minImageCount    = image_count,
-        .imageFormat      = format.format,
-        .imageColorSpace  = format.colorSpace,
-        .imageExtent      = extent,
+        .imageFormat      = out_format.format,
+        .imageColorSpace  = out_format.colorSpace,
+        .imageExtent      = out_extent,
         .imageArrayLayers = 1,
         .imageUsage       = vk::ImageUsageFlagBits::eColorAttachment,
         .preTransform     = capabilities.currentTransform,
@@ -664,7 +672,32 @@ std::shared_ptr<vk::raii::SwapchainKHR> CreateSwapchainForSurface(
         swapchain_create_info.setImageSharingMode(vk::SharingMode::eConcurrent);
         swapchain_create_info.setQueueFamilyIndices(queue_family_indices);
     }
-    return std::make_shared<vk::raii::SwapchainKHR>(device, swapchain_create_info);
+    return device.createSwapchainKHR(swapchain_create_info);
+}
+
+vk::raii::ImageView CreateImageViewForSurface(
+    const vk::raii::Device& device, const vk::Image& image,
+    const vk::Format& format
+) {
+    vk::ImageViewCreateInfo image_view_create_info{
+        .image = image,
+        .viewType = vk::ImageViewType::e2D,
+        .format = format,
+        .components = {
+            .r = vk::ComponentSwizzle::eIdentity,
+            .g = vk::ComponentSwizzle::eIdentity,
+            .b = vk::ComponentSwizzle::eIdentity,
+            .a = vk::ComponentSwizzle::eIdentity
+        },
+        .subresourceRange = {
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+    return device.createImageView(image_view_create_info);
 }
 
 } // unnamed namespace
@@ -855,24 +888,34 @@ void Gfx::recreateWindowSurfaceResources(const std::shared_ptr<Window>& window) 
     destroyWindowSurfaceResources(window);
     
     auto& surface = window_surfaces_[window];
-    if (!logical_device_->impl_->queues[gfx_queues::graphics].empty() && 
-        !logical_device_->impl_->queues[gfx_queues::present].empty()) {
-        
-        uint32_t graphics_family_index = logical_device_->impl_->queues[gfx_queues::graphics][0]->queue_family_index;
-        uint32_t present_family_index = logical_device_->impl_->queues[gfx_queues::present][0]->queue_family_index;
-        logger().info("Creating swapchain for surface of window \"{}\". Graphics family: {}, present family: {}.",
-            window->title(), graphics_family_index, present_family_index);
-        
-        auto vk_swapchain = CreateSwapchainForSurface(
-            physical_device().impl_->vk_physical_device, logical_device_->impl_->vk_device,
-            surface->impl_->vk_surface, window->impl_->glfw_window,
-            graphics_family_index, present_family_index
-        );
-
-        surface->impl_->vk_swapchain = vk_swapchain;
-        logical_device_->impl_->vk_swapchains.push_back(vk_swapchain);
-    } else {
+    if (logical_device_->impl_->queues[gfx_queues::graphics].empty() || 
+        logical_device_->impl_->queues[gfx_queues::present].empty()) {
         logger().info("Skip creating swapchain for surface of window \"{}\" because no queues available.", window->title());
+        return;
+    }
+    logger().info("Creating resources for surface of window \"{}\".");
+
+    auto& resources = logical_device_->impl_->surface_resources.emplace_back(std::make_shared<SurfaceResources>());
+    surface->impl_->resources = resources;
+        
+    uint32_t graphics_family_index = logical_device_->impl_->queues[gfx_queues::graphics][0]->queue_family_index;
+    uint32_t present_family_index = logical_device_->impl_->queues[gfx_queues::present][0]->queue_family_index;
+    logger().info(" - Creating swapchain: Graphics family: {}, present family: {}.",
+        graphics_family_index, present_family_index);
+    
+    resources->vk_swapchain = CreateSwapchainForSurface(
+        physical_device().impl_->vk_physical_device, logical_device_->impl_->vk_device,
+        surface->impl_->vk_surface, window->impl_->glfw_window,
+        graphics_family_index, present_family_index,
+        resources->vk_format, resources->vk_extent
+    );
+
+    resources->vk_images = resources->vk_swapchain.getImages();
+    logger().info(" - Creating image views: {}.", resources->vk_images.size());
+    resources->vk_image_views.reserve(resources->vk_images.size());
+    for (auto&& vk_image : resources->vk_images) {
+        resources->vk_image_views.emplace_back(CreateImageViewForSurface(
+            logical_device_->impl_->vk_device, static_cast<vk::Image>(vk_image), resources->vk_format.format));
     }
 }
 
@@ -881,11 +924,11 @@ void Gfx::destroyWindowSurfaceResources(const std::shared_ptr<Window>& window) {
         return;
     }
     auto& surface = window_surfaces_[window];
-    if (auto old_swapchain = surface->impl_->vk_swapchain.lock()) {
-        logger().info("Destroying swapchain for surface of window \"{}\".", window->title());
-        logical_device_->impl_->vk_swapchains.erase(
-            std::remove(logical_device_->impl_->vk_swapchains.begin(), logical_device_->impl_->vk_swapchains.end(), old_swapchain),
-            logical_device_->impl_->vk_swapchains.end());
+    if (auto old_resource = surface->impl_->resources.lock()) {
+        logger().info("Destroying resources for surface of window \"{}\".", window->title());
+        logical_device_->impl_->surface_resources.erase(
+            std::remove(logical_device_->impl_->surface_resources.begin(), logical_device_->impl_->surface_resources.end(), old_resource),
+            logical_device_->impl_->surface_resources.end());
     }
 }
 

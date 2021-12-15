@@ -2,6 +2,7 @@
 
 #include "common/common.h"
 #include "common/singleton.h"
+#include "common/owned_resources.h"
 #include "platform/platform.h"
 #include "gfx/shader.h"
 
@@ -39,12 +40,11 @@ public:
 protected:
     explicit Gfx(const App& app);
     // Surface resources
-    void recreateWindowSurfaceResources(const std::shared_ptr<Window>& window);
-    void destroyWindowSurfaceResources(const std::weak_ptr<Window>& weak_window);
+    void recreateWindowSurfaceResources(const Surface& surface);
 protected:
     struct Impl;
     std::unique_ptr<Impl> impl_;
-    std::map<std::weak_ptr<Window>, std::unique_ptr<Surface>, std::owner_less<std::weak_ptr<Window>>> window_surfaces_;
+    OwnedResources<Surface> window_surfaces_;
     std::vector<std::unique_ptr<PhysicalDevice>> physical_devices_;
     int current_physical_device_index_{ -1 };
     std::unique_ptr<LogicalDevice> logical_device_;
@@ -52,8 +52,10 @@ protected:
 
 class Surface : public IMovable {
 public:
-    explicit Surface();
+    explicit Surface(const std::weak_ptr<Window>& window);
     ~Surface() override = default;
+protected:
+    std::weak_ptr<Window> window_;
 protected:
     friend class Gfx;
     struct Impl;
@@ -62,7 +64,7 @@ protected:
 
 class PhysicalDevice : public IMovable {
 public:
-    explicit PhysicalDevice(std::string  name);
+    explicit PhysicalDevice(std::string name);
     ~PhysicalDevice() override = default;
     [[nodiscard]] const std::string& name() const { return name_; };
 protected:

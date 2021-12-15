@@ -7,12 +7,14 @@
 
 #include <functional>
 
+#include "common/owned_resources.h"
+
 namespace wg {
 
 class Window;
 struct Window::Impl {
     GLFWwindow* glfw_window{};
-    std::function<void()> on_destroy;
+    OwnedResourceHandle surface_handle;
 };
 
 } // namespace wg

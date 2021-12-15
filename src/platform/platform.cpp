@@ -34,11 +34,9 @@ Window::Window(
 }
 
 Window::~Window() {
-    GLFWwindow* glfw_window = impl_->glfw_window;
+    impl_->surface_handle.reset();
 
-    if (impl_->on_destroy) {
-        impl_->on_destroy();
-    }
+    GLFWwindow* glfw_window = impl_->glfw_window;
     
     int width = 0, height = 0;
     glfwGetWindowSize(glfw_window, &width, &height);

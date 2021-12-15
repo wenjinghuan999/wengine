@@ -37,6 +37,9 @@ public:
 
     // Logical device
     void createLogicalDevice();
+
+    // Shader
+    void compileShader(const std::shared_ptr<Shader>& shader);
 protected:
     explicit Gfx(const App& app);
     // Surface resources

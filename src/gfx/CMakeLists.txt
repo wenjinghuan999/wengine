@@ -1,6 +1,8 @@
 add_library(wengine-gfx
     gfx.cpp
+    shader.cpp
     ${PROJECT_SOURCE_DIR}/include/gfx/gfx.h
+    ${PROJECT_SOURCE_DIR}/include/gfx/shader.h
 )
 
 add_dependencies(wengine-gfx wengine-shader-static wengine-shader-dynamic)

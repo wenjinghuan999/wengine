@@ -3,6 +3,7 @@
 #include "common/common.h"
 #include "common/singleton.h"
 #include "platform/platform.h"
+#include "gfx/shader.h"
 
 #include <map>
 #include <memory>
@@ -15,15 +16,14 @@ class Surface;
 class PhysicalDevice;
 class LogicalDevice;
 
-class Gfx : public IMovable {
+class Gfx : public std::enable_shared_from_this<Gfx> {
 public:
-    explicit Gfx(const class App& app);
-    ~Gfx() override;
+    static std::shared_ptr<Gfx> Create(const App& app);
+    ~Gfx();
     [[nodiscard]] bool valid() const;
 
     // Surface
     void createWindowSurface(const std::shared_ptr<Window>& window);
-    void destroyWindowSurface(const std::shared_ptr<Window>& window);
 
     // Physical device
     void updatePhysicalDevices();
@@ -36,12 +36,15 @@ public:
 
     // Logical device
     void createLogicalDevice();
+protected:
+    explicit Gfx(const App& app);
+    // Surface resources
     void recreateWindowSurfaceResources(const std::shared_ptr<Window>& window);
-    void destroyWindowSurfaceResources(const std::shared_ptr<Window>& window);
+    void destroyWindowSurfaceResources(const std::weak_ptr<Window>& weak_window);
 protected:
     struct Impl;
     std::unique_ptr<Impl> impl_;
-    std::map<std::shared_ptr<Window>, std::unique_ptr<Surface>> window_surfaces_;
+    std::map<std::weak_ptr<Window>, std::unique_ptr<Surface>, std::owner_less<std::weak_ptr<Window>>> window_surfaces_;
     std::vector<std::unique_ptr<PhysicalDevice>> physical_devices_;
     int current_physical_device_index_{ -1 };
     std::unique_ptr<LogicalDevice> logical_device_;

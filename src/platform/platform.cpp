@@ -35,6 +35,10 @@ Window::Window(
 
 Window::~Window() {
     GLFWwindow* glfw_window = impl_->glfw_window;
+
+    if (impl_->on_destroy) {
+        impl_->on_destroy();
+    }
     
     int width = 0, height = 0;
     glfwGetWindowSize(glfw_window, &width, &height);
@@ -87,7 +91,7 @@ std::shared_ptr<Window> App::createWindow(
     int width, int height, const std::string& title, 
     const std::optional<Monitor>& monitor, const std::shared_ptr<Window>& share
 ){
-    std::shared_ptr<Window> window = std::make_shared<Window>(width, height, title, monitor, share);
+    std::shared_ptr<Window> window(new Window(width, height, title, monitor, share));
     windows_.push_back(window);
     return window;
 }

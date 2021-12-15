@@ -5,11 +5,14 @@
 #include <vulkan/vulkan_raii.hpp>
 #include <GLFW/glfw3.h>
 
+#include <functional>
+
 namespace wg {
 
 class Window;
 struct Window::Impl {
     GLFWwindow* glfw_window{};
+    std::function<void()> on_destroy;
 };
 
 } // namespace wg

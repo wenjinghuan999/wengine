@@ -278,6 +278,10 @@ struct Gfx::Impl {
     vk::raii::DebugUtilsMessengerEXT debug_messenger{nullptr};
 };
 
+std::shared_ptr<Gfx> Gfx::Create(const App& app) {
+    return std::shared_ptr<Gfx>(new Gfx(app));
+}
+
 Gfx::Gfx(const App& app)
     : impl_(std::make_unique<Gfx::Impl>()) {
     
@@ -427,13 +431,12 @@ void Gfx::createWindowSurface(const std::shared_ptr<Window>& window) {
     } else {
         surface->impl_->vk_surface = vk::raii::SurfaceKHR(impl_->instance, vk_surface);
         window_surfaces_[window] = std::move(surface);
+        window->impl_->on_destroy = [shared_this=shared_from_this(), weak_window=std::weak_ptr<Window>(window)]() {
+            shared_this->destroyWindowSurfaceResources(weak_window);
+            shared_this->window_surfaces_.erase(weak_window);
+        };
         spdlog::info("Created surface for window \"{}\".", window->title(), err);
     }
-}
-
-void Gfx::destroyWindowSurface(const std::shared_ptr<Window>& window) {
-    destroyWindowSurfaceResources(window);
-    window_surfaces_.erase(window);
 }
 
 struct PhysicalDevice::Impl {
@@ -530,7 +533,8 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
             }
         }
 
-        for (auto&& [window, surface] : window_surfaces_) {
+        for (auto&& [weak_window, surface] : window_surfaces_) {
+            auto window = weak_window.lock();
             const auto& num_queues = device.impl_->num_queues[gfx_queues::present];
             bool has_any_family = false;
             for (auto&& [queue_family_index, num_queues_of_family] : num_queues) {
@@ -798,10 +802,11 @@ void Gfx::createLogicalDevice() {
         for (auto&& [queue_family_index, queue_num_of_family] : physical_device().impl_->num_queues[i]) {
             // Check queue family available to all surfaces
             const bool support_all_surfaces = std::all_of(window_surfaces_.begin(), window_surfaces_.end(),
-                [this, queue_family_index1=queue_family_index](std::pair<const std::shared_ptr<Window>, std::unique_ptr<Surface>>& window_surface){
+                [this, queue_family_index1=queue_family_index](std::pair<const std::weak_ptr<Window>, std::unique_ptr<Surface>>& window_surface) {
+                auto window = window_surface.first.lock();
                 if (!physical_device().impl_->vk_physical_device.getSurfaceSupportKHR(queue_family_index1, *window_surface.second->impl_->vk_surface)) {
                     logger().debug("Queue family {} does not support surface of window \"{}\".", 
-                        queue_family_index1, window_surface.first->title());
+                        queue_family_index1, window->title());
                     return false;
                 }
                 return true;
@@ -875,8 +880,8 @@ void Gfx::createLogicalDevice() {
     logger().info("Logical device created.");
 
     // Create swapchains for surfaces
-    for (auto&& [window, surface] : window_surfaces_) {
-        recreateWindowSurfaceResources(window);
+    for (auto&& [weak_window, surface] : window_surfaces_) {
+        recreateWindowSurfaceResources(weak_window.lock());
     }
 }
 
@@ -893,7 +898,7 @@ void Gfx::recreateWindowSurfaceResources(const std::shared_ptr<Window>& window) 
         logger().info("Skip creating swapchain for surface of window \"{}\" because no queues available.", window->title());
         return;
     }
-    logger().info("Creating resources for surface of window \"{}\".");
+    logger().info("Creating resources for surface of window \"{}\".", window->title());
 
     auto& resources = logical_device_->impl_->surface_resources.emplace_back(std::make_shared<SurfaceResources>());
     surface->impl_->resources = resources;
@@ -919,13 +924,13 @@ void Gfx::recreateWindowSurfaceResources(const std::shared_ptr<Window>& window) 
     }
 }
 
-void Gfx::destroyWindowSurfaceResources(const std::shared_ptr<Window>& window) {
-    if (!window_surfaces_.contains(window)) {
+void Gfx::destroyWindowSurfaceResources(const std::weak_ptr<Window>& weak_window) {
+    if (!window_surfaces_.contains(weak_window)) {
         return;
     }
-    auto& surface = window_surfaces_[window];
+    auto& surface = window_surfaces_[weak_window];
     if (auto old_resource = surface->impl_->resources.lock()) {
-        logger().info("Destroying resources for surface of window \"{}\".", window->title());
+        logger().info("Destroying resources for surface of window.");
         logical_device_->impl_->surface_resources.erase(
             std::remove(logical_device_->impl_->surface_resources.begin(), logical_device_->impl_->surface_resources.end(), old_resource),
             logical_device_->impl_->surface_resources.end());

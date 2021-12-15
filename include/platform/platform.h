@@ -19,14 +19,15 @@ protected:
     void* impl_{};
 };
 
-class Window : public IMovable {
+class Window : public std::enable_shared_from_this<Window> {
 public:
+    ~Window();
+    [[nodiscard]] const std::string& title() const { return title_; }
+protected:
     Window(
         int width, int height, std::string title, 
         const std::optional<Monitor>& monitor = {}, const std::shared_ptr<Window>& share = {}
     );
-    ~Window() override;
-    [[nodiscard]] const std::string& title() const { return title_; }
 protected:
     std::string title_;
 protected:

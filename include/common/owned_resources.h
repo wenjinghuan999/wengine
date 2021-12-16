@@ -28,7 +28,7 @@ protected:
     OwnedResourceHandle store(std::unique_ptr<T>&& resource) {
         auto handle = OwnedResourceHandle(new OwnedResourceHandleBase());
         resources_[handle] = std::move(resource);
-        handle->on_destroy_ = [weak_this=weak_from_this()](const std::weak_ptr<OwnedResourceHandleBase>& weak_handle) {
+        handle->on_destroy_ = [weak_this=this->weak_from_this()](const std::weak_ptr<OwnedResourceHandleBase>& weak_handle) {
             if (auto shared_this = weak_this.lock()) {
                 auto it = shared_this->resources_.find(weak_handle);
                 if (it != shared_this->resources_.end()) {
@@ -47,6 +47,8 @@ protected:
 
 template <typename T>
 class OwnedResources {
+protected: 
+    std::shared_ptr<OwnedResourcesBase<T>> base_;
 public:
     class iterator : public decltype(base_->resources_)::iterator {
     public:
@@ -62,8 +64,6 @@ public:
     [[nodiscard]] const T& get(const OwnedResourceHandle& handle) const { return base_->resources_[handle]; }
     [[nodiscard]] iterator begin() { return iterator(base_->resources_.begin()); }
     [[nodiscard]] iterator end() { return iterator(base_->resources_.end()); }
-protected: 
-    std::shared_ptr<OwnedResourcesBase<T>> base_;
 };
 
 }

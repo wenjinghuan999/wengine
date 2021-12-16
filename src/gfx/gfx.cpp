@@ -848,31 +848,6 @@ void Gfx::recreateWindowSurfaceResources(const Surface& surface) {
     surface.impl_->resources_handle = logical_device_->impl_->surface_resources.store(std::move(resources));
 }
 
-void Gfx::createShaderResources(const std::shared_ptr<Shader>& shader) {
-    if (!shader->loaded()) {
-        logger().warn("Skip creating shader resources because shader \"{}\" is not loaded.",
-            shader->filename());
-    }
-    auto shader_resources = std::make_unique<ShaderResources>();
-
-    auto shader_module_create_info = vk::ShaderModuleCreateInfo{}
-        .setCode(shader->impl_->raw_data);
-    shader_resources->shader_module = logical_device_->impl_->vk_device.createShaderModule(shader_module_create_info);
-
-    vk::ShaderStageFlagBits vk_stage = GetShaderStageFlags(shader->stage());
-    if (vk_stage == vk::ShaderStageFlagBits{}) {
-        logger().warn("Shader stage is empty: \"{}\"", shader->filename());
-    }
-
-    shader->impl_->shader_stage_create_info = vk::PipelineShaderStageCreateInfo{
-        .stage = vk_stage,
-        .module = *shader_resources->shader_module,
-        .pName = shader->entry().c_str()
-    };
-
-    shader->impl_->resource_handle = logical_device_->impl_->shader_resources.store(std::move(shader_resources));
-}
-
 bool GfxFeaturesManager::enableFeature(gfx_features::FeatureId feature) {
     if (!ContainsImpl(feature, instance_enabled_)) {
         return false;

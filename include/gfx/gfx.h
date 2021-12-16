@@ -5,6 +5,7 @@
 #include "common/owned_resources.h"
 #include "platform/platform.h"
 #include "gfx/shader.h"
+#include "gfx/gfx-pipeline.h"
 
 #include <map>
 #include <memory>
@@ -40,6 +41,9 @@ public:
 
     // Shader
     void createShaderResources(const std::shared_ptr<Shader>& shader);
+
+    // GfxPipeline
+    void createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline);
 protected:
     explicit Gfx(const App& app);
     // Surface resources

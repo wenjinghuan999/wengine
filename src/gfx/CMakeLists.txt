@@ -1,9 +1,12 @@
 add_library(wengine-gfx
     gfx.cpp
+    gfx-pipeline.cpp
     shader.cpp
     inc/gfx-private.h
+    inc/gfx-pipeline-private.h
     inc/shader-private.h
     ${PROJECT_SOURCE_DIR}/include/gfx/gfx.h
+    ${PROJECT_SOURCE_DIR}/include/gfx/gfx-pipeline.h
     ${PROJECT_SOURCE_DIR}/include/gfx/shader.h
 )
 

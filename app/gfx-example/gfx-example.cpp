@@ -1,6 +1,7 @@
 #include "platform/platform.h"
 #include "gfx/gfx.h"
 #include "gfx/shader.h"
+#include "gfx/gfx-pipeline.h"
 
 int main(int, char**) {
     wg::App app("wegnine-gfx-example", std::make_tuple(0, 0, 1));
@@ -15,6 +16,9 @@ int main(int, char**) {
     auto frag_shader = wg::Shader::Load("shader/static/simple.frag.spv", wg::shader_stage::frag);
     gfx->createShaderResources(vert_shader);
     gfx->createShaderResources(frag_shader);
+
+    auto pipeline = wg::GfxPipeline::Create("simple");
+    gfx->createPipelineResources(pipeline);
 
     app.loop();
 

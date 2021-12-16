@@ -8,6 +8,7 @@
 
 #include "gfx/gfx.h"
 #include "gfx/inc/shader-private.h"
+#include "gfx/inc/gfx-pipeline-private.h"
 
 namespace {
 
@@ -91,6 +92,8 @@ struct LogicalDevice::Impl {
     OwnedResources<SurfaceResources> surface_resources;
     // resources of shaders (may be accessed by shader using OwnedResourcesHandle)
     OwnedResources<ShaderResources> shader_resources;
+    // resources of pipelines (may be accessed by pipeline using OwnedResourcesHandle)
+    OwnedResources<GfxPipelineResources> pipeline_resources;
     
     explicit Impl(vk::raii::Device vk_device) 
         : vk_device(std::move(vk_device)) {}

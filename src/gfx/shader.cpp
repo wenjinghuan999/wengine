@@ -9,7 +9,7 @@
 namespace {
     
 auto& logger() {
-    static auto logger_ = wg::Logger::Get("shader");
+    static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
 }
 
@@ -85,7 +85,7 @@ void Gfx::createShaderResources(const std::shared_ptr<Shader>& shader) {
             shader->filename());
     }
     logger().info("Creating resources for shader \"{}\".", shader->filename());
-    
+
     auto shader_resources = std::make_unique<ShaderResources>();
 
     auto shader_module_create_info = vk::ShaderModuleCreateInfo{}

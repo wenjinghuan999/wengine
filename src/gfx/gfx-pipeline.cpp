@@ -7,7 +7,7 @@
 namespace {
     
 auto& logger() {
-    static auto logger_ = wg::Logger::Get("gfx-pipeline");
+    static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
 }
 

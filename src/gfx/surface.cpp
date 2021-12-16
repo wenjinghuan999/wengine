@@ -10,7 +10,7 @@
 namespace {
     
 auto& logger() {
-    static auto logger_ = wg::Logger::Get("surface");
+    static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
 }
 

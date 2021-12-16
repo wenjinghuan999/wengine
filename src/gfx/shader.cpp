@@ -30,7 +30,7 @@ bool Shader::loaded() const {
 }
 
 bool Shader::valid() const {
-    return false;
+    return static_cast<bool>(impl_->resource_handle);
 }
 
 } // namespace wg

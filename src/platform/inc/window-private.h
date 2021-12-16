@@ -1,6 +1,8 @@
+#pragma once
+
+#include "platform/inc/platform.inc"
 #include "platform/platform.h"
 #include "common/owned_resources.h"
-#include "platform-private.h"
 
 namespace wg {
 

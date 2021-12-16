@@ -4,6 +4,7 @@
 #include "common/singleton.h"
 #include "common/owned_resources.h"
 #include "platform/platform.h"
+#include "gfx/surface.h"
 #include "gfx/shader.h"
 #include "gfx/gfx-pipeline.h"
 
@@ -14,7 +15,6 @@
 
 namespace wg {
 
-class Surface;
 class PhysicalDevice;
 class LogicalDevice;
 
@@ -55,18 +55,6 @@ protected:
     std::vector<std::unique_ptr<PhysicalDevice>> physical_devices_;
     int current_physical_device_index_{ -1 };
     std::unique_ptr<LogicalDevice> logical_device_;
-};
-
-class Surface : public IMovable {
-public:
-    explicit Surface(const std::weak_ptr<Window>& window);
-    ~Surface() override = default;
-protected:
-    std::weak_ptr<Window> window_;
-protected:
-    friend class Gfx;
-    struct Impl;
-    std::unique_ptr<Impl> impl_;
 };
 
 class PhysicalDevice : public IMovable {

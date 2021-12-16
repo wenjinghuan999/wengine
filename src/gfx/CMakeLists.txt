@@ -2,12 +2,15 @@ add_library(wengine-gfx
     gfx.cpp
     gfx-pipeline.cpp
     shader.cpp
+    surface.cpp
     inc/gfx-private.h
     inc/gfx-pipeline-private.h
     inc/shader-private.h
+    inc/surface-private.h
     ${PROJECT_SOURCE_DIR}/include/gfx/gfx.h
     ${PROJECT_SOURCE_DIR}/include/gfx/gfx-pipeline.h
     ${PROJECT_SOURCE_DIR}/include/gfx/shader.h
+    ${PROJECT_SOURCE_DIR}/include/gfx/surface.h
 )
 
 add_dependencies(wengine-gfx wengine-shader-static wengine-shader-dynamic)

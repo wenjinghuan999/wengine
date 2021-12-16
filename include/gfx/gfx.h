@@ -39,7 +39,7 @@ public:
     void createLogicalDevice();
 
     // Shader
-    void compileShader(const std::shared_ptr<Shader>& shader);
+    void createShaderResources(const std::shared_ptr<Shader>& shader);
 protected:
     explicit Gfx(const App& app);
     // Surface resources

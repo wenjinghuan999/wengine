@@ -1,6 +1,7 @@
 #include "platform/platform.h"
 #include "common/logger.h"
 #include "platform-private.h"
+#include "window-private.h"
 
 namespace {
 

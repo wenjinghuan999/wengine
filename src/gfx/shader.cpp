@@ -2,6 +2,7 @@
 
 #include "gfx/shader.h"
 #include "common/logger.h"
+#include "shader-private.h"
 
 namespace {
     
@@ -14,14 +15,14 @@ auto& logger() {
 
 namespace wg {
 
-struct Shader::Impl {
-    std::vector<uint32_t> raw_data;
-};
+std::shared_ptr<Shader> Shader::Load(
+    const std::string& filename, shader_stage::ShaderStage stage, const std::string& entry) {
+    return std::shared_ptr<Shader>(new Shader(filename, stage, entry));
+}
 
-Shader::Shader() : impl_() {}
-
-Shader::Shader(const std::string& filename, shader_stage::ShaderStage stage) : impl_() {
-    loadStatic(filename, stage);
+Shader::Shader(const std::string& filename, shader_stage::ShaderStage stage, const std::string& entry)
+    : filename_(filename), entry_(entry), stage_(stage), impl_(std::make_unique<Shader::Impl>()) {
+    loadStatic(filename, entry);
 }
 
 bool Shader::loaded() const {
@@ -56,7 +57,7 @@ bool LoadStaticShaderFile(const std::string& filename, std::vector<uint32_t>& ou
 
 namespace wg {
 
-bool Shader::loadStatic(const std::string& filename, shader_stage::ShaderStage stage) {
+bool Shader::loadStatic(const std::string& filename, const std::string& entry) {
     logger().info("Loading static shader file: {}", filename);
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
@@ -65,14 +66,15 @@ bool Shader::loadStatic(const std::string& filename, shader_stage::ShaderStage s
         impl_->raw_data.clear();
         return false;
     }
+    filename_ = filename;
+    entry_ = entry;
 
     size_t file_size = (size_t) file.tellg();
-    impl_->raw_data.resize(file_size / sizeof(uint32_t));
+    impl_->raw_data.resize((file_size + sizeof(uint32_t) - 1) / sizeof(uint32_t));
     file.seekg(0);
     file.read(reinterpret_cast<char*>(impl_->raw_data.data()), file_size);
 
     return true;
 }
-
 
 } // namespace wg

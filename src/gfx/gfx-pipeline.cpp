@@ -201,6 +201,20 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
     resources->pipeline =
         logical_device_->impl_->vk_device.createGraphicsPipeline({ nullptr }, pipeline_create_info);
 
+    // Framebuffers
+    auto image_views = pipeline->render_target()->impl_->get_image_views();
+    for (auto&& image_view : image_views) {
+        auto render_target_attachments = std::array{ image_view };
+        auto framebuffer_create_info = vk::FramebufferCreateInfo{
+            .renderPass = *resources->render_pass,
+            .width      = static_cast<uint32_t>(width),
+            .height     = static_cast<uint32_t>(height),
+            .layers      = 1
+        }   .setAttachments(render_target_attachments);
+        resources->framebuffers.push_back(std::make_unique<vk::raii::Framebuffer>(
+            logical_device_->impl_->vk_device, framebuffer_create_info));
+    }
+    
     pipeline->impl_->resources = 
         logical_device_->impl_->pipeline_resources.store(std::move(resources));
     pipeline->valid_ = true;

@@ -21,6 +21,7 @@ protected:
 protected:
     explicit Surface(const std::shared_ptr<Window>& window);
     friend class Gfx;
+    friend class RenderTargetSurface;
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

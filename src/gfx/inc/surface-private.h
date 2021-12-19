@@ -10,7 +10,7 @@ struct SurfaceResources {
     vk::raii::SwapchainKHR vk_swapchain{nullptr};
     vk::SurfaceFormatKHR vk_format;
     vk::Extent2D vk_extent;
-    std::vector<VkImage> vk_images;
+    std::vector<vk::Image> vk_images;
     std::vector<vk::raii::ImageView> vk_image_views;
 };
 

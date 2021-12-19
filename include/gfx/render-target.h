@@ -31,7 +31,6 @@ protected:
 protected:
     friend class Gfx;
     friend class RenderTarget;
-    struct Impl;
     std::shared_ptr<Surface> surface_;
 };
 

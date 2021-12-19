@@ -211,12 +211,16 @@ void Gfx::createWindowSurfaceResources(const Surface& surface) {
         resources->vk_format, resources->vk_extent
     );
 
-    resources->vk_images = resources->vk_swapchain.getImages();
+    auto vk_images = resources->vk_swapchain.getImages();
+    resources->vk_images.reserve(vk_images.size());
+    for (auto vk_image : vk_images) {
+        resources->vk_images.push_back(static_cast<vk::Image>(vk_image));
+    }
     logger().info(" - Creating image views: {}.", resources->vk_images.size());
     resources->vk_image_views.reserve(resources->vk_images.size());
     for (auto&& vk_image : resources->vk_images) {
         resources->vk_image_views.emplace_back(CreateImageViewForSurface(
-            logical_device_->impl_->vk_device, static_cast<vk::Image>(vk_image), resources->vk_format.format));
+            logical_device_->impl_->vk_device, vk_image, resources->vk_format.format));
     }
 
     surface.impl_->resources = logical_device_->impl_->surface_resources.store(std::move(resources));

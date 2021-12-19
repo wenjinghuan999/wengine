@@ -8,8 +8,14 @@
 
 namespace wg {
 
+struct RenderTargetResources {
+    vk::raii::RenderPass render_pass{nullptr};
+    std::vector<vk::raii::Framebuffer> framebuffers;
+};
+
 struct RenderTarget::Impl {
     std::function<std::vector<vk::ImageView>()> get_image_views;
+    OwnedResourceHandle<RenderTargetResources> resources;
 };
 
 }

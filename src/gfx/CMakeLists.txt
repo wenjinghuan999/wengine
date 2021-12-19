@@ -1,17 +1,23 @@
 add_library(wengine-gfx
     gfx.cpp
+    command-buffer.cpp
+    draw-command.cpp
     gfx-constants.cpp
     gfx-pipeline.cpp
     shader.cpp
     surface.cpp
     render-target.cpp
     inc/gfx-private.h
+    inc/command-buffer-private.h
+    inc/draw-command-private.h
     inc/gfx-constants-private.h
     inc/gfx-pipeline-private.h
     inc/shader-private.h
     inc/surface-private.h
     inc/render-target-private.h
     ${PROJECT_SOURCE_DIR}/include/gfx/gfx.h
+    ${PROJECT_SOURCE_DIR}/include/gfx/command-buffer.h
+    ${PROJECT_SOURCE_DIR}/include/gfx/draw-command.h
     ${PROJECT_SOURCE_DIR}/include/gfx/gfx-constants.h
     ${PROJECT_SOURCE_DIR}/include/gfx/gfx-pipeline.h
     ${PROJECT_SOURCE_DIR}/include/gfx/shader.h

@@ -26,12 +26,12 @@ public:
     ~GfxPipeline() = default;
 
 public:
-    const std::string& name() const { return name_; }
-    const GfxVertexFactory& vertex_factroy() const { return vertex_factory_; }
-    const GfxPipelineState& pipeline_state() const { return pipeline_state_; }
-    const GfxUniformLayout& uniform_layout() const { return uniform_layout_; }
-    const std::vector<std::shared_ptr<Shader>>& shaders() const { return shaders_; }
-    const std::shared_ptr<RenderTarget>& render_target() const { return render_target_; }
+    [[nodiscard]] const std::string& name() const { return name_; }
+    [[nodiscard]] const GfxVertexFactory& vertex_factroy() const { return vertex_factory_; }
+    [[nodiscard]] const GfxPipelineState& pipeline_state() const { return pipeline_state_; }
+    [[nodiscard]] const GfxUniformLayout& uniform_layout() const { return uniform_layout_; }
+    [[nodiscard]] const std::vector<std::shared_ptr<Shader>>& shaders() const { return shaders_; }
+    [[nodiscard]] const std::shared_ptr<RenderTarget>& render_target() const { return render_target_; }
 
     void setVertexFactroy(GfxVertexFactory vertex_factory) { vertex_factory_ = vertex_factory; valid_ = false; }
     void setPipelineState(GfxPipelineState pipeline_state) { pipeline_state_ = pipeline_state; valid_ = false; }
@@ -41,7 +41,7 @@ public:
     void clearShaders() { shaders_.clear(); valid_ = false; }
     void setRenderTarget(const std::shared_ptr<RenderTarget>& render_target) { render_target_ = render_target; }
 
-    bool valid() const { return valid_; }
+    [[nodiscard]] bool valid() const { return valid_; }
 protected:
     std::string name_;
     GfxVertexFactory vertex_factory_;

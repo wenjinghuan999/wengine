@@ -8,7 +8,7 @@
 
 namespace {
     
-auto& logger() {
+[[nodiscard]] auto& logger() {
     static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
 }

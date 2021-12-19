@@ -10,7 +10,7 @@
 
 namespace {
     
-auto& logger() {
+[[nodiscard]] auto& logger() {
     static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
 }
@@ -74,7 +74,7 @@ std::shared_ptr<Surface> Gfx::getWindowSurface(const std::shared_ptr<Window>& wi
 
 namespace {
 
-vk::raii::SwapchainKHR CreateSwapchainForSurface(
+[[nodiscard]] vk::raii::SwapchainKHR CreateSwapchainForSurface(
     const vk::raii::PhysicalDevice& physical_device, const vk::raii::Device& device, const vk::raii::SurfaceKHR& surface, const wg::Window& window,
     uint32_t graphics_family_index, uint32_t present_family_index, vk::SurfaceFormatKHR& out_format, vk::Extent2D& out_extent
 ) {

@@ -13,7 +13,7 @@ namespace wg {
 
 class Monitor : public ICopyable {
 public:
-    static Monitor GetPrimary();
+    [[nodiscard]] static Monitor GetPrimary();
 protected:
     Monitor() = default;
     friend class Window;
@@ -51,7 +51,7 @@ public:
     [[nodiscard]] int patch_version() const { return std::get<2>(version_); }
     [[nodiscard]] std::string version_string() const;
 
-    std::shared_ptr<Window> createWindow(
+    [[nodiscard]] std::shared_ptr<Window> createWindow(
         int width, int height, const std::string& title, 
         const std::optional<Monitor>& monitor = {}, const std::shared_ptr<Window>& share = {}
     );

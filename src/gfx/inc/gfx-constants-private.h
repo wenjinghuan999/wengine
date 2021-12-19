@@ -7,11 +7,11 @@ namespace wg {
 
 namespace gfx_formats {
 
-inline Format FromVkFormat(vk::Format vk_format) {
+[[nodiscard]] inline Format FromVkFormat(vk::Format vk_format) {
     return static_cast<Format>(vk_format);
 }
 
-inline vk::Format ToVkFormat(Format format) {
+[[nodiscard]] inline vk::Format ToVkFormat(Format format) {
     return static_cast<vk::Format>(format);
 }
 

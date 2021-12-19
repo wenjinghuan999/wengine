@@ -11,9 +11,9 @@ namespace wg {
 
 class RenderTarget : public std::enable_shared_from_this<RenderTarget> {
 public:
-    static std::shared_ptr<RenderTarget> CreateFromWindowSurface(const Gfx& gfx, const std::shared_ptr<Window>& window);
-    virtual Extent2D extent() const = 0;
-    virtual gfx_formats::Format format() const = 0;
+    [[nodiscard]] static std::shared_ptr<RenderTarget> CreateFromWindowSurface(const Gfx& gfx, const std::shared_ptr<Window>& window);
+    [[nodiscard]] virtual Extent2D extent() const = 0;
+    [[nodiscard]] virtual gfx_formats::Format format() const = 0;
 protected:
     RenderTarget() = default;
     ~RenderTarget() = default;

@@ -11,10 +11,10 @@ namespace wg {
 
 class Surface : public std::enable_shared_from_this<Surface> {
 public:
-    static std::shared_ptr<Surface> Create(const std::shared_ptr<Window>& window);
-    std::shared_ptr<Window> window() const { return window_.lock(); }
-    Extent2D extent() const;
-    gfx_formats::Format format() const;
+    [[nodiscard]] static std::shared_ptr<Surface> Create(const std::shared_ptr<Window>& window);
+    [[nodiscard]] std::shared_ptr<Window> window() const { return window_.lock(); }
+    [[nodiscard]] Extent2D extent() const;
+    [[nodiscard]] gfx_formats::Format format() const;
     ~Surface() = default;
 protected:
     std::weak_ptr<Window> window_;

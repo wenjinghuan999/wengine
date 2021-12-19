@@ -16,7 +16,7 @@ struct Shader::Impl {
     vk::PipelineShaderStageCreateInfo shader_stage_create_info{};
 };
 
-inline vk::ShaderStageFlagBits GetShaderStageFlags(shader_stage::ShaderStage stage) {
+[[nodiscard]] inline vk::ShaderStageFlagBits GetShaderStageFlags(shader_stage::ShaderStage stage) {
     switch (stage)
     {
     case shader_stage::vert:

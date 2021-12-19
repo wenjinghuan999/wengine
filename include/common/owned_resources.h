@@ -22,7 +22,7 @@ template <typename T>
 class OwnedResourceHandleBaseTyped : public OwnedResourceHandleBase {
     friend class OwnedResourcesBase<T>;
 public:
-    T* get() {
+    [[nodiscard]] T* get() {
         if (auto resources = resources_.lock()) {
             auto it = resources->resources_.find(weak_from_this());
             if (it != resources->resources_.end()) {
@@ -31,7 +31,7 @@ public:
         }
         return nullptr;
     }
-    const T* get() const {
+    [[nodiscard]] const T* get() const {
         return const_cast<OwnedResourceHandle<T>*>(this)->get();
     }
 protected:

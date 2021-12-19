@@ -252,7 +252,7 @@ namespace gfx_formats {
         A4R4G4B4UnormPack16EXT                  = 1000340000,
         A4B4G4R4UnormPack16EXT                  = 1000340001,
     };
-    std::string ToString(Format format);
+    [[nodiscard]] std::string ToString(Format format);
 }
 
 } // namespace wg

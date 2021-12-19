@@ -14,7 +14,7 @@
 
 namespace {
 
-inline vk::QueueFlags GetRequiredQueueFlags(wg::gfx_queues::QueueId queue_id) {
+[[nodiscard]] inline vk::QueueFlags GetRequiredQueueFlags(wg::gfx_queues::QueueId queue_id) {
     switch (queue_id)
     {
     case wg::gfx_queues::graphics:

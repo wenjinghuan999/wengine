@@ -41,7 +41,7 @@ const char* const QUEUE_NAMES[NUM_QUEUES] = {
 
 namespace {
     
-auto& logger() {
+[[nodiscard]] auto& logger() {
     static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
 }
@@ -153,7 +153,7 @@ private:
     }
 };
 
-VulkanFeatures GetGlfwRequiredFeatures() {
+[[nodiscard]] VulkanFeatures GetGlfwRequiredFeatures() {
     uint32_t glfw_extension_count = 0;
     const char** glfw_extension_names = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
     VulkanFeatures glfw_features;
@@ -170,7 +170,7 @@ VulkanFeatures GetGlfwRequiredFeatures() {
     return glfw_features;
 }
 
-VulkanFeatures GetVulkanFeatures(wg::gfx_features::FeatureId feature) {
+[[nodiscard]] VulkanFeatures GetVulkanFeatures(wg::gfx_features::FeatureId feature) {
     switch (feature) {
         case wg::gfx_features::window_surface:
             return [](){
@@ -237,7 +237,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessageHandler(
     return false;
 }
                                                 
-vk::raii::DebugUtilsMessengerEXT CreateDebugMessenger(const vk::raii::Instance& instance) {
+[[nodiscard]] vk::raii::DebugUtilsMessengerEXT CreateDebugMessenger(const vk::raii::Instance& instance) {
     vk::DebugUtilsMessengerCreateInfoEXT debug_utils_messenger_create_info{
         .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
                            vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | 

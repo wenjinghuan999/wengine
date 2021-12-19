@@ -8,5 +8,6 @@ target_include_directories(wengine-engine
 )
 
 target_link_libraries(wengine-engine
+    PUBLIC wengine-common
     PRIVATE fmt::fmt
 )

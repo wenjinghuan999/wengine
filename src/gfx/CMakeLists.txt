@@ -28,6 +28,7 @@ target_include_directories(wengine-gfx
 )
 
 target_link_libraries(wengine-gfx
+    PUBLIC wengine-common
     PUBLIC wengine-logger
     PUBLIC wengine-engine
     PUBLIC wengine-platform

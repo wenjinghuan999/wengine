@@ -2,7 +2,7 @@
 
 #include "platform/inc/platform.inc"
 #include "gfx/surface.h"
-#include "common/owned_resources.h"
+#include "common/owned-resources.h"
 
 namespace wg {
 

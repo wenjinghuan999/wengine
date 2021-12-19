@@ -12,6 +12,7 @@ target_include_directories(wengine-platform
 )
 
 target_link_libraries(wengine-platform
+    PUBLIC wengine-common
     PUBLIC wengine-logger
 
     PRIVATE Vulkan::Vulkan

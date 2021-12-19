@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common/common.h"
-#include "common/owned_resources.h"
+#include "common/owned-resources.h"
 #include "gfx/render-target.h"
 
 #include <memory>

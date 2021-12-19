@@ -7,7 +7,7 @@
 #include <tuple>
 
 #include "gfx/gfx.h"
-#include "common/owned_resources.h"
+#include "common/owned-resources.h"
 #include "gfx/inc/surface-private.h"
 #include "gfx/inc/shader-private.h"
 #include "gfx/inc/gfx-pipeline-private.h"

@@ -75,12 +75,14 @@ struct QueueInfo {
     uint32_t queue_family_index{};
     uint32_t queue_index_in_family{};
     vk::raii::Queue vk_queue{nullptr};
+    vk::raii::CommandPool vk_command_pool{nullptr};
 };
 
 struct LogicalDevice::Impl {
     vk::raii::Device vk_device;
-    // queues[queue_id][queue_index] = <queue_family_index, vk_queue>
+    // queues[queue_id][queue_index] = <queue_family_index, vk_queue, vk_command_poll>
     std::map<gfx_queues::QueueId, std::vector<std::unique_ptr<QueueInfo>>> queues;
+
     // resources of surfaces (may be accessed by surface using OwnedResourcesHandle)
     OwnedResources<SurfaceResources> surface_resources;
     // resources of shaders (may be accessed by shader using OwnedResourcesHandle)

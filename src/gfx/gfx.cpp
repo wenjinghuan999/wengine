@@ -672,6 +672,11 @@ void Gfx::createLogicalDevice() {
         queue_info->queue_family_index = queue_family_index;
         queue_info->queue_index_in_family = queue_index_in_family;
         queue_info->vk_queue = logical_device_->impl_->vk_device.getQueue(queue_family_index, queue_index_in_family);
+        
+        auto command_pool_create_info = vk::CommandPoolCreateInfo{
+            .queueFamilyIndex = queue_family_index
+        };
+        queue_info->vk_command_pool = logical_device_->impl_->vk_device.createCommandPool(command_pool_create_info);
     }
 
     logger().info("Logical device created.");

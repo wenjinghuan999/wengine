@@ -4,6 +4,7 @@
 #include "common/logger.h"
 #include "gfx-private.h"
 #include "gfx-constants-private.h"
+#include "render-target-private.h"
 #include "gfx-pipeline-private.h"
 
 namespace {
@@ -203,6 +204,7 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
 
     // Framebuffers
     auto image_views = pipeline->render_target()->impl_->get_image_views();
+    resources->framebuffers.reserve(image_views.size());
     for (auto&& image_view : image_views) {
         auto render_target_attachments = std::array{ image_view };
         auto framebuffer_create_info = vk::FramebufferCreateInfo{
@@ -211,10 +213,58 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
             .height     = static_cast<uint32_t>(height),
             .layers      = 1
         }   .setAttachments(render_target_attachments);
-        resources->framebuffers.push_back(std::make_unique<vk::raii::Framebuffer>(
-            logical_device_->impl_->vk_device, framebuffer_create_info));
+        resources->framebuffers.emplace_back(
+            logical_device_->impl_->vk_device.createFramebuffer(framebuffer_create_info));
     }
     
+    // Command buffers
+    auto& queue_info_array = logical_device_->impl_->queues[gfx_queues::graphics];
+    if (!queue_info_array.empty()) {
+        auto& queue_info = queue_info_array[0]; // Choose first for now
+        resources->command_buffers.resize(image_views.size());
+        auto command_buffer_allocate_info = vk::CommandBufferAllocateInfo{
+            .commandPool = *queue_info->vk_command_pool,
+            .level = vk::CommandBufferLevel::ePrimary,
+            .commandBufferCount = static_cast<uint32_t>(image_views.size())
+        };
+        // Do not use vk::raii::CommandBuffer because there might be compile errors on MSVC
+        // Since we are allocating from the pool, we don't want to destruct the command buffer anyways.
+        resources->command_buffers = 
+            (*logical_device_->impl_->vk_device).allocateCommandBuffers(command_buffer_allocate_info);
+    } else {
+        logger().error("Cannot allocate command buffer because graphics queue has no command pool.");
+    }
+
+    // Record commands
+    for (size_t i = 0; i < image_views.size(); i++)
+    {
+        auto& command_buffer = resources->command_buffers[i];
+        command_buffer.begin({
+            .flags            = {},
+            .pInheritanceInfo = {},
+        });
+
+        auto clear_values = std::array{ vk::ClearValue{
+            .color = { .float32 = std::array{ 0.f, 0.f, 0.f, 1.f } }
+            } };
+        auto render_pass_begin_info = vk::RenderPassBeginInfo{
+            .renderPass  = *resources->render_pass,
+            .framebuffer = *resources->framebuffers[i],
+            .renderArea  = {
+                .offset  = { 0, 0 },
+                .extent  = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) }
+            }
+        }   .setClearValues(clear_values);
+        command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
+
+        command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *resources->pipeline);
+        command_buffer.draw(3, 1, 0, 0);
+
+        command_buffer.endRenderPass();
+        command_buffer.end();
+    }
+    
+
     pipeline->impl_->resources = 
         logical_device_->impl_->pipeline_resources.store(std::move(resources));
     pipeline->valid_ = true;

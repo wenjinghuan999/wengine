@@ -12,7 +12,7 @@ struct GfxPipelineResources {
 };
 
 struct GfxPipeline::Impl {
-    OwnedResourceHandle resource_handle;
+    OwnedResourceHandle<GfxPipelineResources> resources;
 };
 
 }

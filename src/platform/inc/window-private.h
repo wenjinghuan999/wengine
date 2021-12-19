@@ -9,7 +9,7 @@ namespace wg {
 class Window;
 struct Window::Impl {
     GLFWwindow* glfw_window{};
-    OwnedResourceHandle surface_handle;
+    OwnedResourceHandleUntyped surface_handle;
 };
 
 } // namespace wg

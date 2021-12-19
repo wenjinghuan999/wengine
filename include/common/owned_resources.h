@@ -16,7 +16,30 @@ protected:
     std::function<void(const std::weak_ptr<OwnedResourceHandleBase>&)> on_destroy_;
 };
 
-using OwnedResourceHandle = std::shared_ptr<OwnedResourceHandleBase>;
+using OwnedResourceHandleUntyped = std::shared_ptr<OwnedResourceHandleBase>;
+
+template <typename T>
+class OwnedResourceHandleBaseTyped : public OwnedResourceHandleBase {
+    friend class OwnedResourcesBase<T>;
+public:
+    T* get() {
+        if (auto resources = resources_.lock()) {
+            auto it = resources->resources_.find(weak_from_this());
+            if (it != resources->resources_.end()) {
+                return it->second.get();
+            }
+        }
+        return nullptr;
+    }
+    const T* get() const {
+        return const_cast<OwnedResourceHandle<T>*>(this)->get();
+    }
+protected:
+    std::weak_ptr<class OwnedResourcesBase<T>> resources_;
+};
+
+template <typename T>
+using OwnedResourceHandle = std::shared_ptr<OwnedResourceHandleBaseTyped<T>>;
 
 template <typename T>
 class OwnedResources;
@@ -25,7 +48,22 @@ template <typename T>
 class OwnedResourcesBase : public std::enable_shared_from_this<OwnedResourcesBase<T>> {
 protected:
     friend class OwnedResources<T>;
-    OwnedResourceHandle store(std::unique_ptr<T>&& resource) {
+    friend class OwnedResourceHandleBaseTyped<T>;
+    OwnedResourceHandle<T> store(std::unique_ptr<T>&& resource) {
+        auto handle = OwnedResourceHandle<T>(new OwnedResourceHandleBaseTyped<T>());
+        resources_[handle] = std::move(resource);
+        handle->on_destroy_ = [weak_this=this->weak_from_this()](const std::weak_ptr<OwnedResourceHandleBase>& weak_handle) {
+            if (auto shared_this = weak_this.lock()) {
+                auto it = shared_this->resources_.find(weak_handle);
+                if (it != shared_this->resources_.end()) {
+                    shared_this->resources_.erase(it);
+                }
+            }
+        };
+        handle->resources_ = weak_from_this();
+        return handle;
+    }
+    OwnedResourceHandleUntyped storeUntyped(std::unique_ptr<T>&& resource) {
         auto handle = OwnedResourceHandle(new OwnedResourceHandleBase());
         resources_[handle] = std::move(resource);
         handle->on_destroy_ = [weak_this=this->weak_from_this()](const std::weak_ptr<OwnedResourceHandleBase>& weak_handle) {
@@ -59,9 +97,10 @@ public:
     };
 public:
     OwnedResources() : base_(OwnedResourcesBase<T>::Create()) {}
-    [[nodiscard]] OwnedResourceHandle store(std::unique_ptr<T>&& resource) { return base_->store(std::move(resource)); }
-    [[nodiscard]] T& get(const OwnedResourceHandle& handle) { return base_->resources_[handle]; }
-    [[nodiscard]] const T& get(const OwnedResourceHandle& handle) const { return base_->resources_[handle]; }
+    [[nodiscard]] OwnedResourceHandle<T> store(std::unique_ptr<T>&& resource) { return base_->store(std::move(resource)); }
+    [[nodiscard]] OwnedResourceHandleUntyped storeUntyped(std::unique_ptr<T>&& resource) { return base_->storeUntyped(std::move(resource)); }
+    [[nodiscard]] T& get(const OwnedResourceHandleUntyped& handle) { return *base_->resources_[handle]; }
+    [[nodiscard]] const T& get(const OwnedResourceHandleUntyped& handle) const { return *base_->resources_[handle]; }
     [[nodiscard]] iterator begin() { return iterator(base_->resources_.begin()); }
     [[nodiscard]] iterator end() { return iterator(base_->resources_.end()); }
 };

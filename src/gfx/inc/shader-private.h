@@ -12,7 +12,7 @@ struct ShaderResources {
 
 struct Shader::Impl {
     std::vector<uint32_t> raw_data;
-    OwnedResourceHandle resource_handle;
+    OwnedResourceHandle<ShaderResources> resources;
     vk::PipelineShaderStageCreateInfo shader_stage_create_info{};
 };
 

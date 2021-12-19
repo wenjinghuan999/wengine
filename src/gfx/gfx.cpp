@@ -9,6 +9,7 @@
 
 #include "gfx/gfx.h"
 #include "common/logger.h"
+#include "gfx/gfx-constants.h"
 #include "engine/engine.h"
 #include "platform/platform.h"
 #include "platform/inc/window-private.h"
@@ -442,15 +443,16 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
             }
         }
 
-        for (auto& surface : window_surfaces_) {
+        for (auto& window_surface : impl_->window_surfaces_) {
             const auto& num_queues = device.impl_->num_queues[gfx_queues::present];
             bool has_any_family = false;
-            auto window = surface.window_.lock();
+            const auto& surface = window_surface.surface;
+            auto window = surface->window_.lock();
             if (!window) {
                 continue;
             }
             for (auto&& [queue_family_index, num_queues_of_family] : num_queues) {
-                if (!device.impl_->vk_physical_device.getSurfaceSupportKHR(queue_family_index, *surface.impl_->vk_surface)) {
+                if (!device.impl_->vk_physical_device.getSurfaceSupportKHR(queue_family_index, *surface->impl_->vk_surface)) {
                     continue;
                 }
                 has_any_family = true;
@@ -460,12 +462,12 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
                     device.name(), window->title());
                 return 0;
             }
-            if (device.impl_->vk_physical_device.getSurfaceFormatsKHR(*surface.impl_->vk_surface).empty()) {
+            if (device.impl_->vk_physical_device.getSurfaceFormatsKHR(*surface->impl_->vk_surface).empty()) {
                 logger().info("Physical device {} does not support surface of window \"{}\" (no format).",
                     device.name(), window->title());
                 return 0;
             }
-            if (device.impl_->vk_physical_device.getSurfacePresentModesKHR(*surface.impl_->vk_surface).empty()) {
+            if (device.impl_->vk_physical_device.getSurfacePresentModesKHR(*surface->impl_->vk_surface).empty()) {
                 logger().info("Physical device {} does not support surface of window \"{}\" (no present mode).",
                     device.name(), window->title());
                 return 0;
@@ -592,13 +594,14 @@ void Gfx::createLogicalDevice() {
         
         for (auto&& [queue_family_index, queue_num_of_family] : physical_device().impl_->num_queues[i]) {
             // Check queue family available to all surfaces
-            const bool support_all_surfaces = std::all_of(window_surfaces_.begin(), window_surfaces_.end(),
-                [this, queue_family_index1=queue_family_index](Surface& surface) {
-                auto window = surface.window_.lock();
+            const bool support_all_surfaces = std::all_of(impl_->window_surfaces_.begin(), impl_->window_surfaces_.end(),
+                [this, queue_family_index1=queue_family_index](WindowSurfaceResources& window_surface) {
+                const auto& surface = window_surface.surface;
+                auto window = surface->window_.lock();
                 if (!window) {
                     return true;
                 }
-                if (!physical_device().impl_->vk_physical_device.getSurfaceSupportKHR(queue_family_index1, *surface.impl_->vk_surface)) {
+                if (!physical_device().impl_->vk_physical_device.getSurfaceSupportKHR(queue_family_index1, *surface->impl_->vk_surface)) {
                     logger().debug("Queue family {} does not support surface of window \"{}\".", 
                         queue_family_index1, window->title());
                     return false;
@@ -674,8 +677,8 @@ void Gfx::createLogicalDevice() {
     logger().info("Logical device created.");
 
     // Create swapchains for surfaces
-    for (auto& surface : window_surfaces_) {
-        recreateWindowSurfaceResources(surface);
+    for (auto& window_surface : impl_->window_surfaces_) {
+        recreateWindowSurfaceResources(*window_surface.surface);
     }
 }
 

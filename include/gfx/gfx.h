@@ -2,7 +2,6 @@
 
 #include "common/common.h"
 #include "common/singleton.h"
-#include "common/owned_resources.h"
 #include "platform/platform.h"
 #include "gfx/surface.h"
 #include "gfx/shader.h"
@@ -26,6 +25,7 @@ public:
 
     // Surface
     void createWindowSurface(const std::shared_ptr<Window>& window);
+    std::shared_ptr<Surface> getWindowSurface(const std::shared_ptr<Window>& window) const;
 
     // Physical device
     void updatePhysicalDevices();
@@ -51,7 +51,6 @@ protected:
 protected:
     struct Impl;
     std::unique_ptr<Impl> impl_;
-    OwnedResources<Surface> window_surfaces_;
     std::vector<std::unique_ptr<PhysicalDevice>> physical_devices_;
     int current_physical_device_index_{ -1 };
     std::unique_ptr<LogicalDevice> logical_device_;

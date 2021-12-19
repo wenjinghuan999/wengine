@@ -7,6 +7,7 @@
 #include <tuple>
 
 #include "gfx/gfx.h"
+#include "common/owned_resources.h"
 #include "gfx/inc/surface-private.h"
 #include "gfx/inc/shader-private.h"
 #include "gfx/inc/gfx-pipeline-private.h"
@@ -32,10 +33,15 @@ inline vk::QueueFlags GetRequiredQueueFlags(wg::gfx_queues::QueueId queue_id) {
 
 namespace wg {
 
+struct WindowSurfaceResources {
+    std::shared_ptr<Surface> surface;
+};
+
 struct Gfx::Impl {
     vk::raii::Context context;
     vk::raii::Instance instance{nullptr};
     vk::raii::DebugUtilsMessengerEXT debug_messenger{nullptr};
+    OwnedResources<WindowSurfaceResources> window_surfaces_;
 };
 
 struct PhysicalDevice::Impl {

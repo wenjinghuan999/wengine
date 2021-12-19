@@ -18,11 +18,15 @@ auto& logger() {
 
 namespace wg {
 
-Surface::Surface(const std::weak_ptr<Window>& window)
+std::shared_ptr<Surface> Surface::Create(const std::shared_ptr<Window>& window) {
+    return std::shared_ptr<Surface>(new Surface(window));
+}
+
+Surface::Surface(const std::shared_ptr<Window>& window)
     : window_(window), impl_(std::make_unique<Surface::Impl>()) {}
 
 void Gfx::createWindowSurface(const std::shared_ptr<Window>& window) {
-    auto surface = std::make_unique<Surface>(window);
+    auto surface = Surface::Create(window);
 
     auto& gfxFeaturesManager = GfxFeaturesManager::Get();
     if (!gfxFeaturesManager.enableFeature(gfx_features::window_surface)) {
@@ -36,9 +40,19 @@ void Gfx::createWindowSurface(const std::shared_ptr<Window>& window) {
         spdlog::error("Failed to create surface for window \"{}\". Error code {}.", window->title(), err);
     } else {
         surface->impl_->vk_surface = vk::raii::SurfaceKHR(impl_->instance, vk_surface);
-        window->impl_->surface_handle = window_surfaces_.store(std::move(surface));
+        auto window_surface = std::make_unique<WindowSurfaceResources>();
+        window_surface->surface = surface;
+        window->impl_->surface_handle = impl_->window_surfaces_.store(std::move(window_surface));
         spdlog::info("Created surface for window \"{}\".", window->title(), err);
     }
+}
+
+std::shared_ptr<Surface> Gfx::getWindowSurface(const std::shared_ptr<Window>& window) const {
+    if (!window || !window->impl_->surface_handle || !logical_device_) {
+        return {};
+    }
+    auto& window_surface = impl_->window_surfaces_.get(window->impl_->surface_handle);
+    return window_surface.surface;
 }
 
 } // namespace wg
@@ -151,7 +165,7 @@ namespace wg {
 
 void Gfx::recreateWindowSurfaceResources(const Surface& surface) {
 
-    surface.impl_->resources_handle.reset();
+    surface.impl_->resources.reset();
     auto window = surface.window_.lock();
     if (!window) {
         logger().info("Skip creating resources for surface because window is no longer available.");
@@ -187,7 +201,7 @@ void Gfx::recreateWindowSurfaceResources(const Surface& surface) {
             logical_device_->impl_->vk_device, static_cast<vk::Image>(vk_image), resources->vk_format.format));
     }
 
-    surface.impl_->resources_handle = logical_device_->impl_->surface_resources.store(std::move(resources));
+    surface.impl_->resources = logical_device_->impl_->surface_resources.store(std::move(resources));
 }
 
 } // namespace wg

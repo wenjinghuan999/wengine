@@ -32,7 +32,7 @@ bool Shader::loaded() const {
 }
 
 bool Shader::valid() const {
-    return static_cast<bool>(impl_->resource_handle);
+    return static_cast<bool>(impl_->resources);
 }
 
 } // namespace wg
@@ -103,7 +103,7 @@ void Gfx::createShaderResources(const std::shared_ptr<Shader>& shader) {
         .pName = shader->entry().c_str()
     };
 
-    shader->impl_->resource_handle = logical_device_->impl_->shader_resources.store(std::move(shader_resources));
+    shader->impl_->resources = logical_device_->impl_->shader_resources.store(std::move(shader_resources));
 }
 
 } // namespace wg

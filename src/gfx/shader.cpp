@@ -80,6 +80,12 @@ bool Shader::loadStatic(const std::string& filename, const std::string& entry) {
 }
 
 void Gfx::createShaderResources(const std::shared_ptr<Shader>& shader) {
+    
+    shader->impl_->resources.reset();
+
+    if (!logical_device_) {
+        logger().error("Cannot create shader resources because logical device is not available.");
+    }
     if (!shader->loaded()) {
         logger().warn("Skip creating shader resources because shader \"{}\" is not loaded.",
             shader->filename());

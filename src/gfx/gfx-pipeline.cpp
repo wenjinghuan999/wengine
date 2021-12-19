@@ -29,8 +29,11 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
 
     logger().info("Creating resources for pipeline \"{}\".", pipeline->name());
 
+    if (!logical_device_) {
+        logger().error("Cannot create pipeline resources because logical device is not available.");
+    }
     if (!pipeline->render_target_) {
-        logger().error("Cannot create pipeline resource because render target is not set.");
+        logger().error("Cannot create pipeline resources because render target is not set.");
     }
     
     auto resources = std::make_unique<GfxPipelineResources>();
@@ -38,11 +41,13 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
     // Stages
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
     for (auto& shader : pipeline->shaders()) {
-        shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
-            .stage  = GetShaderStageFlags(shader->stage()),
-            .module = *shader->impl_->resources->get()->shader_module,
-            .pName  = shader->entry().c_str()
-        });
+        if (auto shader_resources = shader->impl_->resources->get()) {
+            shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
+                .stage  = GetShaderStageFlags(shader->stage()),
+                .module = *shader_resources->shader_module,
+                .pName  = shader->entry().c_str()
+            });
+        }
     }
     
     // Vertex factory

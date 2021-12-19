@@ -177,9 +177,13 @@ vk::raii::ImageView CreateImageViewForSurface(
 
 namespace wg {
 
-void Gfx::recreateWindowSurfaceResources(const Surface& surface) {
+void Gfx::createWindowSurfaceResources(const Surface& surface) {
 
     surface.impl_->resources.reset();
+
+    if (!logical_device_) {
+        logger().error("Cannot create window surface resources because logical device is not available.");
+    }
     auto window = surface.window_.lock();
     if (!window) {
         logger().info("Skip creating resources for surface because window is no longer available.");

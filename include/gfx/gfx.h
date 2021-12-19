@@ -51,7 +51,7 @@ public:
 protected:
     explicit Gfx(const App& app);
     // Surface resources
-    void recreateWindowSurfaceResources(const Surface& surface);
+    void createWindowSurfaceResources(const Surface& surface);
 protected:
     struct Impl;
     std::unique_ptr<Impl> impl_;

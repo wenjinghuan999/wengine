@@ -678,7 +678,7 @@ void Gfx::createLogicalDevice() {
 
     // Create swapchains for surfaces
     for (auto& window_surface : impl_->window_surfaces_) {
-        recreateWindowSurfaceResources(*window_surface.surface);
+        createWindowSurfaceResources(*window_surface.surface);
     }
 }
 

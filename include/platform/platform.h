@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/common.h"
+#include "common/math.h"
 
 #include <string>
 #include <memory>
@@ -23,6 +24,7 @@ class Window : public std::enable_shared_from_this<Window> {
 public:
     ~Window();
     [[nodiscard]] const std::string& title() const { return title_; }
+    [[nodiscard]] Extent2D extent() const;
 protected:
     Window(
         int width, int height, std::string title, 

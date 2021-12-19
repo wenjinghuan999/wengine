@@ -5,6 +5,7 @@
 #include "platform/platform.h"
 #include "gfx/surface.h"
 #include "gfx/shader.h"
+#include "gfx/render-target.h"
 #include "gfx/gfx-pipeline.h"
 
 #include <map>
@@ -41,6 +42,9 @@ public:
 
     // Shader
     void createShaderResources(const std::shared_ptr<Shader>& shader);
+
+    // RenderTarget
+    std::shared_ptr<RenderTarget> createRenderTarget(const std::shared_ptr<Window>& window) const;
 
     // GfxPipeline
     void createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline);

@@ -38,13 +38,20 @@ Window::~Window() {
     impl_->surface_handle.reset();
 
     GLFWwindow* glfw_window = impl_->glfw_window;
-    
-    int width = 0, height = 0;
-    glfwGetWindowSize(glfw_window, &width, &height);
+    auto [width, height] = this->extent();
 
     glfwDestroyWindow(glfw_window);
 
     logger().info("Window destroyed: \"{}\"({}x{}).", title_, width, height);
+}
+
+Extent2D Window::extent() const {
+    GLFWwindow* glfw_window = impl_->glfw_window;
+
+    int width = 0, height = 0;
+    glfwGetWindowSize(glfw_window, &width, &height);
+
+    return Extent2D(width, height);
 }
 
 App::App(std::string name, std::tuple<int, int, int> version)

@@ -1,6 +1,7 @@
 #include "platform/platform.h"
 #include "gfx/gfx.h"
 #include "gfx/shader.h"
+#include "gfx/render-target.h"
 #include "gfx/gfx-pipeline.h"
 
 int main(int, char**) {
@@ -17,7 +18,12 @@ int main(int, char**) {
     gfx->createShaderResources(vert_shader);
     gfx->createShaderResources(frag_shader);
 
+    auto render_target = gfx->createRenderTarget(window);
+
     auto pipeline = wg::GfxPipeline::Create("simple");
+    pipeline->setRenderTarget(render_target);
+    pipeline->addShader(vert_shader);
+    pipeline->addShader(frag_shader);
     gfx->createPipelineResources(pipeline);
 
     app.loop();

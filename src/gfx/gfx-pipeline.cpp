@@ -1,7 +1,9 @@
 #include "gfx/gfx.h"
+#include "gfx/gfx-constants.h"
 #include "gfx/gfx-pipeline.h"
 #include "common/logger.h"
 #include "gfx-private.h"
+#include "gfx-constants-private.h"
 #include "gfx-pipeline-private.h"
 
 namespace {
@@ -26,8 +28,22 @@ GfxPipeline::GfxPipeline(std::string name)
 void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) {
 
     logger().info("Creating resources for pipeline \"{}\".", pipeline->name());
+
+    if (!pipeline->render_target_) {
+        logger().error("Cannot create pipeline resource because render target is not set.");
+    }
     
     auto resources = std::make_unique<GfxPipelineResources>();
+
+    // Stages
+    std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
+    for (auto& shader : pipeline->shaders()) {
+        shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
+            .stage  = GetShaderStageFlags(shader->stage()),
+            .module = *shader->impl_->resources->get()->shader_module,
+            .pName  = shader->entry().c_str()
+        });
+    }
     
     // Vertex factory
     std::vector<vk::VertexInputBindingDescription> vertex_bindings;
@@ -42,19 +58,20 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
     };
 
     // Pipeline state
+    auto [width, height] = pipeline->render_target()->extent();
     auto viewport = vk::Viewport{
         .x        = 0.f,
         .y        = 0.f,
-        .width    = 800.f,
-        .height   = 600.f,
+        .width    = static_cast<float>(width),
+        .height   = static_cast<float>(height),
         .minDepth = 0.f,
         .maxDepth = 1.f
     };
     auto viewports = std::array{ viewport };
 
     auto scissor = vk::Rect2D{
-        .offset = {0, 0},
-        .extent = {800u, 600u}
+        .offset = { 0, 0 },
+        .extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) }
     };
     auto scissors = std::array{ scissor };
 
@@ -130,7 +147,56 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
     resources->pipeline_layout = 
         logical_device_->impl_->vk_device.createPipelineLayout(pipeline_layout_create_info);
 
-    pipeline->impl_->resource_handle = 
+    // Render pass
+    auto color_attachment = vk::AttachmentDescription{
+        .format         = gfx_formats::ToVkFormat(pipeline->render_target()->format()),
+        .samples        = vk::SampleCountFlagBits::e1,
+        .loadOp         = vk::AttachmentLoadOp::eClear,
+        .storeOp        = vk::AttachmentStoreOp::eStore,
+        .stencilLoadOp  = vk::AttachmentLoadOp::eDontCare,
+        .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+        .initialLayout  = vk::ImageLayout::eUndefined,
+        .finalLayout    = vk::ImageLayout::ePresentSrcKHR
+    };
+    auto attachments = std::array{ color_attachment };
+
+    auto color_attachment_reference = vk::AttachmentReference{
+        .attachment = 0,
+        .layout = vk::ImageLayout::eColorAttachmentOptimal
+    };
+    auto color_attachments = std::array{ color_attachment_reference };
+
+    auto subpass_description = vk::SubpassDescription{
+        .pipelineBindPoint = vk::PipelineBindPoint::eGraphics
+    }   .setColorAttachments(color_attachments);
+    auto subpasses = std::array{subpass_description};
+
+    auto render_pass_create_info = vk::RenderPassCreateInfo{}
+        .setAttachments(attachments)
+        .setSubpasses(subpasses);
+    
+    resources->render_pass = 
+        logical_device_->impl_->vk_device.createRenderPass(render_pass_create_info);
+    
+    // Pipeline
+    auto pipeline_create_info = vk::GraphicsPipelineCreateInfo{
+        .pVertexInputState   = &vertex_input_create_info,
+        .pInputAssemblyState = &input_assembly_create_info,
+        .pViewportState      = &viewport_create_info,
+        .pRasterizationState = &rasterization_create_info,
+        .pMultisampleState   = &multisample_create_info,
+        .pDepthStencilState  = &depth_stencil_create_info,
+        .pColorBlendState    = &color_blend_create_info,
+        .pDynamicState       = &dynamic_state_create_info,
+        .layout              = *resources->pipeline_layout,
+        .renderPass          = *resources->render_pass,
+        .subpass             = 0,
+    }   .setStages(shader_stages);
+
+    resources->pipeline =
+        logical_device_->impl_->vk_device.createGraphicsPipeline({ nullptr }, pipeline_create_info);
+
+    pipeline->impl_->resources = 
         logical_device_->impl_->pipeline_resources.store(std::move(resources));
     pipeline->valid_ = true;
 }

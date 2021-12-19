@@ -5,6 +5,7 @@
 #include "common/logger.h"
 #include "platform/inc/window-private.h"
 #include "gfx-private.h"
+#include "gfx-constants-private.h"
 #include "surface-private.h"
 
 namespace {
@@ -24,6 +25,20 @@ std::shared_ptr<Surface> Surface::Create(const std::shared_ptr<Window>& window) 
 
 Surface::Surface(const std::shared_ptr<Window>& window)
     : window_(window), impl_(std::make_unique<Surface::Impl>()) {}
+
+Extent2D Surface::extent() const {
+    if (auto* resources = impl_->resources->get()) {
+        return Extent2D(resources->vk_extent.width, resources->vk_extent.height);
+    }
+    return {};
+}
+
+gfx_formats::Format Surface::format() const {
+    if (auto* resources = impl_->resources->get()) {
+        return gfx_formats::FromVkFormat(resources->vk_format.format);
+    }
+    return {};
+}
 
 void Gfx::createWindowSurface(const std::shared_ptr<Window>& window) {
     auto surface = Surface::Create(window);
@@ -60,8 +75,8 @@ std::shared_ptr<Surface> Gfx::getWindowSurface(const std::shared_ptr<Window>& wi
 namespace {
 
 vk::raii::SwapchainKHR CreateSwapchainForSurface(
-    const vk::raii::PhysicalDevice& physical_device, const vk::raii::Device& device, const vk::raii::SurfaceKHR& surface, GLFWwindow* window,
-    uint32_t graphics_family_index, uint32_t present_family_index, vk::SurfaceFormatKHR& out_format, vk::Extent2D out_extent
+    const vk::raii::PhysicalDevice& physical_device, const vk::raii::Device& device, const vk::raii::SurfaceKHR& surface, const wg::Window& window,
+    uint32_t graphics_family_index, uint32_t present_family_index, vk::SurfaceFormatKHR& out_format, vk::Extent2D& out_extent
 ) {
     out_format = [&physical_device, &surface]() {
         auto available_formats = physical_device.getSurfaceFormatsKHR(*surface);
@@ -87,12 +102,11 @@ vk::raii::SwapchainKHR CreateSwapchainForSurface(
         return available_modes[0];
     }();
     auto capabilities = physical_device.getSurfaceCapabilitiesKHR(*surface);
-    out_extent = [&capabilities, window]() {
+    out_extent = [&capabilities, &window]() {
         if (capabilities.currentExtent.width != UINT32_MAX) {
             return capabilities.currentExtent;
         }
-        int width, height;
-        glfwGetFramebufferSize(window, &width, &height);
+        auto [width, height] = window.extent();
 
         vk::Extent2D extent = {
             .width  = static_cast<uint32_t>(width),
@@ -188,7 +202,7 @@ void Gfx::recreateWindowSurfaceResources(const Surface& surface) {
     
     resources->vk_swapchain = CreateSwapchainForSurface(
         physical_device().impl_->vk_physical_device, logical_device_->impl_->vk_device,
-        surface.impl_->vk_surface, window->impl_->glfw_window,
+        surface.impl_->vk_surface, *window,
         graphics_family_index, present_family_index,
         resources->vk_format, resources->vk_extent
     );

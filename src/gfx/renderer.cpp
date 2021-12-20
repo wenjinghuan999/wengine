@@ -1,8 +1,8 @@
 #include "gfx/gfx.h"
-#include "gfx/command-buffer.h"
+#include "gfx/renderer.h"
 #include "common/logger.h"
 #include "gfx-private.h"
-#include "command-buffer-private.h"
+#include "renderer-private.h"
 #include "draw-command-private.h"
 
 namespace {
@@ -16,30 +16,30 @@ namespace {
 
 namespace wg {
 
-std::shared_ptr<CommandBuffer> CommandBuffer::Create(const std::shared_ptr<RenderTarget>& render_target) {
-    return std::shared_ptr<CommandBuffer>(new CommandBuffer(render_target));
+std::shared_ptr<Renderer> Renderer::Create(const std::shared_ptr<RenderTarget>& render_target) {
+    return std::shared_ptr<Renderer>(new Renderer(render_target));
 }
 
-CommandBuffer::CommandBuffer(const std::shared_ptr<RenderTarget>& render_target)
+Renderer::Renderer(const std::shared_ptr<RenderTarget>& render_target)
     : render_target_(render_target), impl_(std::make_unique<Impl>()) {}
 
-void Gfx::commitCommands(const std::shared_ptr<CommandBuffer>& command_buffer) {
+void Gfx::submitDrawCommands(const std::shared_ptr<Renderer>& renderer) {
 
-    command_buffer->impl_->resources.reset();
+    renderer->impl_->resources.reset();
 
     if (!logical_device_) {
         logger().error("Cannot create command buffer resources because logical device is not available.");
     }
 
-    auto [width, height] = command_buffer->render_target()->extent();
-    auto image_views = command_buffer->render_target()->impl_->get_image_views();
-    auto render_target_resources = command_buffer->render_target()->impl_->resources->get();
+    auto [width, height] = renderer->render_target()->extent();
+    auto image_views = renderer->render_target()->impl_->get_image_views();
+    auto render_target_resources = renderer->render_target()->impl_->resources->get();
     if (!render_target_resources) {
         logger().error("Cannot commit draw commands because render target resource has not been created.");
         return;
     }
 
-    auto resources = std::make_unique<CommandBufferResources>();
+    auto resources = std::make_unique<RendererResources>();
 
     // Create command buffers
     auto& queue_info_array = logical_device_->impl_->queues[gfx_queues::graphics];
@@ -81,7 +81,7 @@ void Gfx::commitCommands(const std::shared_ptr<CommandBuffer>& command_buffer) {
         }   .setClearValues(clear_values);
         vk_command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
-        for (auto&& draw_command : command_buffer->draw_commands) {
+        for (auto&& draw_command : renderer->draw_commands) {
             auto pipeline_resources = draw_command->pipeline()->impl_->resources->get();
             if (!pipeline_resources) {
                 logger().warn("Pipeline resources are not available! Draw command is skipped.");
@@ -97,9 +97,9 @@ void Gfx::commitCommands(const std::shared_ptr<CommandBuffer>& command_buffer) {
         vk_command_buffer.end();
     }
 
-    command_buffer->impl_->resources =
-        logical_device_->impl_->command_buffer_resources.store(std::move(resources));
-    command_buffer->ready_ = true;
+    renderer->impl_->resources =
+        logical_device_->impl_->renderer_resources.store(std::move(resources));
+    renderer->ready_ = true;
 }
 
 } // namespace wg

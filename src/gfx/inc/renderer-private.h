@@ -3,17 +3,17 @@
 #include <functional>
 
 #include "platform/inc/platform.inc"
-#include "gfx/command-buffer.h"
+#include "gfx/renderer.h"
 #include "common/owned-resources.h"
 
 namespace wg {
 
-struct CommandBufferResources {
+struct RendererResources {
     std::vector<vk::CommandBuffer> command_buffers;
 };
 
-struct CommandBuffer::Impl {
-    OwnedResourceHandle<CommandBufferResources> resources;
+struct Renderer::Impl {
+    OwnedResourceHandle<RendererResources> resources;
 };
 
 }

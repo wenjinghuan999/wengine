@@ -12,7 +12,7 @@
 #include "gfx/inc/shader-private.h"
 #include "gfx/inc/render-target-private.h"
 #include "gfx/inc/gfx-pipeline-private.h"
-#include "gfx/inc/command-buffer-private.h"
+#include "gfx/inc/renderer-private.h"
 
 namespace {
 
@@ -93,8 +93,8 @@ struct LogicalDevice::Impl {
     OwnedResources<RenderTargetResources> render_target_resources;
     // resources of pipelines (may be accessed by pipeline using OwnedResourcesHandle)
     OwnedResources<GfxPipelineResources> pipeline_resources;
-    // resources of command buffers (may be accessed by command buffer using OwnedResourcesHandle)
-    OwnedResources<CommandBufferResources> command_buffer_resources;
+    // resources of renderers (may be accessed by renderer using OwnedResourcesHandle)
+    OwnedResources<RendererResources> renderer_resources;
     
     explicit Impl(vk::raii::Device vk_device) 
         : vk_device(std::move(vk_device)) {}

@@ -4,7 +4,7 @@
 #include "gfx/render-target.h"
 #include "gfx/gfx-pipeline.h"
 #include "gfx/draw-command.h"
-#include "gfx/command-buffer.h"
+#include "gfx/renderer.h"
 
 int main(int, char**) {
     wg::App app("wegnine-gfx-example", std::make_tuple(0, 0, 1));
@@ -29,9 +29,9 @@ int main(int, char**) {
     gfx->createPipelineResources(pipeline);
 
     auto simple_draw_command = wg::SimpleDrawCommand::Create(pipeline);
-    auto command_buffer = wg::CommandBuffer::Create(render_target);
-    command_buffer->addDrawCommand(simple_draw_command);
-    gfx->commitCommands(command_buffer);
+    auto renderer = wg::Renderer::Create(render_target);
+    renderer->addDrawCommand(simple_draw_command);
+    gfx->submitDrawCommands(renderer);
 
     app.loop();
 

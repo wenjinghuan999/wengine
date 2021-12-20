@@ -7,7 +7,7 @@
 #include "gfx/shader.h"
 #include "gfx/render-target.h"
 #include "gfx/gfx-pipeline.h"
-#include "gfx/command-buffer.h"
+#include "gfx/renderer.h"
 
 #include <map>
 #include <memory>
@@ -51,8 +51,8 @@ public:
     // GfxPipeline
     void createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline);
 
-    // CommandBuffer
-    void commitCommands(const std::shared_ptr<CommandBuffer>& command_buffer);
+    // Renderer
+    void submitDrawCommands(const std::shared_ptr<Renderer>& renderer);
 
 protected:
     explicit Gfx(const App& app);

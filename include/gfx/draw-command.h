@@ -25,9 +25,7 @@ class SimpleDrawCommand : public DrawCommand {
 public:
     static std::shared_ptr<DrawCommand> Create(
         const std::shared_ptr<GfxPipeline>& pipeline
-    ) {
-        return std::shared_ptr<DrawCommand>(new SimpleDrawCommand(pipeline));
-    }
+    );
     virtual ~SimpleDrawCommand() override = default;
 protected:
     explicit SimpleDrawCommand(const std::shared_ptr<GfxPipeline>& pipeline);

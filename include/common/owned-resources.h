@@ -6,11 +6,14 @@
 
 namespace wg {
 
+template <typename T>
+class OwnedResourcesBase;
+
 class OwnedResourceHandleBase : public std::enable_shared_from_this<OwnedResourceHandleBase> {
     template <typename T>
     friend class OwnedResourcesBase;
 public:
-    ~OwnedResourceHandleBase() { on_destroy_(weak_from_this()); }
+    ~OwnedResourceHandleBase() { on_destroy_(this->weak_from_this()); }
 protected:
     OwnedResourceHandleBase() = default;
     std::function<void(const std::weak_ptr<OwnedResourceHandleBase>&)> on_destroy_;
@@ -24,7 +27,7 @@ class OwnedResourceHandleBaseTyped : public OwnedResourceHandleBase {
 public:
     [[nodiscard]] T* get() {
         if (auto resources = resources_.lock()) {
-            auto it = resources->resources_.find(weak_from_this());
+            auto it = resources->resources_.find(this->weak_from_this());
             if (it != resources->resources_.end()) {
                 return it->second.get();
             }
@@ -32,7 +35,7 @@ public:
         return nullptr;
     }
     [[nodiscard]] const T* get() const {
-        return const_cast<OwnedResourceHandle<T>*>(this)->get();
+        return const_cast<OwnedResourceHandleBaseTyped<T>*>(this)->get();
     }
 protected:
     std::weak_ptr<class OwnedResourcesBase<T>> resources_;
@@ -60,11 +63,11 @@ protected:
                 }
             }
         };
-        handle->resources_ = weak_from_this();
+        handle->resources_ = this->weak_from_this();
         return handle;
     }
     OwnedResourceHandleUntyped storeUntyped(std::unique_ptr<T>&& resource) {
-        auto handle = OwnedResourceHandle(new OwnedResourceHandleBase());
+        auto handle = OwnedResourceHandleUntyped(new OwnedResourceHandleBase());
         resources_[handle] = std::move(resource);
         handle->on_destroy_ = [weak_this=this->weak_from_this()](const std::weak_ptr<OwnedResourceHandleBase>& weak_handle) {
             if (auto shared_this = weak_this.lock()) {

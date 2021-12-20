@@ -18,6 +18,12 @@ namespace wg {
 DrawCommand::DrawCommand(const std::shared_ptr<GfxPipeline>& pipeline)
     : pipeline_(pipeline), impl_(std::make_unique<Impl>()) {}
 
+std::shared_ptr<DrawCommand> SimpleDrawCommand::Create(
+    const std::shared_ptr<GfxPipeline>& pipeline
+) {
+    return std::shared_ptr<DrawCommand>(new SimpleDrawCommand(pipeline));
+}
+
 SimpleDrawCommand::SimpleDrawCommand(const std::shared_ptr<GfxPipeline>& pipeline)
     : DrawCommand(pipeline) {
     

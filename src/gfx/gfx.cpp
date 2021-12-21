@@ -359,6 +359,10 @@ Gfx::Gfx(const App& app)
 }
 
 Gfx::~Gfx() {
+    if (logical_device_) {
+        logger().info("Waiting for device idle.");
+        logical_device_->impl_->vk_device.waitIdle();
+    }
     logger().info("Destroying gfx.");
 }
 

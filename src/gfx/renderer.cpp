@@ -71,8 +71,8 @@ void Gfx::submitDrawCommands(const std::shared_ptr<Renderer>& renderer) {
                 continue;
             }
 
+            resources->pipelines.push_back(draw_command->pipeline());
             vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline_resources->pipeline);
-
             draw_command->impl_->draw(vk_command_buffer);
         }
 

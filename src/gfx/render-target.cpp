@@ -86,7 +86,10 @@ void RenderTargetSurface::finishImage(int image_index) {
                 .setImageIndices(image_indices);
             
             auto* present_queue = resources->queues[1];
-            present_queue->vk_queue.presentKHR(present_info);
+            auto result = present_queue->vk_queue.presentKHR(present_info);
+            if (result != vk::Result::eSuccess) {
+                logger().error("Present error: {}.", vk::to_string(result));
+            }
         }
     }
 }

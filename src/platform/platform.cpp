@@ -70,7 +70,7 @@ std::string App::version_string() const {
     return fmt::format("v{}.{}.{}", major_version(), minor_version(), patch_version());
 }
 
-void App::loop() {
+void App::loop(const std::function<void()>& func) {
     logger().info("Event loop start.");
 
     while (!windows_.empty()) {
@@ -85,6 +85,8 @@ void App::loop() {
         if (windows_.empty()) {
             break;
         }
+
+        func();
 
         glfwPollEvents();
     }

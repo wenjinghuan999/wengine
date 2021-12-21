@@ -60,7 +60,7 @@ int RenderTargetSurface::acquireImage() {
             auto [result, image_index] = (**resources->device).acquireNextImageKHR(
                 *surface_resources->vk_swapchain,
                 UINT64_MAX,
-                *resources->image_available_semaphore
+                *resources->image_available_semaphores[resources->current_image_index]
             );
             if (result == vk::Result::eSuccess) {
                 return static_cast<int>(image_index);
@@ -77,7 +77,7 @@ void RenderTargetSurface::finishImage(int image_index) {
             return;
         }
         if (auto* resources = impl_->resources.get()) {
-            auto wait_semaphores = std::array{ *resources->render_finished_semaphore };
+            auto wait_semaphores = std::array{ *resources->render_finished_semaphores[resources->current_image_index] };
             auto swapchains = std::array{ *surfaces_resources->vk_swapchain };
             auto image_indices = std::array{ static_cast<uint32_t>(image_index) };
             auto present_info = vk::PresentInfoKHR{}
@@ -90,6 +90,7 @@ void RenderTargetSurface::finishImage(int image_index) {
             if (result != vk::Result::eSuccess) {
                 logger().error("Present error: {}.", vk::to_string(result));
             }
+            resources->current_image_index = (resources->current_image_index + 1) % resources->image_available_semaphores.size();
         }
     }
 }
@@ -179,9 +180,14 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
         }
     }
 
-    // Semaphores
-    resources->image_available_semaphore = logical_device_->impl_->vk_device.createSemaphore({});
-    resources->render_finished_semaphore = logical_device_->impl_->vk_device.createSemaphore({});
+    // Semaphores & fences
+    for (auto&& image_view : image_views) {
+        resources->image_available_semaphores.emplace_back(logical_device_->impl_->vk_device.createSemaphore({}));
+        resources->render_finished_semaphores.emplace_back(logical_device_->impl_->vk_device.createSemaphore({}));
+        resources->image_idle_fences.emplace_back(logical_device_->impl_->vk_device.createFence({
+            .flags = vk::FenceCreateFlagBits::eSignaled
+        }));
+    }
 
     // Command buffers
     if (resources->graphics_queue) {
@@ -212,17 +218,25 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target)
 
     auto* resources = render_target->impl_->resources.get();
     
-    auto wait_semaphores = std::array{ *resources->image_available_semaphore };
+    auto image_index = render_target->acquireImage();
+    auto result = logical_device_->impl_->vk_device.waitForFences(
+        { *resources->image_idle_fences[image_index] }, true, UINT64_MAX);
+    if (result != vk::Result::eSuccess) {
+        logger().error("Wait for fence error: {}", vk::to_string(result));
+    }
+
+    auto wait_semaphores = std::array{ *resources->image_available_semaphores[resources->current_image_index] };
     auto wait_stages = std::array<vk::PipelineStageFlags, 1>{
         vk::PipelineStageFlagBits::eColorAttachmentOutput
     };
-    auto image_index = render_target->acquireImage();
     if (image_index < 0 || image_index >= int(resources->command_buffers.size())) {
         logger().error("Cannot render because render target returned invalid image index.");
         return;
     }
     auto command_buffers = std::array{ resources->command_buffers[image_index] }; // use copy (not raii)
-    auto signal_semaphores = std::array{ *resources->render_finished_semaphore };
+    auto signal_semaphores = std::array{ *resources->render_finished_semaphores[resources->current_image_index] };
+    auto fence = *resources->image_idle_fences[image_index];
+    logical_device_->impl_->vk_device.resetFences({ fence });
 
     auto submit_info = vk::SubmitInfo{
     }   .setWaitSemaphores(wait_semaphores)
@@ -231,7 +245,7 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target)
         .setSignalSemaphores(signal_semaphores);
     
     if (resources->graphics_queue) {
-        resources->graphics_queue->vk_queue.submit({ submit_info });
+        resources->graphics_queue->vk_queue.submit({ submit_info }, fence);
     } else {
         logger().error("Cannot render because no graphics queue has been assigned to render target.");
         return;

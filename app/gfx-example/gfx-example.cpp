@@ -33,8 +33,9 @@ int main(int, char**) {
     renderer->addDrawCommand(simple_draw_command);
     gfx->submitDrawCommands(renderer);
 
-    gfx->render(render_target);
-    app.loop();
+    app.loop([&gfx, &render_target]() {
+        gfx->render(render_target);
+    });
 
     return 0;
 }

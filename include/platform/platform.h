@@ -3,6 +3,7 @@
 #include "common/common.h"
 #include "common/math.h"
 
+#include <functional>
 #include <string>
 #include <memory>
 #include <vector>
@@ -42,7 +43,7 @@ protected:
 class App : IMovable {
 public:
     App(std::string name, std::tuple<int, int, int> version);
-    void loop();
+    void loop(const std::function<void()>& func);
     ~App() override;
 
     [[nodiscard]] const std::string& name() const { return name_; }

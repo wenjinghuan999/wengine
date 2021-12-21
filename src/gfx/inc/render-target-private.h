@@ -14,14 +14,16 @@ namespace wg {
 struct RenderTargetResources {
     vk::raii::RenderPass render_pass{nullptr};
     std::vector<vk::raii::Framebuffer> framebuffers;
-    vk::raii::Semaphore image_available_semaphore{nullptr};
-    vk::raii::Semaphore render_finished_semaphore{nullptr};
+    std::vector<vk::raii::Semaphore> image_available_semaphores;
+    std::vector<vk::raii::Semaphore> render_finished_semaphores;
+    std::vector<vk::raii::Fence> image_idle_fences;
     std::vector<std::shared_ptr<GfxPipeline>> pipelines;
     std::vector<vk::CommandBuffer> command_buffers;
 
     vk::raii::Device* device{nullptr};
     std::vector<QueueInfo*> queues;
     QueueInfo* graphics_queue{nullptr};
+    int current_image_index{0};
 
     ~RenderTargetResources() {
         // handle manually for better performance

@@ -8,12 +8,7 @@
 
 namespace wg {
 
-struct RendererResources {
-    std::vector<vk::CommandBuffer> command_buffers;
-};
-
 struct Renderer::Impl {
-    OwnedResourceHandle<RendererResources> resources;
 };
 
 }

@@ -8,6 +8,10 @@ namespace wg {
 
 template <typename T>
 class OwnedResourcesBase;
+template <typename T>
+class OwnedResourceHandle;
+template <typename T>
+class OwnedResourceWeakHandle;
 
 class OwnedResourceHandleBase : public std::enable_shared_from_this<OwnedResourceHandleBase> {
     template <typename T>
@@ -20,14 +24,26 @@ protected:
 };
 
 using OwnedResourceHandleUntyped = std::shared_ptr<OwnedResourceHandleBase>;
+using OwnedResourceWeakHandleUntyped = std::weak_ptr<OwnedResourceHandleBase>;
 
 template <typename T>
 class OwnedResourceHandleBaseTyped : public OwnedResourceHandleBase {
     friend class OwnedResourcesBase<T>;
+    friend class OwnedResourceHandle<T>;
+    friend class OwnedResourceWeakHandle<T>;
+protected:
+    std::weak_ptr<class OwnedResourcesBase<T>> resources_;
+};
+
+template <typename T>
+class OwnedResourceHandle : public std::shared_ptr<OwnedResourceHandleBaseTyped<T>> {
 public:
+    using base = std::shared_ptr<OwnedResourceHandleBaseTyped<T>>;
+    OwnedResourceHandle() : base() {}
+    explicit OwnedResourceHandle(OwnedResourceHandleBaseTyped<T>* ptr) : base(ptr) {}
     [[nodiscard]] T* get() {
-        if (auto resources = resources_.lock()) {
-            auto it = resources->resources_.find(this->weak_from_this());
+        if (auto resources = base::get()->resources_.lock()) {
+            auto it = resources->resources_.find(base::get()->weak_from_this());
             if (it != resources->resources_.end()) {
                 return it->second.get();
             }
@@ -37,12 +53,29 @@ public:
     [[nodiscard]] const T* get() const {
         return const_cast<OwnedResourceHandleBaseTyped<T>*>(this)->get();
     }
-protected:
-    std::weak_ptr<class OwnedResourcesBase<T>> resources_;
 };
 
 template <typename T>
-using OwnedResourceHandle = std::shared_ptr<OwnedResourceHandleBaseTyped<T>>;
+class OwnedResourceWeakHandle : public std::weak_ptr<OwnedResourceHandleBaseTyped<T>> {
+public:    
+    using base = std::weak_ptr<OwnedResourceHandleBaseTyped<T>>;
+    OwnedResourceWeakHandle() : base() {}
+    explicit OwnedResourceWeakHandle(const OwnedResourceHandle<T>& handle) : base(handle) {}
+    [[nodiscard]] T* get() {
+        if (auto shared = this->lock()) {
+            if (auto resources = shared->resources_.lock()) {
+                auto it = resources->resources_.find(*this);
+                if (it != resources->resources_.end()) {
+                    return it->second.get();
+                }
+            }
+        }
+        return nullptr;
+    }
+    [[nodiscard]] const T* get() const {
+        return const_cast<OwnedResourceWeakHandle<T>*>(this)->get();
+    }
+};
 
 template <typename T>
 class OwnedResources;
@@ -51,7 +84,8 @@ template <typename T>
 class OwnedResourcesBase : public std::enable_shared_from_this<OwnedResourcesBase<T>> {
 protected:
     friend class OwnedResources<T>;
-    friend class OwnedResourceHandleBaseTyped<T>;
+    friend class OwnedResourceHandle<T>;
+    friend class OwnedResourceWeakHandle<T>;
     OwnedResourceHandle<T> store(std::unique_ptr<T>&& resource) {
         auto handle = OwnedResourceHandle<T>(new OwnedResourceHandleBaseTyped<T>());
         resources_[handle] = std::move(resource);

@@ -9,4 +9,15 @@ namespace gfx_formats {
     }
 }
 
+namespace gfx_queues {
+
+const char* const QUEUE_NAMES[NUM_QUEUES] = {
+    "graphics",
+    "present",
+    "transfer",
+    "compute"
+};
+
+}
+
 } // namespace wg

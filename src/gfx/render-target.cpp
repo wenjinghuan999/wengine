@@ -38,18 +38,57 @@ RenderTargetSurface::RenderTargetSurface(const std::shared_ptr<Surface>& surface
     : surface_(surface) {
     
     impl_ = std::make_unique<Impl>();
-    impl_->get_image_views = [weak_surface=std::weak_ptr<Surface>(surface_)]() {
+    impl_->get_image_views = [
+            weak_surface_resources=OwnedResourceWeakHandle<SurfaceResources>(surface_->impl_->resources)
+        ]() {
         std::vector<vk::ImageView> image_views;
-        if (auto surface = weak_surface.lock()) {
-            if (auto resources = surface->impl_->resources->get()) {
-                image_views.reserve(resources->vk_image_views.size());
-                for (auto& vk_image_view : resources->vk_image_views) {
-                    image_views.push_back(*vk_image_view);
-                }
+        if (auto* resources = weak_surface_resources.get()) {
+            image_views.reserve(resources->vk_image_views.size());
+            for (auto& vk_image_view : resources->vk_image_views) {
+                image_views.push_back(*vk_image_view);
             }
         }
         return image_views;
     };
+}
+
+int RenderTargetSurface::acquireImage() {
+    if (auto* surface_resources = surface_->impl_->resources.get()) {
+        if (auto* resources = impl_->resources.get()) {
+            // Use acquireNextImageKHR instead of acquireNextImage2KHR
+            // before figuring out how to use device mask properly
+            auto [result, image_index] = (**resources->device).acquireNextImageKHR(
+                *surface_resources->vk_swapchain,
+                UINT64_MAX,
+                *resources->image_available_semaphore
+            );
+            if (result == vk::Result::eSuccess) {
+                return static_cast<int>(image_index);
+            }
+        }
+    }
+    return -1;
+}
+
+void RenderTargetSurface::finishImage(int image_index) {
+    if (auto* surfaces_resources = surface_->impl_->resources.get()) {
+        if (image_index < 0 || image_index > static_cast<int>(surfaces_resources->vk_image_views.size())) {
+            logger().error("Cannot finish image because image index is invalid.");
+            return;
+        }
+        if (auto* resources = impl_->resources.get()) {
+            auto wait_semaphores = std::array{ *resources->render_finished_semaphore };
+            auto swapchains = std::array{ *surfaces_resources->vk_swapchain };
+            auto image_indices = std::array{ static_cast<uint32_t>(image_index) };
+            auto present_info = vk::PresentInfoKHR{}
+                .setWaitSemaphores(wait_semaphores)
+                .setSwapchains(swapchains)
+                .setImageIndices(image_indices);
+            
+            auto* present_queue = resources->queues[1];
+            present_queue->vk_queue.presentKHR(present_info);
+        }
+    }
 }
 
 void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& render_target) {
@@ -64,6 +103,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     auto image_views = render_target->impl_->get_image_views();
 
     auto resources = std::make_unique<RenderTargetResources>();
+    resources->device = &logical_device_->impl_->vk_device;
     
     // Render pass
     auto color_attachment = vk::AttachmentDescription{
@@ -80,7 +120,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 
     auto color_attachment_reference = vk::AttachmentReference{
         .attachment = 0,
-        .layout = vk::ImageLayout::eColorAttachmentOptimal
+        .layout     = vk::ImageLayout::eColorAttachmentOptimal
     };
     auto color_attachments = std::array{ color_attachment_reference };
 
@@ -88,10 +128,21 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
         .pipelineBindPoint = vk::PipelineBindPoint::eGraphics
     }   .setColorAttachments(color_attachments);
     auto subpasses = std::array{subpass_description};
+    auto dependencies = std::array{
+        vk::SubpassDependency{
+            .srcSubpass    = VK_SUBPASS_EXTERNAL,
+            .dstSubpass    = 0,
+            .srcStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            .dstStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            .srcAccessMask = {},
+            .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite
+        }
+    };
 
     auto render_pass_create_info = vk::RenderPassCreateInfo{}
         .setAttachments(attachments)
-        .setSubpasses(subpasses);
+        .setSubpasses(subpasses)
+        .setDependencies(dependencies);
     
     resources->render_pass = 
         logical_device_->impl_->vk_device.createRenderPass(render_pass_create_info);
@@ -104,14 +155,86 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
             .renderPass = *resources->render_pass,
             .width      = static_cast<uint32_t>(width),
             .height     = static_cast<uint32_t>(height),
-            .layers      = 1
+            .layers     = 1
         }   .setAttachments(render_target_attachments);
         resources->framebuffers.emplace_back(
             logical_device_->impl_->vk_device.createFramebuffer(framebuffer_create_info));
     }
 
+    // Queues
+    for (auto queue_id : render_target->queues()) {
+        auto& queue_info_array = logical_device_->impl_->queues[queue_id];
+        if (!queue_info_array.empty()) {
+            auto& queue_info = queue_info_array[0]; // Choose first for now
+            resources->queues.push_back(queue_info.get());
+            if (queue_id == gfx_queues::graphics && !resources->graphics_queue) {
+                resources->graphics_queue = queue_info.get();
+            }
+        } else {
+            logger().error("Cannot get queue \"{}\" from device.", 
+                gfx_queues::QUEUE_NAMES[queue_id]);
+        }
+    }
+
+    // Semaphores
+    resources->image_available_semaphore = logical_device_->impl_->vk_device.createSemaphore({});
+    resources->render_finished_semaphore = logical_device_->impl_->vk_device.createSemaphore({});
+
+    // Command buffers
+    if (resources->graphics_queue) {
+        resources->command_buffers.resize(image_views.size());
+        auto command_buffer_allocate_info = vk::CommandBufferAllocateInfo{
+            .commandPool = *resources->graphics_queue->vk_command_pool,
+            .level = vk::CommandBufferLevel::ePrimary,
+            .commandBufferCount = static_cast<uint32_t>(image_views.size())
+        };
+        // Do not use vk::raii::CommandBuffer because there might be compile errors on MSVC
+        // Since we are allocating from the pool, we can destruct command buffers together.
+        resources->command_buffers = 
+            (*logical_device_->impl_->vk_device).allocateCommandBuffers(command_buffer_allocate_info);
+    } else {
+        logger().error("Cannot allocate command buffer because no graphics queue has been assigned to render target.");
+    }
+
     render_target->impl_->resources = 
         logical_device_->impl_->render_target_resources.store(std::move(resources));
+}
+
+void Gfx::render(const std::shared_ptr<RenderTarget>& render_target)
+{
+    if (!render_target->ready()) {
+        logger().error("Render target not ready to render!");
+        return;
+    }
+
+    auto* resources = render_target->impl_->resources.get();
+    
+    auto wait_semaphores = std::array{ *resources->image_available_semaphore };
+    auto wait_stages = std::array<vk::PipelineStageFlags, 1>{
+        vk::PipelineStageFlagBits::eColorAttachmentOutput
+    };
+    auto image_index = render_target->acquireImage();
+    if (image_index < 0 || image_index >= int(resources->command_buffers.size())) {
+        logger().error("Cannot render because render target returned invalid image index.");
+        return;
+    }
+    auto command_buffers = std::array{ resources->command_buffers[image_index] }; // use copy (not raii)
+    auto signal_semaphores = std::array{ *resources->render_finished_semaphore };
+
+    auto submit_info = vk::SubmitInfo{
+    }   .setWaitSemaphores(wait_semaphores)
+        .setWaitDstStageMask(wait_stages)
+        .setCommandBuffers(command_buffers)
+        .setSignalSemaphores(signal_semaphores);
+    
+    if (resources->graphics_queue) {
+        resources->graphics_queue->vk_queue.submit({ submit_info });
+    } else {
+        logger().error("Cannot render because no graphics queue has been assigned to render target.");
+        return;
+    }
+
+    render_target->finishImage(image_index);
 }
 
 } // namespace wg

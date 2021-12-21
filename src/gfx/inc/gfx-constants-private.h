@@ -17,4 +17,26 @@ namespace gfx_formats {
 
 } // namespace gfx_formats
 
+[[nodiscard]] inline vk::QueueFlags GetRequiredQueueFlags(wg::gfx_queues::QueueId queue_id) {
+    switch (queue_id)
+    {
+    case wg::gfx_queues::graphics:
+    case wg::gfx_queues::present:
+        return vk::QueueFlagBits::eGraphics;
+    case wg::gfx_queues::transfer:
+        return vk::QueueFlagBits::eTransfer;
+    case wg::gfx_queues::compute:
+        return vk::QueueFlagBits::eCompute;
+    default:
+        return {};
+    }
+}
+
+struct QueueInfo {
+    uint32_t queue_family_index{};
+    uint32_t queue_index_in_family{};
+    vk::raii::Queue vk_queue{nullptr};
+    vk::raii::CommandPool vk_command_pool{nullptr};
+};
+
 } // namespace wg

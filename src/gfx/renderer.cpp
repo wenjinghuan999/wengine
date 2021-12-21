@@ -25,38 +25,21 @@ Renderer::Renderer(const std::shared_ptr<RenderTarget>& render_target)
 
 void Gfx::submitDrawCommands(const std::shared_ptr<Renderer>& renderer) {
 
-    renderer->impl_->resources.reset();
-
     if (!logical_device_) {
-        logger().error("Cannot create command buffer resources because logical device is not available.");
+        logger().error("Cannot create submit draw commands because logical device is not available.");
     }
 
     auto [width, height] = renderer->render_target()->extent();
     auto image_views = renderer->render_target()->impl_->get_image_views();
-    auto render_target_resources = renderer->render_target()->impl_->resources->get();
-    if (!render_target_resources) {
-        logger().error("Cannot commit draw commands because render target resource has not been created.");
+    auto* resources = renderer->render_target()->impl_->resources.get();
+    if (!resources) {
+        logger().error("Cannot submit draw commands because render target resource has not been created.");
         return;
     }
-
-    auto resources = std::make_unique<RendererResources>();
-
-    // Create command buffers
-    auto& queue_info_array = logical_device_->impl_->queues[gfx_queues::graphics];
-    if (!queue_info_array.empty()) {
-        auto& queue_info = queue_info_array[0]; // Choose first for now
-        resources->command_buffers.resize(image_views.size());
-        auto command_buffer_allocate_info = vk::CommandBufferAllocateInfo{
-            .commandPool = *queue_info->vk_command_pool,
-            .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = static_cast<uint32_t>(image_views.size())
-        };
-        // Do not use vk::raii::CommandBuffer because there might be compile errors on MSVC
-        // Since we are allocating from the pool, we don't want to destruct the command buffer anyways.
-        resources->command_buffers = 
-            (*logical_device_->impl_->vk_device).allocateCommandBuffers(command_buffer_allocate_info);
-    } else {
-        logger().error("Cannot allocate command buffer because graphics queue has no command pool.");
+    if (resources->command_buffers.size() != resources->framebuffers.size() ||
+        resources->command_buffers.size() != image_views.size()) {
+        logger().error("Cannot submit draw commands because command buffer count does not match framebuffer/image view count.");
+        return;
     }
 
     // Record commands
@@ -72,8 +55,8 @@ void Gfx::submitDrawCommands(const std::shared_ptr<Renderer>& renderer) {
             .color = { .float32 = std::array{ 0.f, 0.f, 0.f, 1.f } }
             } };
         auto render_pass_begin_info = vk::RenderPassBeginInfo{
-            .renderPass  = *render_target_resources->render_pass,
-            .framebuffer = *render_target_resources->framebuffers[i],
+            .renderPass  = *resources->render_pass,
+            .framebuffer = *resources->framebuffers[i],
             .renderArea  = {
                 .offset  = { 0, 0 },
                 .extent  = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) }
@@ -82,7 +65,7 @@ void Gfx::submitDrawCommands(const std::shared_ptr<Renderer>& renderer) {
         vk_command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
         for (auto&& draw_command : renderer->draw_commands) {
-            auto pipeline_resources = draw_command->pipeline()->impl_->resources->get();
+            auto* pipeline_resources = draw_command->pipeline()->impl_->resources.get();
             if (!pipeline_resources) {
                 logger().warn("Pipeline resources are not available! Draw command is skipped.");
                 continue;
@@ -97,9 +80,7 @@ void Gfx::submitDrawCommands(const std::shared_ptr<Renderer>& renderer) {
         vk_command_buffer.end();
     }
 
-    renderer->impl_->resources =
-        logical_device_->impl_->renderer_resources.store(std::move(resources));
-    renderer->ready_ = true;
+    renderer->render_target()->ready_ = true;
 }
 
 } // namespace wg

@@ -47,6 +47,7 @@ public:
     // RenderTarget
     std::shared_ptr<RenderTarget> createRenderTarget(const std::shared_ptr<Window>& window);
     void createRenderTargetResources(const std::shared_ptr<RenderTarget>& render_target);
+    void render(const std::shared_ptr<RenderTarget>& render_target);
 
     // GfxPipeline
     void createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline);
@@ -99,17 +100,6 @@ namespace gfx_features {
         NUM_FEATURES_TOTAL
     };
     extern const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL];
-}
-
-namespace gfx_queues {
-    enum QueueId {
-        graphics,
-        present,
-        transfer,
-        compute,
-        NUM_QUEUES
-    };
-    extern const char* const QUEUE_NAMES[NUM_QUEUES];
 }
 
 class GfxFeaturesManager : public Singleton<GfxFeaturesManager> {

@@ -13,18 +13,16 @@ public:
     [[nodiscard]] static std::shared_ptr<Renderer> Create(const std::shared_ptr<RenderTarget>& render_target);
     [[nodiscard]] std::shared_ptr<RenderTarget> render_target() const { return render_target_; }
      // Indicates that command buffer is ready to be drawn
-    [[nodiscard]] bool ready() const { return ready_; }
     void addDrawCommand(const std::shared_ptr<DrawCommand> draw_command) {
         draw_commands.push_back(draw_command);
-        ready_ = false;
+        render_target()->markDirty();
     }
     void clearDrawCommands() {
         draw_commands.clear();
-        ready_ = false;
+        render_target()->markDirty();
     }
     ~Renderer() = default;
 protected:
-    bool ready_{false};
     std::shared_ptr<RenderTarget> render_target_;
     std::vector<std::shared_ptr<DrawCommand>> draw_commands;
 protected:

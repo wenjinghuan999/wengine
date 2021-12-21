@@ -2,6 +2,17 @@
 
 namespace wg {
 
+namespace gfx_queues {
+    enum QueueId {
+        graphics,
+        present,
+        transfer,
+        compute,
+        NUM_QUEUES
+    };
+    extern const char* const QUEUE_NAMES[NUM_QUEUES];
+}
+
 namespace gfx_formats {
     enum Format {
         none                                    = 0,

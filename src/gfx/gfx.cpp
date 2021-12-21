@@ -27,16 +27,6 @@ const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL] = {
 
 }
 
-namespace gfx_queues {
-
-const char* const QUEUE_NAMES[NUM_QUEUES] = {
-    "graphics",
-    "present",
-    "transfer",
-    "compute"
-};
-
-}
 }
 
 namespace {

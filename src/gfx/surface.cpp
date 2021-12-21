@@ -27,14 +27,14 @@ Surface::Surface(const std::shared_ptr<Window>& window)
     : window_(window), impl_(std::make_unique<Surface::Impl>()) {}
 
 Extent2D Surface::extent() const {
-    if (auto* resources = impl_->resources->get()) {
+    if (auto* resources = impl_->resources.get()) {
         return Extent2D(resources->vk_extent.width, resources->vk_extent.height);
     }
     return {};
 }
 
 gfx_formats::Format Surface::format() const {
-    if (auto* resources = impl_->resources->get()) {
+    if (auto* resources = impl_->resources.get()) {
         return gfx_formats::FromVkFormat(resources->vk_format.format);
     }
     return {};

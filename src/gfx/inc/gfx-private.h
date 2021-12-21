@@ -14,25 +14,6 @@
 #include "gfx/inc/gfx-pipeline-private.h"
 #include "gfx/inc/renderer-private.h"
 
-namespace {
-
-[[nodiscard]] inline vk::QueueFlags GetRequiredQueueFlags(wg::gfx_queues::QueueId queue_id) {
-    switch (queue_id)
-    {
-    case wg::gfx_queues::graphics:
-    case wg::gfx_queues::present:
-        return vk::QueueFlagBits::eGraphics;
-    case wg::gfx_queues::transfer:
-        return vk::QueueFlagBits::eTransfer;
-    case wg::gfx_queues::compute:
-        return vk::QueueFlagBits::eCompute;
-    default:
-        return {};
-    }
-}
-
-}
-
 namespace wg {
 
 struct WindowSurfaceResources {
@@ -73,13 +54,6 @@ struct PhysicalDevice::Impl {
     }
 };
 
-struct QueueInfo {
-    uint32_t queue_family_index{};
-    uint32_t queue_index_in_family{};
-    vk::raii::Queue vk_queue{nullptr};
-    vk::raii::CommandPool vk_command_pool{nullptr};
-};
-
 struct LogicalDevice::Impl {
     vk::raii::Device vk_device;
     // queues[queue_id][queue_index] = <queue_family_index, vk_queue, vk_command_poll>
@@ -93,8 +67,6 @@ struct LogicalDevice::Impl {
     OwnedResources<RenderTargetResources> render_target_resources;
     // resources of pipelines (may be accessed by pipeline using OwnedResourcesHandle)
     OwnedResources<GfxPipelineResources> pipeline_resources;
-    // resources of renderers (may be accessed by renderer using OwnedResourcesHandle)
-    OwnedResources<RendererResources> renderer_resources;
     
     explicit Impl(vk::raii::Device vk_device) 
         : vk_device(std::move(vk_device)) {}

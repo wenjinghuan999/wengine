@@ -40,7 +40,7 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
         return;
     }
     
-    auto render_target_resources = pipeline->render_target()->impl_->resources->get();
+    auto* render_target_resources = pipeline->render_target()->impl_->resources.get();
     if (!render_target_resources) {
         logger().error("Cannot create pipeline because render target resources are not available.");
         return;
@@ -51,7 +51,7 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
     // Stages
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
     for (auto& shader : pipeline->shaders()) {
-        if (auto shader_resources = shader->impl_->resources->get()) {
+        if (auto* shader_resources = shader->impl_->resources.get()) {
             shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
                 .stage  = GetShaderStageFlags(shader->stage()),
                 .module = *shader_resources->shader_module,

@@ -38,27 +38,28 @@ public:
     [[nodiscard]] const PhysicalDevice& physical_device() const { return *physical_devices_[current_physical_device_index_]; }
     [[nodiscard]] bool physical_device_valid() const;
 
+    // Surface resources
+    void createWindowSurfaceResources(const std::shared_ptr<Surface>& surface);
+
     // Logical device
     void createLogicalDevice();
 
     // Shader
     void createShaderResources(const std::shared_ptr<Shader>& shader);
 
+    // GfxPipeline
+    void createPipelineResources(
+        const std::shared_ptr<RenderTarget>& render_target,
+        const std::shared_ptr<GfxPipeline>& pipeline);
+
     // RenderTarget
     std::shared_ptr<RenderTarget> createRenderTarget(const std::shared_ptr<Window>& window);
     void createRenderTargetResources(const std::shared_ptr<RenderTarget>& render_target);
+    void submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target);
     void render(const std::shared_ptr<RenderTarget>& render_target);
-
-    // GfxPipeline
-    void createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline);
-
-    // Renderer
-    void submitDrawCommands(const std::shared_ptr<Renderer>& renderer);
 
 protected:
     explicit Gfx(const App& app);
-    // Surface resources
-    void createWindowSurfaceResources(const Surface& surface);
 protected:
     struct Impl;
     std::unique_ptr<Impl> impl_;

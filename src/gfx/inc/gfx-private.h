@@ -11,7 +11,6 @@
 #include "gfx/inc/surface-private.h"
 #include "gfx/inc/shader-private.h"
 #include "gfx/inc/render-target-private.h"
-#include "gfx/inc/gfx-pipeline-private.h"
 #include "gfx/inc/renderer-private.h"
 
 namespace wg {
@@ -65,8 +64,6 @@ struct LogicalDevice::Impl {
     OwnedResources<ShaderResources> shader_resources;
     // resources of render targets (may be accessed by render target using OwnedResourcesHandle)
     OwnedResources<RenderTargetResources> render_target_resources;
-    // resources of pipelines (may be accessed by pipeline using OwnedResourcesHandle)
-    OwnedResources<GfxPipelineResources> pipeline_resources;
     
     explicit Impl(vk::raii::Device vk_device) 
         : vk_device(std::move(vk_device)) {}

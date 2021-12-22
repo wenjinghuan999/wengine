@@ -16,14 +16,13 @@ namespace {
 
 namespace wg {
 
-std::shared_ptr<Renderer> Renderer::Create(const std::shared_ptr<RenderTarget>& render_target) {
-    return std::shared_ptr<Renderer>(new Renderer(render_target));
+std::shared_ptr<Renderer> Renderer::Create() {
+    return std::shared_ptr<Renderer>(new Renderer());
 }
 
-Renderer::Renderer(const std::shared_ptr<RenderTarget>& render_target)
-    : render_target_(render_target), impl_(std::make_unique<Impl>()) {}
+Renderer::Renderer() {}
 
-void Gfx::submitDrawCommands(const std::shared_ptr<Renderer>& renderer) {
+void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target) {
 
     if (!logical_device_) {
         logger().error("Cannot create submit draw commands because logical device is not available.");
@@ -31,9 +30,9 @@ void Gfx::submitDrawCommands(const std::shared_ptr<Renderer>& renderer) {
     }
     logical_device_->impl_->vk_device.waitIdle();
 
-    auto [width, height] = renderer->render_target()->extent();
-    auto image_views = renderer->render_target()->impl_->get_image_views();
-    auto* resources = renderer->render_target()->impl_->resources.get();
+    auto [width, height] = render_target->extent();
+    auto image_views = render_target->impl_->get_image_views();
+    auto* resources = render_target->impl_->resources.get();
     if (!resources) {
         logger().error("Cannot submit draw commands because render target resource has not been created.");
         return;
@@ -66,23 +65,15 @@ void Gfx::submitDrawCommands(const std::shared_ptr<Renderer>& renderer) {
         }   .setClearValues(clear_values);
         vk_command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
-        for (auto&& draw_command : renderer->draw_commands) {
-            auto* pipeline_resources = draw_command->pipeline()->impl_->resources.get();
-            if (!draw_command->pipeline()->valid() || !pipeline_resources) {
-                logger().warn("Pipeline resources are not available! Draw command is skipped.");
-                continue;
-            }
-
-            resources->pipelines.push_back(draw_command->pipeline());
-            vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *pipeline_resources->pipeline);
+        for (auto&& draw_command : render_target->renderer()->draw_commands) {
+            createPipelineResources(render_target, draw_command->pipeline());
+            vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *resources->pipeline.back());
             draw_command->impl_->draw(vk_command_buffer);
         }
 
         vk_command_buffer.endRenderPass();
         vk_command_buffer.end();
     }
-
-    renderer->render_target()->ready_ = true;
 }
 
 } // namespace wg

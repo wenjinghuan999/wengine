@@ -7,8 +7,4 @@
 #include "common/owned-resources.h"
 
 namespace wg {
-
-struct Renderer::Impl {
-};
-
 }

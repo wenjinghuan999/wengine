@@ -5,7 +5,6 @@
 #include "gfx-private.h"
 #include "gfx-constants-private.h"
 #include "render-target-private.h"
-#include "gfx-pipeline-private.h"
 
 namespace {
     
@@ -23,10 +22,12 @@ std::shared_ptr<GfxPipeline> GfxPipeline::Create(std::string name) {
 }
 
 GfxPipeline::GfxPipeline(std::string name)
-    : name_(std::move(name)), impl_(std::make_unique<GfxPipeline::Impl>()) {
+    : name_(std::move(name)) {
 }
 
-void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) {
+void Gfx::createPipelineResources(
+    const std::shared_ptr<RenderTarget>& render_target,
+    const std::shared_ptr<GfxPipeline>& pipeline) {
 
     logger().info("Creating resources for pipeline \"{}\".", pipeline->name());
 
@@ -36,19 +37,12 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
     }
     logical_device_->impl_->vk_device.waitIdle();
 
-    if (!pipeline->render_target_) {
-        logger().error("Cannot create pipeline resources because render target is not set.");
-        return;
-    }
-    
-    auto* render_target_resources = pipeline->render_target()->impl_->resources.get();
-    if (!render_target_resources) {
+    auto* resources = render_target->impl_->resources.get();
+    if (!resources) {
         logger().error("Cannot create pipeline because render target resources are not available.");
         return;
     }
     
-    auto resources = std::make_unique<GfxPipelineResources>();
-
     // Stages
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
     for (auto& shader : pipeline->shaders()) {
@@ -74,7 +68,7 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
     };
 
     // Pipeline state
-    auto [width, height] = pipeline->render_target()->extent();
+    auto [width, height] = render_target->extent();
     auto viewport = vk::Viewport{
         .x        = 0.f,
         .y        = 0.f,
@@ -160,8 +154,8 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
     auto pipeline_layout_create_info = vk::PipelineLayoutCreateInfo{}
         .setSetLayouts(set_layouts)
         .setPushConstantRanges(push_constant_ranges);
-    resources->pipeline_layout = 
-        logical_device_->impl_->vk_device.createPipelineLayout(pipeline_layout_create_info);
+    resources->pipeline_layout.emplace_back( 
+        logical_device_->impl_->vk_device.createPipelineLayout(pipeline_layout_create_info));
 
     // Pipeline
     auto pipeline_create_info = vk::GraphicsPipelineCreateInfo{
@@ -173,17 +167,13 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
         .pDepthStencilState  = &depth_stencil_create_info,
         .pColorBlendState    = &color_blend_create_info,
         .pDynamicState       = &dynamic_state_create_info,
-        .layout              = *resources->pipeline_layout,
-        .renderPass          = *render_target_resources->render_pass,
+        .layout              = *resources->pipeline_layout.back(),
+        .renderPass          = *resources->render_pass,
         .subpass             = 0,
     }   .setStages(shader_stages);
 
-    resources->pipeline =
-        logical_device_->impl_->vk_device.createGraphicsPipeline({ nullptr }, pipeline_create_info);
-
-    pipeline->impl_->resources = 
-        logical_device_->impl_->pipeline_resources.store(std::move(resources));
-    pipeline->valid_ = true;
+    resources->pipeline.emplace_back(
+        logical_device_->impl_->vk_device.createGraphicsPipeline({ nullptr }, pipeline_create_info));
 }
 
 } // namespace wg

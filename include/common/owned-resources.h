@@ -42,10 +42,12 @@ public:
     OwnedResourceHandle() : base() {}
     explicit OwnedResourceHandle(OwnedResourceHandleBaseTyped<T>* ptr) : base(ptr) {}
     [[nodiscard]] T* get() {
-        if (auto resources = base::get()->resources_.lock()) {
-            auto it = resources->resources_.find(base::get()->weak_from_this());
-            if (it != resources->resources_.end()) {
-                return it->second.get();
+        if (base::get()) {
+            if (auto resources = base::get()->resources_.lock()) {
+                auto it = resources->resources_.find(base::get()->weak_from_this());
+                if (it != resources->resources_.end()) {
+                    return it->second.get();
+                }
             }
         }
         return nullptr;

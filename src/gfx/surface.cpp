@@ -76,7 +76,7 @@ namespace {
 
 [[nodiscard]] vk::raii::SwapchainKHR CreateSwapchainForSurface(
     const vk::raii::PhysicalDevice& physical_device, const vk::raii::Device& device, const vk::raii::SurfaceKHR& surface, const wg::Window& window,
-    uint32_t graphics_family_index, uint32_t present_family_index, vk::SurfaceFormatKHR& out_format, vk::Extent2D& out_extent
+    uint32_t graphics_family_index, uint32_t present_family_index, vk::SwapchainKHR old_swapchain, vk::SurfaceFormatKHR& out_format, vk::Extent2D& out_extent
 ) {
     out_format = [&physical_device, &surface]() {
         auto available_formats = physical_device.getSurfaceFormatsKHR(*surface);
@@ -136,7 +136,7 @@ namespace {
         .compositeAlpha   = vk::CompositeAlphaFlagBitsKHR::eOpaque,
         .presentMode      = present_mode,
         .clipped          = true,
-        .oldSwapchain     = nullptr
+        .oldSwapchain     = old_swapchain
     };
 
     if (graphics_family_index == present_family_index) {
@@ -177,16 +177,21 @@ vk::raii::ImageView CreateImageViewForSurface(
 
 namespace wg {
 
-void Gfx::createWindowSurfaceResources(const Surface& surface) {
+void Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) {
 
-    surface.impl_->resources.reset();
+    vk::raii::SwapchainKHR old_swapchain = nullptr;
+    if (auto* old_resources = surface->impl_->resources.get()) {
+        old_swapchain = std::move(old_resources->vk_swapchain);
+    }
+
+    surface->impl_->resources.reset();
 
     if (!logical_device_) {
         logger().error("Cannot create window surface resources because logical device is not available.");
     }
     logical_device_->impl_->vk_device.waitIdle();
-    
-    auto window = surface.window_.lock();
+
+    auto window = surface->window_.lock();
     if (!window) {
         logger().info("Skip creating resources for surface because window is no longer available.");
         return;
@@ -208,8 +213,9 @@ void Gfx::createWindowSurfaceResources(const Surface& surface) {
     
     resources->vk_swapchain = CreateSwapchainForSurface(
         physical_device().impl_->vk_physical_device, logical_device_->impl_->vk_device,
-        surface.impl_->vk_surface, *window,
+        surface->impl_->vk_surface, *window,
         graphics_family_index, present_family_index,
+        *old_swapchain,
         resources->vk_format, resources->vk_extent
     );
 
@@ -225,7 +231,7 @@ void Gfx::createWindowSurfaceResources(const Surface& surface) {
             logical_device_->impl_->vk_device, vk_image, resources->vk_format.format));
     }
 
-    surface.impl_->resources = logical_device_->impl_->surface_resources.store(std::move(resources));
+    surface->impl_->resources = logical_device_->impl_->surface_resources.store(std::move(resources));
 }
 
 } // namespace wg

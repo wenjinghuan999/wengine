@@ -3,7 +3,7 @@
 #include "common/common.h"
 #include "common/math.h"
 #include "platform/platform.h"
-#include "gfx/gfx.h"
+#include "gfx/renderer.h"
 
 #include <memory>
 
@@ -13,14 +13,14 @@ class RenderTarget : public std::enable_shared_from_this<RenderTarget> {
 public:
     [[nodiscard]] virtual Extent2D extent() const = 0;
     [[nodiscard]] virtual gfx_formats::Format format() const = 0;
-    [[nodiscard]] bool ready() const { return ready_; }
     [[nodiscard]] virtual std::vector<gfx_queues::QueueId> queues() const = 0;
-    [[nodiscard]] virtual int acquireImage() = 0;
+    [[nodiscard]] virtual int acquireImage(class Gfx& gfx) = 0;
     virtual void finishImage(int image_index) = 0;
-    void markDirty() { ready_ = false; }
+    [[nodiscard]] std::shared_ptr<Renderer> renderer() const { return renderer_; }
+    void setRenderer(const std::shared_ptr<Renderer>& renderer) { renderer_ = renderer; }
     virtual ~RenderTarget() = default;
 protected:
-    bool ready_{false};
+    std::shared_ptr<Renderer> renderer_;
 protected:
     RenderTarget() = default;
     friend class Gfx;
@@ -36,11 +36,12 @@ public:
     virtual std::vector<gfx_queues::QueueId> queues() const override {
         return { gfx_queues::graphics, gfx_queues::present };
     }
-    virtual int acquireImage() override;
+    virtual int acquireImage(class Gfx& gfx) override;
     virtual void finishImage(int image_index) override;
     virtual ~RenderTargetSurface() override = default;
 protected:
     RenderTargetSurface(const std::shared_ptr<Surface>& surface);
+    void recreateSurfaceResources(Gfx& gfx);
 protected:
     friend class Gfx;
     friend class RenderTarget;

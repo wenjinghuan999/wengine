@@ -20,18 +20,17 @@ int main(int, char**) {
     gfx->createShaderResources(vert_shader);
     gfx->createShaderResources(frag_shader);
 
-    auto render_target = gfx->createRenderTarget(window);
-
     auto pipeline = wg::GfxPipeline::Create("simple");
-    pipeline->setRenderTarget(render_target);
     pipeline->addShader(vert_shader);
     pipeline->addShader(frag_shader);
-    gfx->createPipelineResources(pipeline);
 
     auto simple_draw_command = wg::SimpleDrawCommand::Create(pipeline);
-    auto renderer = wg::Renderer::Create(render_target);
+    auto renderer = wg::Renderer::Create();
     renderer->addDrawCommand(simple_draw_command);
-    gfx->submitDrawCommands(renderer);
+
+    auto render_target = gfx->createRenderTarget(window);
+    render_target->setRenderer(renderer);
+    gfx->submitDrawCommands(render_target);
 
     app.loop([&gfx, &render_target]() {
         gfx->render(render_target);

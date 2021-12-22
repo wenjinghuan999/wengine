@@ -15,9 +15,8 @@ struct SurfaceResources {
 };
 
 struct Surface::Impl {
-    vk::raii::SurfaceKHR vk_surface;
+    vk::raii::SurfaceKHR vk_surface{nullptr};
     OwnedResourceHandle<SurfaceResources> resources;
-    Impl() : vk_surface(nullptr) {}
 };
 
 }

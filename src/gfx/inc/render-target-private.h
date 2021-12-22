@@ -17,7 +17,8 @@ struct RenderTargetResources {
     std::vector<vk::raii::Semaphore> image_available_semaphores;
     std::vector<vk::raii::Semaphore> render_finished_semaphores;
     std::vector<vk::raii::Fence> image_idle_fences;
-    std::vector<std::shared_ptr<GfxPipeline>> pipelines;
+    std::vector<vk::raii::PipelineLayout> pipeline_layout;
+    std::vector<vk::raii::Pipeline> pipeline;
     std::vector<vk::CommandBuffer> command_buffers;
 
     vk::raii::Device* device{nullptr};

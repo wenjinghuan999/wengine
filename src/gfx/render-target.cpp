@@ -39,20 +39,22 @@ RenderTargetSurface::RenderTargetSurface(const std::shared_ptr<Surface>& surface
     
     impl_ = std::make_unique<Impl>();
     impl_->get_image_views = [
-            weak_surface_resources=OwnedResourceWeakHandle<SurfaceResources>(surface_->impl_->resources)
+            weak_surface=std::weak_ptr<Surface>(surface_)
         ]() {
         std::vector<vk::ImageView> image_views;
-        if (auto* resources = weak_surface_resources.get()) {
-            image_views.reserve(resources->vk_image_views.size());
-            for (auto& vk_image_view : resources->vk_image_views) {
-                image_views.push_back(*vk_image_view);
+        if (auto surface = weak_surface.lock()) {
+            if (auto* resources = surface->impl_->resources.get()) {
+                image_views.reserve(resources->vk_image_views.size());
+                for (auto& vk_image_view : resources->vk_image_views) {
+                    image_views.push_back(*vk_image_view);
+                }
             }
         }
         return image_views;
     };
 }
 
-int RenderTargetSurface::acquireImage() {
+int RenderTargetSurface::acquireImage(Gfx& gfx) {
     if (auto* surface_resources = surface_->impl_->resources.get()) {
         if (auto* resources = impl_->resources.get()) {
             // Use acquireNextImageKHR instead of acquireNextImage2KHR
@@ -64,10 +66,18 @@ int RenderTargetSurface::acquireImage() {
             );
             if (result == vk::Result::eSuccess) {
                 return static_cast<int>(image_index);
+            } else if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR) {
+                recreateSurfaceResources(gfx);
             }
         }
     }
     return -1;
+}
+
+void RenderTargetSurface::recreateSurfaceResources(Gfx& gfx) {
+    gfx.createWindowSurfaceResources(surface_);
+    gfx.createRenderTargetResources(shared_from_this());
+    gfx.submitDrawCommands(shared_from_this());
 }
 
 void RenderTargetSurface::finishImage(int image_index) {
@@ -213,14 +223,19 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 
 void Gfx::render(const std::shared_ptr<RenderTarget>& render_target)
 {
-    if (!render_target->ready()) {
-        logger().error("Render target not ready to render!");
+    auto* resources = render_target->impl_->resources.get();
+    if (!resources) {
+        logger().error("Cannot render because render target resources is not valid!");
         return;
     }
-
-    auto* resources = render_target->impl_->resources.get();
     
-    auto image_index = render_target->acquireImage();
+    auto image_index = render_target->acquireImage(*this);
+    if (image_index < 0) {
+        return;
+    } else if (image_index >= int(resources->command_buffers.size())) {
+        logger().error("Cannot render because render target returned invalid image index.");
+        return;
+    }
     auto result = logical_device_->impl_->vk_device.waitForFences(
         { *resources->image_idle_fences[image_index] }, true, UINT64_MAX);
     if (result != vk::Result::eSuccess) {
@@ -231,10 +246,6 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target)
     auto wait_stages = std::array<vk::PipelineStageFlags, 1>{
         vk::PipelineStageFlagBits::eColorAttachmentOutput
     };
-    if (image_index < 0 || image_index >= int(resources->command_buffers.size())) {
-        logger().error("Cannot render because render target returned invalid image index.");
-        return;
-    }
     auto command_buffers = std::array{ resources->command_buffers[image_index] }; // use copy (not raii)
     auto signal_semaphores = std::array{ *resources->render_finished_semaphores[resources->current_image_index] };
     auto fence = *resources->image_idle_fences[image_index];

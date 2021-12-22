@@ -674,7 +674,11 @@ void Gfx::createLogicalDevice() {
 
     // Create swapchains for surfaces
     for (auto& window_surface : impl_->window_surfaces_) {
-        createWindowSurfaceResources(window_surface.surface);
+        bool result = createWindowSurfaceResources(window_surface.surface);
+        if (!result) {
+            logger().error("Failed to create surface resources for window \"{}\".", 
+                window_surface.surface->window_title());
+        }
     }
 }
 

@@ -54,6 +54,18 @@ RenderTargetSurface::RenderTargetSurface(const std::shared_ptr<Surface>& surface
     };
 }
 
+bool RenderTargetSurface::preRendering(class Gfx& gfx) {
+    if (surface_->resized_) {
+        logger().info("Recreating surface resources because of resize.");
+        recreateSurfaceResources(gfx);
+        surface_->resized_ = false;
+        return false;
+    } else if (surface_->hidden_) {
+        return false;
+    }
+    return true;
+}
+
 int RenderTargetSurface::acquireImage(Gfx& gfx) {
     if (auto* surface_resources = surface_->impl_->resources.get()) {
         if (auto* resources = impl_->resources.get()) {
@@ -66,11 +78,9 @@ int RenderTargetSurface::acquireImage(Gfx& gfx) {
             );
             if (result == vk::Result::eSuccess) {
                 return static_cast<int>(image_index);
-            } else if (surface_->resized_ ||
-                result == vk::Result::eErrorOutOfDateKHR || 
+            } else if (result == vk::Result::eErrorOutOfDateKHR || 
                 result == vk::Result::eSuboptimalKHR) {
-                logger().info("Skip acquire image: resized = {}, result = {}.", 
-                    surface_->resized_, vk::to_string(result));
+                logger().info("Skip acquire image: result = {}.", vk::to_string(result));
                 recreateSurfaceResources(gfx);
             }
         }
@@ -80,10 +90,20 @@ int RenderTargetSurface::acquireImage(Gfx& gfx) {
 
 void RenderTargetSurface::recreateSurfaceResources(Gfx& gfx) {
     gfx.waitDeviceIdle();
+
+    auto extent = surface_->extent();
+    if (extent.x() == 0 || extent.y() == 0) {
+        logger().info("Skip recreating resources for hidden surface \"{}\".", surface_->window_title());
+        surface_->hidden_ = true;
+        return;
+    }
+
     impl_->resources.reset();
-    gfx.createWindowSurfaceResources(surface_);
-    gfx.createRenderTargetResources(shared_from_this());
-    gfx.submitDrawCommands(shared_from_this());
+    bool result = gfx.createWindowSurfaceResources(surface_);
+    if (result) {
+        gfx.createRenderTargetResources(shared_from_this());
+        gfx.submitDrawCommands(shared_from_this());
+    }
 }
 
 void RenderTargetSurface::finishImage(Gfx& gfx, int image_index) {
@@ -242,6 +262,10 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 }
 
 void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
+
+    if (!render_target->preRendering(*this)) {
+        return;
+    }
 
     auto* resources = render_target->impl_->resources.get();
     if (!resources) {

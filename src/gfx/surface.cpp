@@ -22,11 +22,9 @@ namespace wg {
 std::map<GLFWwindow*, std::function<void()>> Surface::Impl::glfw_window_to_resized_func_map;
 
 void Surface::Impl::SetFrameBufferSizeCallback(GLFWwindow* window, int width, int height) {
-    if (width != 0 && height != 0) {
-        auto it = glfw_window_to_resized_func_map.find(window);
-        if (it != glfw_window_to_resized_func_map.end()) {
-            it->second();
-        }
+    auto it = glfw_window_to_resized_func_map.find(window);
+    if (it != glfw_window_to_resized_func_map.end()) {
+        it->second();
     }
 }
 
@@ -144,6 +142,11 @@ namespace {
         extent.height = std::clamp(extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
         return extent;
     }();
+
+    if (out_extent.width == 0 || out_extent.height == 0) {
+        return {nullptr};
+    }
+
     uint32_t image_count = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount) {
         image_count = capabilities.maxImageCount;
@@ -204,14 +207,7 @@ vk::raii::ImageView CreateImageViewForSurface(
 
 namespace wg {
 
-void Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) {
-
-    vk::raii::SwapchainKHR old_swapchain = nullptr;
-    if (auto* old_resources = surface->impl_->resources.get()) {
-        old_swapchain = std::move(old_resources->vk_swapchain);
-    }
-
-    surface->impl_->resources.reset();
+bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) {
 
     if (!logical_device_) {
         logger().error("Cannot create window surface resources because logical device is not available.");
@@ -221,23 +217,26 @@ void Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
     auto window = surface->window_.lock();
     if (!window) {
         logger().info("Skip creating resources for surface because window is no longer available.");
-        return;
+        return false;
     }
     
     if (logical_device_->impl_->queues[gfx_queues::graphics].empty() || 
         logical_device_->impl_->queues[gfx_queues::present].empty()) {
         logger().info("Skip creating resources for surface of window \"{}\" because no queues available.", window->title());
-        return;
+        return false;
     }
-    logger().info("Creating resources for surface of window \"{}\".", window->title());
-
-    auto resources = std::make_unique<SurfaceResources>();
         
     uint32_t graphics_family_index = logical_device_->impl_->queues[gfx_queues::graphics][0]->queue_family_index;
     uint32_t present_family_index = logical_device_->impl_->queues[gfx_queues::present][0]->queue_family_index;
     logger().info(" - Creating swapchain: Graphics family: {}, present family: {}.",
         graphics_family_index, present_family_index);
     
+    vk::raii::SwapchainKHR old_swapchain = nullptr;
+    if (auto* old_resources = surface->impl_->resources.get()) {
+        old_swapchain = std::move(old_resources->vk_swapchain);
+    }
+
+    auto resources = std::make_unique<SurfaceResources>();
     resources->vk_swapchain = CreateSwapchainForSurface(
         physical_device().impl_->vk_physical_device, logical_device_->impl_->vk_device,
         surface->impl_->vk_surface, *window,
@@ -245,6 +244,15 @@ void Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
         *old_swapchain,
         resources->vk_format, resources->vk_extent
     );
+
+    if (!*resources->vk_swapchain) {
+        logger().info("Skip creating resources for hidden surface \"{}\".", window->title());
+        surface->hidden_ = true;
+        return false;
+    }
+
+    logger().info("Creating resources for surface of window \"{}\".", window->title());
+    surface->impl_->resources.reset();
 
     auto vk_images = resources->vk_swapchain.getImages();
     resources->vk_images.reserve(vk_images.size());
@@ -260,6 +268,8 @@ void Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
 
     surface->impl_->resources = logical_device_->impl_->surface_resources.store(std::move(resources));
     surface->resized_ = false;
+
+    return true;
 }
 
 } // namespace wg

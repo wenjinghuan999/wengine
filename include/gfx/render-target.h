@@ -14,6 +14,7 @@ public:
     [[nodiscard]] virtual Extent2D extent() const = 0;
     [[nodiscard]] virtual gfx_formats::Format format() const = 0;
     [[nodiscard]] virtual std::vector<gfx_queues::QueueId> queues() const = 0;
+    [[nodiscard]] virtual bool preRendering(class Gfx& gfx) = 0;
     [[nodiscard]] virtual int acquireImage(class Gfx& gfx) = 0;
     virtual void finishImage(class Gfx& gfx, int image_index) = 0;
     [[nodiscard]] std::shared_ptr<Renderer> renderer() const { return renderer_; }
@@ -36,6 +37,7 @@ public:
     virtual std::vector<gfx_queues::QueueId> queues() const override {
         return { gfx_queues::graphics, gfx_queues::present };
     }
+    virtual bool preRendering(class Gfx& gfx) override;
     virtual int acquireImage(class Gfx& gfx) override;
     virtual void finishImage(class Gfx& gfx, int image_index) override;
     virtual ~RenderTargetSurface() override = default;

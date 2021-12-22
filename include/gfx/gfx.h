@@ -39,7 +39,7 @@ public:
     [[nodiscard]] bool physical_device_valid() const;
 
     // Surface resources
-    void createWindowSurfaceResources(const std::shared_ptr<Surface>& surface);
+    [[nodiscard]] bool createWindowSurfaceResources(const std::shared_ptr<Surface>& surface);
 
     // Logical device
     void createLogicalDevice();

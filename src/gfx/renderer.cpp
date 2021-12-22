@@ -2,7 +2,6 @@
 #include "gfx/renderer.h"
 #include "common/logger.h"
 #include "gfx-private.h"
-#include "renderer-private.h"
 #include "draw-command-private.h"
 
 namespace {

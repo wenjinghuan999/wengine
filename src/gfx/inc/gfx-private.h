@@ -11,7 +11,6 @@
 #include "gfx/inc/surface-private.h"
 #include "gfx/inc/shader-private.h"
 #include "gfx/inc/render-target-private.h"
-#include "gfx/inc/renderer-private.h"
 
 namespace wg {
 

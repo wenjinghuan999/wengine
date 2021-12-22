@@ -268,6 +268,7 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
 
     surface->impl_->resources = logical_device_->impl_->surface_resources.store(std::move(resources));
     surface->resized_ = false;
+    surface->hidden_ = false;
 
     return true;
 }

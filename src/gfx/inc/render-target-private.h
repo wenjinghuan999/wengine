@@ -16,7 +16,7 @@ struct RenderTargetResources {
     std::vector<vk::raii::Framebuffer> framebuffers;
     std::vector<vk::raii::Semaphore> image_available_semaphores;
     std::vector<vk::raii::Semaphore> render_finished_semaphores;
-    std::vector<vk::raii::Fence> image_idle_fences;
+    std::vector<vk::raii::Fence> in_flight_fences;
     std::vector<vk::raii::PipelineLayout> pipeline_layout;
     std::vector<vk::raii::Pipeline> pipeline;
     std::vector<vk::CommandBuffer> command_buffers;
@@ -24,7 +24,9 @@ struct RenderTargetResources {
     vk::raii::Device* device{nullptr};
     std::vector<QueueInfo*> queues;
     QueueInfo* graphics_queue{nullptr};
-    int current_image_index{0};
+    std::vector<vk::Fence> images_in_flight;
+    int max_frames_in_flight{0};
+    int current_frame_index{0};
 
     ~RenderTargetResources() {
         // handle manually for better performance

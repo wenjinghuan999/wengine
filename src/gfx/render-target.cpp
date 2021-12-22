@@ -62,13 +62,15 @@ int RenderTargetSurface::acquireImage(Gfx& gfx) {
             auto [result, image_index] = (**resources->device).acquireNextImageKHR(
                 *surface_resources->vk_swapchain,
                 UINT64_MAX,
-                *resources->image_available_semaphores[resources->current_image_index]
+                *resources->image_available_semaphores[resources->current_frame_index]
             );
             if (result == vk::Result::eSuccess) {
                 return static_cast<int>(image_index);
             } else if (surface_->resized_ ||
                 result == vk::Result::eErrorOutOfDateKHR || 
                 result == vk::Result::eSuboptimalKHR) {
+                logger().info("Skip acquire image: resized = {}, result = {}.", 
+                    surface_->resized_, vk::to_string(result));
                 recreateSurfaceResources(gfx);
             }
         }
@@ -84,14 +86,14 @@ void RenderTargetSurface::recreateSurfaceResources(Gfx& gfx) {
     gfx.submitDrawCommands(shared_from_this());
 }
 
-void RenderTargetSurface::finishImage(int image_index) {
+void RenderTargetSurface::finishImage(Gfx& gfx, int image_index) {
     if (auto* surfaces_resources = surface_->impl_->resources.get()) {
         if (image_index < 0 || image_index > static_cast<int>(surfaces_resources->vk_image_views.size())) {
             logger().error("Cannot finish image because image index is invalid.");
             return;
         }
         if (auto* resources = impl_->resources.get()) {
-            auto wait_semaphores = std::array{ *resources->render_finished_semaphores[resources->current_image_index] };
+            auto wait_semaphores = std::array{ *resources->render_finished_semaphores[resources->current_frame_index] };
             auto swapchains = std::array{ *surfaces_resources->vk_swapchain };
             auto image_indices = std::array{ static_cast<uint32_t>(image_index) };
             auto present_info = vk::PresentInfoKHR{}
@@ -100,11 +102,22 @@ void RenderTargetSurface::finishImage(int image_index) {
                 .setImageIndices(image_indices);
             
             auto* present_queue = resources->queues[1];
-            auto result = present_queue->vk_queue.presentKHR(present_info);
-            if (result != vk::Result::eSuccess) {
-                logger().error("Present error: {}.", vk::to_string(result));
+            // Do not use VulkanHpp for present because it throws when result == VK_ERROR_OUT_OF_DATE_KHR
+            // See https://github.com/KhronosGroup/Vulkan-Hpp/issues/274
+            auto result = 
+                static_cast<vk::Result>(present_queue->vk_queue.getDispatcher()->vkQueuePresentKHR(
+                    static_cast<VkQueue>(*present_queue->vk_queue), reinterpret_cast<const VkPresentInfoKHR*>(&present_info)));
+            
+            if (result == vk::Result::eSuboptimalKHR || result == vk::Result::eErrorOutOfDateKHR) {
+                logger().info("Skip present: result = {}.", vk::to_string(result));
+                recreateSurfaceResources(gfx);
+                return;
             }
-            resources->current_image_index = (resources->current_image_index + 1) % resources->image_available_semaphores.size();
+            else if (result != vk::Result::eSuccess) {
+                logger().error("Present error: {}.", vk::to_string(result));
+                return;
+            }
+            resources->current_frame_index = (resources->current_frame_index + 1) % resources->max_frames_in_flight;
         }
     }
 }
@@ -197,10 +210,13 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     }
 
     // Semaphores & fences
-    for (auto&& image_view : image_views) {
+    resources->max_frames_in_flight = std::max(1, static_cast<int>(image_views.size() - 1));
+    resources->current_frame_index = 0;
+    resources->images_in_flight.resize(image_views.size());
+    for (int i = 0; i < resources->max_frames_in_flight; ++i) {
         resources->image_available_semaphores.emplace_back(logical_device_->impl_->vk_device.createSemaphore({}));
         resources->render_finished_semaphores.emplace_back(logical_device_->impl_->vk_device.createSemaphore({}));
-        resources->image_idle_fences.emplace_back(logical_device_->impl_->vk_device.createFence({
+        resources->in_flight_fences.emplace_back(logical_device_->impl_->vk_device.createFence({
             .flags = vk::FenceCreateFlagBits::eSignaled
         }));
     }
@@ -225,14 +241,20 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
         logical_device_->impl_->render_target_resources.store(std::move(resources));
 }
 
-void Gfx::render(const std::shared_ptr<RenderTarget>& render_target)
-{
+void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
+
     auto* resources = render_target->impl_->resources.get();
     if (!resources) {
         logger().error("Cannot render because render target resources is not valid!");
         return;
     }
     
+    auto result = logical_device_->impl_->vk_device.waitForFences(
+        { *resources->in_flight_fences[resources->current_frame_index] }, true, UINT64_MAX);
+    if (result != vk::Result::eSuccess) {
+        logger().error("Wait for fence error: {}", vk::to_string(result));
+    }
+
     auto image_index = render_target->acquireImage(*this);
     if (image_index < 0) {
         return;
@@ -240,19 +262,24 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target)
         logger().error("Cannot render because render target returned invalid image index.");
         return;
     }
-    auto result = logical_device_->impl_->vk_device.waitForFences(
-        { *resources->image_idle_fences[image_index] }, true, UINT64_MAX);
-    if (result != vk::Result::eSuccess) {
-        logger().error("Wait for fence error: {}", vk::to_string(result));
+
+    if (resources->images_in_flight[image_index]) {
+        auto result = logical_device_->impl_->vk_device.waitForFences(
+            { resources->images_in_flight[image_index] }, true, UINT64_MAX);
+        if (result != vk::Result::eSuccess) {
+            logger().error("Wait for fence error: {}", vk::to_string(result));
+        }
     }
 
-    auto wait_semaphores = std::array{ *resources->image_available_semaphores[resources->current_image_index] };
+    auto wait_semaphores = std::array{ *resources->image_available_semaphores[resources->current_frame_index] };
     auto wait_stages = std::array<vk::PipelineStageFlags, 1>{
         vk::PipelineStageFlagBits::eColorAttachmentOutput
     };
     auto command_buffers = std::array{ resources->command_buffers[image_index] }; // use copy (not raii)
-    auto signal_semaphores = std::array{ *resources->render_finished_semaphores[resources->current_image_index] };
-    auto fence = *resources->image_idle_fences[image_index];
+    auto signal_semaphores = std::array{ *resources->render_finished_semaphores[resources->current_frame_index] };
+
+    auto fence = *resources->in_flight_fences[resources->current_frame_index];
+    resources->images_in_flight[image_index] = fence;
     logical_device_->impl_->vk_device.resetFences({ fence });
 
     auto submit_info = vk::SubmitInfo{
@@ -268,7 +295,7 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target)
         return;
     }
 
-    render_target->finishImage(image_index);
+    render_target->finishImage(*this, image_index);
 }
 
 } // namespace wg

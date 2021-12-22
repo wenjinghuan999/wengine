@@ -15,7 +15,7 @@ public:
     [[nodiscard]] virtual gfx_formats::Format format() const = 0;
     [[nodiscard]] virtual std::vector<gfx_queues::QueueId> queues() const = 0;
     [[nodiscard]] virtual int acquireImage(class Gfx& gfx) = 0;
-    virtual void finishImage(int image_index) = 0;
+    virtual void finishImage(class Gfx& gfx, int image_index) = 0;
     [[nodiscard]] std::shared_ptr<Renderer> renderer() const { return renderer_; }
     void setRenderer(const std::shared_ptr<Renderer>& renderer) { renderer_ = renderer; }
     virtual ~RenderTarget() = default;
@@ -37,7 +37,7 @@ public:
         return { gfx_queues::graphics, gfx_queues::present };
     }
     virtual int acquireImage(class Gfx& gfx) override;
-    virtual void finishImage(int image_index) override;
+    virtual void finishImage(class Gfx& gfx, int image_index) override;
     virtual ~RenderTargetSurface() override = default;
 protected:
     RenderTargetSurface(const std::shared_ptr<Surface>& surface);

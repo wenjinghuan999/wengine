@@ -184,6 +184,8 @@ void Gfx::createWindowSurfaceResources(const Surface& surface) {
     if (!logical_device_) {
         logger().error("Cannot create window surface resources because logical device is not available.");
     }
+    logical_device_->impl_->vk_device.waitIdle();
+    
     auto window = surface.window_.lock();
     if (!window) {
         logger().info("Skip creating resources for surface because window is no longer available.");

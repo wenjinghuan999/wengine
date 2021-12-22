@@ -27,6 +27,7 @@ struct RenderTargetResources {
 
     ~RenderTargetResources() {
         // handle manually for better performance
+        device->waitIdle();
         (**device).freeCommandBuffers(*graphics_queue->vk_command_pool, command_buffers);
     }
 };

@@ -101,7 +101,9 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 
     if (!logical_device_) {
         logger().error("Cannot create render target resources because logical device is not available.");
+        return;
     }
+    logical_device_->impl_->vk_device.waitIdle();
 
     auto [width, height] = render_target->extent();
     auto image_views = render_target->impl_->get_image_views();

@@ -27,7 +27,9 @@ void Gfx::submitDrawCommands(const std::shared_ptr<Renderer>& renderer) {
 
     if (!logical_device_) {
         logger().error("Cannot create submit draw commands because logical device is not available.");
+        return;
     }
+    logical_device_->impl_->vk_device.waitIdle();
 
     auto [width, height] = renderer->render_target()->extent();
     auto image_views = renderer->render_target()->impl_->get_image_views();
@@ -66,7 +68,7 @@ void Gfx::submitDrawCommands(const std::shared_ptr<Renderer>& renderer) {
 
         for (auto&& draw_command : renderer->draw_commands) {
             auto* pipeline_resources = draw_command->pipeline()->impl_->resources.get();
-            if (!pipeline_resources) {
+            if (!draw_command->pipeline()->valid() || !pipeline_resources) {
                 logger().warn("Pipeline resources are not available! Draw command is skipped.");
                 continue;
             }

@@ -86,6 +86,8 @@ void Gfx::createShaderResources(const std::shared_ptr<Shader>& shader) {
     if (!logical_device_) {
         logger().error("Cannot create shader resources because logical device is not available.");
     }
+    logical_device_->impl_->vk_device.waitIdle();
+
     if (!shader->loaded()) {
         logger().warn("Skip creating shader resources because shader \"{}\" is not loaded.",
             shader->filename());

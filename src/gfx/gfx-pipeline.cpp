@@ -34,6 +34,7 @@ void Gfx::createPipelineResources(const std::shared_ptr<GfxPipeline>& pipeline) 
         logger().error("Cannot create pipeline resources because logical device is not available.");
         return;
     }
+    logical_device_->impl_->vk_device.waitIdle();
 
     if (!pipeline->render_target_) {
         logger().error("Cannot create pipeline resources because render target is not set.");

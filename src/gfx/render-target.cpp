@@ -75,6 +75,8 @@ int RenderTargetSurface::acquireImage(Gfx& gfx) {
 }
 
 void RenderTargetSurface::recreateSurfaceResources(Gfx& gfx) {
+    gfx.waitDeviceIdle();
+    impl_->resources.reset();
     gfx.createWindowSurfaceResources(surface_);
     gfx.createRenderTargetResources(shared_from_this());
     gfx.submitDrawCommands(shared_from_this());
@@ -113,7 +115,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
         logger().error("Cannot create render target resources because logical device is not available.");
         return;
     }
-    logical_device_->impl_->vk_device.waitIdle();
+    waitDeviceIdle();
 
     auto [width, height] = render_target->extent();
     auto image_views = render_target->impl_->get_image_views();

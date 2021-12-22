@@ -43,6 +43,7 @@ public:
 
     // Logical device
     void createLogicalDevice();
+    void waitDeviceIdle();
 
     // Shader
     void createShaderResources(const std::shared_ptr<Shader>& shader);

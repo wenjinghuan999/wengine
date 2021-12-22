@@ -189,7 +189,7 @@ void Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
     if (!logical_device_) {
         logger().error("Cannot create window surface resources because logical device is not available.");
     }
-    logical_device_->impl_->vk_device.waitIdle();
+    waitDeviceIdle();
 
     auto window = surface->window_.lock();
     if (!window) {

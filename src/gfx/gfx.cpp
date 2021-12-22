@@ -359,10 +359,7 @@ Gfx::Gfx(const App& app)
 }
 
 Gfx::~Gfx() {
-    if (logical_device_) {
-        logger().info("Waiting for device idle.");
-        logical_device_->impl_->vk_device.waitIdle();
-    }
+    waitDeviceIdle();
     logger().info("Destroying gfx.");
 }
 
@@ -678,6 +675,12 @@ void Gfx::createLogicalDevice() {
     // Create swapchains for surfaces
     for (auto& window_surface : impl_->window_surfaces_) {
         createWindowSurfaceResources(window_surface.surface);
+    }
+}
+
+void Gfx::waitDeviceIdle() {
+    if (logical_device_) {
+        logical_device_->impl_->vk_device.waitIdle();
     }
 }
 

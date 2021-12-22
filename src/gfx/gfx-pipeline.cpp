@@ -35,7 +35,7 @@ void Gfx::createPipelineResources(
         logger().error("Cannot create pipeline resources because logical device is not available.");
         return;
     }
-    logical_device_->impl_->vk_device.waitIdle();
+    waitDeviceIdle();
 
     auto* resources = render_target->impl_->resources.get();
     if (!resources) {

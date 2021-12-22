@@ -28,7 +28,7 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
         logger().error("Cannot create submit draw commands because logical device is not available.");
         return;
     }
-    logical_device_->impl_->vk_device.waitIdle();
+    waitDeviceIdle();
 
     auto [width, height] = render_target->extent();
     auto image_views = render_target->impl_->get_image_views();

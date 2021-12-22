@@ -15,9 +15,10 @@ public:
     [[nodiscard]] std::shared_ptr<Window> window() const { return window_.lock(); }
     [[nodiscard]] Extent2D extent() const;
     [[nodiscard]] gfx_formats::Format format() const;
-    ~Surface() = default;
+    ~Surface();
 protected:
     std::weak_ptr<Window> window_;
+    bool resized_{false};
 protected:
     explicit Surface(const std::shared_ptr<Window>& window);
     friend class Gfx;

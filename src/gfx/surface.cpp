@@ -19,12 +19,29 @@ namespace {
 
 namespace wg {
 
+std::map<GLFWwindow*, std::function<void()>> Surface::Impl::glfw_window_to_resized_func_map;
+
+void Surface::Impl::SetFrameBufferSizeCallback(GLFWwindow* window, int width, int height) {
+    if (width != 0 && height != 0) {
+        auto it = glfw_window_to_resized_func_map.find(window);
+        if (it != glfw_window_to_resized_func_map.end()) {
+            it->second();
+        }
+    }
+}
+
 std::shared_ptr<Surface> Surface::Create(const std::shared_ptr<Window>& window) {
     return std::shared_ptr<Surface>(new Surface(window));
 }
 
 Surface::Surface(const std::shared_ptr<Window>& window)
     : window_(window), impl_(std::make_unique<Surface::Impl>()) {}
+
+Surface::~Surface() {
+    if (auto window = window_.lock()) {
+        Surface::Impl::glfw_window_to_resized_func_map.erase(window->impl_->glfw_window);
+    }
+}
 
 Extent2D Surface::extent() const {
     if (auto* resources = impl_->resources.get()) {
@@ -53,13 +70,23 @@ void Gfx::createWindowSurface(const std::shared_ptr<Window>& window) {
     VkResult err = glfwCreateWindowSurface(*impl_->instance, window->impl_->glfw_window, nullptr, &vk_surface);
     if (err != VK_SUCCESS) {
         spdlog::error("Failed to create surface for window \"{}\". Error code {}.", window->title(), err);
-    } else {
-        surface->impl_->vk_surface = vk::raii::SurfaceKHR(impl_->instance, vk_surface);
-        auto window_surface = std::make_unique<WindowSurfaceResources>();
-        window_surface->surface = surface;
-        window->impl_->surface_handle = impl_->window_surfaces_.store(std::move(window_surface));
-        spdlog::info("Created surface for window \"{}\".", window->title(), err);
+        return;
     }
+    
+    surface->impl_->vk_surface = vk::raii::SurfaceKHR(impl_->instance, vk_surface);
+    auto window_surface = std::make_unique<WindowSurfaceResources>();
+    window_surface->surface = surface;
+    window->impl_->surface_handle = impl_->window_surfaces_.store(std::move(window_surface));
+
+    glfwSetFramebufferSizeCallback(window->impl_->glfw_window, Surface::Impl::SetFrameBufferSizeCallback);
+    Surface::Impl::glfw_window_to_resized_func_map[window->impl_->glfw_window] = 
+        [weak_surface=std::weak_ptr<Surface>(surface)]() {
+        if (auto s = weak_surface.lock()) {
+            s->resized_ = true;
+        }
+    };
+
+    spdlog::info("Created surface for window \"{}\".", window->title(), err);
 }
 
 std::shared_ptr<Surface> Gfx::getWindowSurface(const std::shared_ptr<Window>& window) const {
@@ -232,6 +259,7 @@ void Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
     }
 
     surface->impl_->resources = logical_device_->impl_->surface_resources.store(std::move(resources));
+    surface->resized_ = false;
 }
 
 } // namespace wg

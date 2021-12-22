@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "platform/inc/platform.inc"
 #include "gfx/surface.h"
 #include "common/owned-resources.h"
@@ -17,6 +19,9 @@ struct SurfaceResources {
 struct Surface::Impl {
     vk::raii::SurfaceKHR vk_surface{nullptr};
     OwnedResourceHandle<SurfaceResources> resources;
+
+    static void SetFrameBufferSizeCallback(GLFWwindow* window, int width, int height);
+    static std::map<GLFWwindow*, std::function<void()>> glfw_window_to_resized_func_map;
 };
 
 }

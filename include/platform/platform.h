@@ -36,6 +36,7 @@ protected:
 protected:
     friend class App;
     friend class Gfx;
+    friend class Surface;
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

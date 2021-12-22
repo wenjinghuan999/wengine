@@ -66,7 +66,9 @@ int RenderTargetSurface::acquireImage(Gfx& gfx) {
             );
             if (result == vk::Result::eSuccess) {
                 return static_cast<int>(image_index);
-            } else if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR) {
+            } else if (surface_->resized_ ||
+                result == vk::Result::eErrorOutOfDateKHR || 
+                result == vk::Result::eSuboptimalKHR) {
                 recreateSurfaceResources(gfx);
             }
         }

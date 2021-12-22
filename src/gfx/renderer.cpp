@@ -42,6 +42,10 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
         return;
     }
 
+    for (auto&& draw_command : render_target->renderer()->draw_commands) {
+        createPipelineResources(render_target, draw_command->pipeline());
+    }
+
     // Record commands
     for (size_t i = 0; i < image_views.size(); i++)
     {
@@ -64,9 +68,9 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
         }   .setClearValues(clear_values);
         vk_command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
-        for (auto&& draw_command : render_target->renderer()->draw_commands) {
-            createPipelineResources(render_target, draw_command->pipeline());
-            vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *resources->pipeline.back());
+        for (size_t i = 0; i < render_target->renderer()->draw_commands.size(); ++i) {
+            const auto& draw_command = render_target->renderer()->draw_commands[i];
+            vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *resources->pipeline[i]);
             draw_command->impl_->draw(vk_command_buffer);
         }
 

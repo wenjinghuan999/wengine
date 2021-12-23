@@ -3,3 +3,5 @@
 binaries/
 build/
 extern/
+cmake-build-*/
+CMakeSettings.json

@@ -4,18 +4,12 @@ set(WG_STATIC_SHADER_FILES
 )
 set(WG_STATIC_SHADER_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shader/static)
 
-add_custom_command(
-    OUTPUT ${WG_STATIC_SHADER_DIR}
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${WG_STATIC_SHADER_DIR}
-)
-list(APPEND WG_STATIC_SHADER_OUTPUTS ${WG_STATIC_SHADER_DIR})
-
 foreach(File ${WG_STATIC_SHADER_FILES})
     get_filename_component(Filename ${File} NAME)
     add_custom_command(
         OUTPUT ${WG_STATIC_SHADER_DIR}/${Filename}.spv
         COMMAND ${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE} -V ${File} -o ${WG_STATIC_SHADER_DIR}/${Filename}.spv
-        DEPENDS Vulkan::glslangValidator ${File} ${WG_STATIC_SHADER_DIR}
+        DEPENDS Vulkan::glslangValidator ${File}
         COMMENT "Compiling shader ${Filename}"
     )
     list(APPEND WG_STATIC_SHADER_OUTPUTS ${WG_STATIC_SHADER_DIR}/${Filename}.spv)

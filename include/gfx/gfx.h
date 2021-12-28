@@ -8,6 +8,7 @@
 #include "gfx/render-target.h"
 #include "gfx/gfx-pipeline.h"
 #include "gfx/renderer.h"
+#include "gfx/vertex-buffer.h"
 
 #include <map>
 #include <memory>
@@ -58,6 +59,9 @@ public:
     void createRenderTargetResources(const std::shared_ptr<RenderTarget>& render_target);
     void submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target);
     void render(const std::shared_ptr<RenderTarget>& render_target);
+
+    // VertexBuffer
+    void createVertexBufferResources(const std::shared_ptr<VertexBuffer>& vertex_buffer);
 
 protected:
     explicit Gfx(const App& app);

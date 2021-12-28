@@ -5,6 +5,7 @@
 #include "gfx/gfx-pipeline.h"
 #include "gfx/draw-command.h"
 #include "gfx/renderer.h"
+#include "gfx/vertex-buffer.h"
 
 int main(int, char**) {
     wg::App app("wegnine-gfx-example", std::make_tuple(0, 0, 1));
@@ -31,6 +32,14 @@ int main(int, char**) {
     auto render_target = gfx->createRenderTarget(window);
     render_target->setRenderer(renderer);
     gfx->submitDrawCommands(render_target);
+
+    auto vertices = std::vector<wg::Vertex>{
+        { .position = {  0.f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f } },
+        { .position = {  0.5f, 0.5f, 0.f }, .color = { 0.f, 1.f, 0.f } },
+        { .position = { -0.5f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f } },
+    };
+    auto vertex_buffer = wg::VertexBuffer::CreateFromVertexArray(vertices);
+    gfx->createVertexBufferResources(vertex_buffer);
 
     app.loop([&gfx, &render_target]() {
         gfx->render(render_target);

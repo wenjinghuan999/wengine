@@ -11,6 +11,7 @@
 #include "gfx/inc/surface-private.h"
 #include "gfx/inc/shader-private.h"
 #include "gfx/inc/render-target-private.h"
+#include "gfx/inc/vertex-buffer-private.h"
 
 namespace wg {
 
@@ -50,6 +51,17 @@ struct PhysicalDevice::Impl {
             }
         }
     }
+
+    int findMemoryTypeIndex(vk::MemoryRequirements requirements, vk::MemoryPropertyFlags property_flags) {
+        auto memory_properties = vk_physical_device.getMemoryProperties();
+        for (int i = 0; i < static_cast<int>(memory_properties.memoryTypeCount); i++) {
+            if (requirements.memoryTypeBits & (1 << i) && 
+                (memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags) {
+                return i;
+            }
+        }
+        return -1;
+    }
 };
 
 struct LogicalDevice::Impl {
@@ -63,6 +75,8 @@ struct LogicalDevice::Impl {
     OwnedResources<ShaderResources> shader_resources;
     // resources of render targets (may be accessed by render target using OwnedResourcesHandle)
     OwnedResources<RenderTargetResources> render_target_resources;
+    // resources of vertex buffers (may be accessed by vertex buffer using OwnedResourcesHandle)
+    OwnedResources<VertexBufferResources> vertex_buffer_resources;
     
     explicit Impl(vk::raii::Device vk_device) 
         : vk_device(std::move(vk_device)) {}

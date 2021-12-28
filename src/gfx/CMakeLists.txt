@@ -7,12 +7,14 @@ add_library(wengine-gfx
     shader.cpp
     surface.cpp
     render-target.cpp
+    vertex-buffer.cpp
     inc/gfx-private.h
     inc/draw-command-private.h
     inc/gfx-constants-private.h
     inc/shader-private.h
     inc/surface-private.h
     inc/render-target-private.h
+    inc/vertex-buffer-private.h
     ${PROJECT_SOURCE_DIR}/include/gfx/gfx.h
     ${PROJECT_SOURCE_DIR}/include/gfx/draw-command.h
     ${PROJECT_SOURCE_DIR}/include/gfx/gfx-constants.h
@@ -21,6 +23,7 @@ add_library(wengine-gfx
     ${PROJECT_SOURCE_DIR}/include/gfx/shader.h
     ${PROJECT_SOURCE_DIR}/include/gfx/surface.h
     ${PROJECT_SOURCE_DIR}/include/gfx/render-target.h
+    ${PROJECT_SOURCE_DIR}/include/gfx/vertex-buffer.h
 )
 
 add_dependencies(wengine-gfx wengine-shader-static wengine-shader-dynamic)

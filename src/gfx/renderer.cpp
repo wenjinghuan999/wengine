@@ -70,7 +70,11 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
 
         for (size_t i = 0; i < render_target->renderer()->draw_commands.size(); ++i) {
             const auto& draw_command = render_target->renderer()->draw_commands[i];
-            vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *resources->pipeline[i]);
+            const auto& draw_command_resources = resources->draw_command_resources[i];
+
+            vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, draw_command_resources.pipeline);
+            vk_command_buffer.bindVertexBuffers(0, draw_command_resources.vertex_buffers, draw_command_resources.vertex_buffer_offsets);
+
             draw_command->impl_->draw(vk_command_buffer);
         }
 

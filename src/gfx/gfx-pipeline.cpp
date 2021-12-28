@@ -153,6 +153,8 @@ void Gfx::createPipelineResources(
     // Vertex factory
     std::vector<vk::VertexInputBindingDescription> vertex_bindings;
     std::vector<vk::VertexInputAttributeDescription> vertex_attributes;
+    std::vector<vk::Buffer> vertex_buffers;
+    std::vector<vk::DeviceSize> vertex_buffer_offsets;
     std::map<size_t, uint32_t> vb_index_to_binding;
     for (auto&& description : pipeline->vertex_factory_.getCombinedDescriptions()) {
         uint32_t binding = [&vb_index_to_binding, &description, &vertex_bindings]() {
@@ -181,6 +183,12 @@ void Gfx::createPipelineResources(
             .format = gfx_formats::ToVkFormat(description.format),
             .offset = description.offset
         });
+
+        auto&& vertex_buffer = pipeline->vertex_factory_.vertex_buffers_[description.vertex_buffer_index];
+        if (auto vertex_buffer_resources = vertex_buffer->impl_->resources.get()) {
+            vertex_buffers.emplace_back(*vertex_buffer_resources->buffer);
+            vertex_buffer_offsets.emplace_back(0);
+        }
     }
 
     auto vertex_input_create_info = vk::PipelineVertexInputStateCreateInfo{}
@@ -299,6 +307,12 @@ void Gfx::createPipelineResources(
 
     resources->pipeline.emplace_back(
         logical_device_->impl_->vk_device.createGraphicsPipeline({ nullptr }, pipeline_create_info));
+
+    resources->draw_command_resources.emplace_back(DrawCommandResources{
+        .pipeline = *resources->pipeline.back(),
+        .vertex_buffers = vertex_buffers,
+        .vertex_buffer_offsets = vertex_buffer_offsets
+    });
 }
 
 } // namespace wg

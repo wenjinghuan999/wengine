@@ -11,6 +11,12 @@
 
 namespace wg {
 
+struct DrawCommandResources {
+    vk::Pipeline pipeline;
+    std::vector<vk::Buffer> vertex_buffers;
+    std::vector<vk::DeviceSize> vertex_buffer_offsets;
+};
+
 struct RenderTargetResources {
     vk::raii::RenderPass render_pass{nullptr};
     std::vector<vk::raii::Framebuffer> framebuffers;
@@ -24,6 +30,8 @@ struct RenderTargetResources {
     vk::raii::Device* device{nullptr};
     std::vector<QueueInfo*> queues;
     QueueInfo* graphics_queue{nullptr};
+    std::vector<DrawCommandResources> draw_command_resources;
+
     std::vector<vk::Fence> images_in_flight;
     int max_frames_in_flight{0};
     int current_frame_index{0};

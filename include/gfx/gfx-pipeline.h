@@ -39,6 +39,7 @@ protected:
     std::vector<VertexFactoryDescription> descriptions_;
     std::vector<std::shared_ptr<VertexBufferBase>> vertex_buffers_;
 protected:
+    friend class Gfx;
     static void AddDescriptionImpl(std::vector<VertexFactoryDescription>& attributes, VertexFactoryDescription attribute);
     static void AddDescriptionImpl(std::vector<VertexBufferDescription>& attributes, VertexBufferDescription attribute);
 };

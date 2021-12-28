@@ -17,21 +17,11 @@ namespace {
 
 namespace wg {
 
-VertexBuffer::VertexBuffer(bool keep_cpu_data) : keep_cpu_data_(keep_cpu_data), impl_(std::make_unique<Impl>()) {}
+VertexBufferBase::VertexBufferBase(bool keep_cpu_data) : keep_cpu_data_(keep_cpu_data), impl_(std::make_unique<Impl>()) {}
 
-std::shared_ptr<VertexBuffer> VertexBuffer::CreateFromVertexArray(std::vector<Vertex> vertices, bool keep_cpu_data) {
-    auto vertex_buffer = std::shared_ptr<VertexBuffer>(new VertexBuffer(keep_cpu_data));
-    vertex_buffer->setVertexArray(std::move(vertices));
-    return vertex_buffer;
-}
+VertexBufferBase::~VertexBufferBase() {}
 
-void VertexBuffer::setVertexArray(std::vector<Vertex> vertices) {
-    vertices_ = std::move(vertices);
-    has_cpu_data_ = true;
-    has_gpu_data_ = false;
-}
-
-void Gfx::createVertexBufferResources(const std::shared_ptr<VertexBuffer>& vertex_buffer) {
+void Gfx::createVertexBufferResources(const std::shared_ptr<VertexBufferBase>& vertex_buffer) {
     vertex_buffer->impl_->resources.reset();
 
     if (!logical_device_) {
@@ -40,13 +30,13 @@ void Gfx::createVertexBufferResources(const std::shared_ptr<VertexBuffer>& verte
     }
     waitDeviceIdle();
 
-    if (!vertex_buffer->has_cpu_data() || vertex_buffer->vertices_.empty()) {
+    if (!vertex_buffer->has_cpu_data()) {
         logger().error("Skip creating vertex buffer resources because has no CPU data.");
         return;
     }
 
     auto resources = std::make_unique<VertexBufferResources>();
-    size_t data_size = sizeof(Vertex) * vertex_buffer->vertices_.size();
+    size_t data_size = vertex_buffer->data_size();
 
     auto buffer_create_info = vk::BufferCreateInfo{
         .size = data_size,
@@ -75,16 +65,14 @@ void Gfx::createVertexBufferResources(const std::shared_ptr<VertexBuffer>& verte
     resources->buffer.bindMemory(*resources->memory, 0);
 
     void* mapped = resources->memory.mapMemory(0, data_size, {});
-    std::memcpy(mapped, vertex_buffer->vertices_.data(), data_size);
+    std::memcpy(mapped, vertex_buffer->data(), data_size);
     resources->memory.unmapMemory();
 
     vertex_buffer->impl_->resources = logical_device_->impl_->vertex_buffer_resources.store(std::move(resources));
 
     vertex_buffer->has_gpu_data_ = true;
     if (!vertex_buffer->keep_cpu_data_) {
-        vertex_buffer->has_cpu_data_ = false;
-        std::vector<Vertex> empty_vertices;
-        std::swap(vertex_buffer->vertices_, empty_vertices);
+        vertex_buffer->clearCpuData();
     }
 }
 

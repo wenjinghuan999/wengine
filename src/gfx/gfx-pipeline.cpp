@@ -13,9 +13,104 @@ namespace {
     return *logger_;
 }
 
+template<typename VertexDescriptionType>
+void AddDescriptionImplTemplate(std::vector<VertexDescriptionType>& descriptions, VertexDescriptionType description) {
+    auto it = std::lower_bound(descriptions.begin(), descriptions.end(), description, 
+        [](const VertexDescriptionType& element, const VertexDescriptionType& value) {
+            return element.attribute < value.attribute;
+        });
+    if (it == descriptions.end() || it->attribute != description.attribute) {
+        descriptions.emplace(it, description);
+    } else {
+        *it = description;
+    }
+}
+
 } // unnamed namespace
 
 namespace wg {
+
+void GfxVertexFactory::AddDescriptionImpl(std::vector<VertexFactoryDescription>& descriptions, VertexFactoryDescription description) {
+    AddDescriptionImplTemplate(descriptions, description);
+}
+
+void GfxVertexFactory::AddDescriptionImpl(std::vector<VertexBufferDescription>& descriptions, VertexBufferDescription description) {
+    AddDescriptionImplTemplate(descriptions, description);
+}
+
+GfxVertexFactory::GfxVertexFactory(std::initializer_list<VertexFactoryDescription> initializer_list) {
+    for (auto&& description : initializer_list) {
+        AddDescriptionImpl(descriptions_, description);
+    }
+}
+
+void GfxVertexFactory::addDescription(VertexFactoryDescription description) {
+    AddDescriptionImpl(descriptions_, description);
+}
+
+void GfxVertexFactory::clearDescriptions() {
+    descriptions_.clear();
+}
+
+void GfxVertexFactory::addVertexBuffer(const std::shared_ptr<VertexBufferBase>& vertex_buffer) {
+    vertex_buffers_.emplace_back(vertex_buffer);
+}
+
+void GfxVertexFactory::clearVertexBuffers() {
+    vertex_buffers_.clear();
+}
+
+bool GfxVertexFactory::valid() const {
+    std::vector<VertexBufferDescription> vertex_buffer_descriptions;
+    for (auto&& vertex_buffer : vertex_buffers_) {
+        for (auto&& description : vertex_buffer->descriptions()) {
+            AddDescriptionImpl(vertex_buffer_descriptions, description);
+        }
+    }
+    for (auto&& description : descriptions_) {
+        auto it = std::lower_bound(
+            vertex_buffer_descriptions.begin(), vertex_buffer_descriptions.end(), description, 
+            [](const VertexBufferDescription& element, const VertexFactoryDescription& value) {
+                return element.attribute < value.attribute;
+            });
+        if (it == vertex_buffer_descriptions.end() ||
+            it->attribute != description.attribute ||
+            it->format != description.format) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::vector<VertexFactoryCombinedDescription> GfxVertexFactory::getCombinedDescriptions() const {
+    std::vector<VertexBufferDescription> vertex_buffer_descriptions;
+    for (auto&& vertex_buffer : vertex_buffers_) {
+        for (auto&& description : vertex_buffer->descriptions()) {
+            AddDescriptionImpl(vertex_buffer_descriptions, description);
+        }
+    }
+    std::vector<VertexFactoryCombinedDescription> combined_descriptions;
+    for (auto&& description : descriptions_) {
+        for (size_t vertex_buffer_index = 0; vertex_buffer_index < vertex_buffers_.size(); ++vertex_buffer_index) {
+            const auto& vertex_buffer = vertex_buffers_[vertex_buffer_index];
+            for (auto&& vertex_buffer_description : vertex_buffer->descriptions()) {
+                if (vertex_buffer_description.attribute == description.attribute &&
+                    vertex_buffer_description.format == description.format) {
+                            
+                    combined_descriptions.emplace_back(VertexFactoryCombinedDescription{
+                        .attribute           = description.attribute,
+                        .format              = description.format,
+                        .location            = description.location,
+                        .stride              = vertex_buffer_description.stride,
+                        .offset              = vertex_buffer_description.offset,
+                        .vertex_buffer_index = vertex_buffer_index,
+                    });
+                }
+            }
+        }
+    }
+    return combined_descriptions;
+}
 
 std::shared_ptr<GfxPipeline> GfxPipeline::Create(std::string name) {
     return std::shared_ptr<GfxPipeline>(new GfxPipeline(std::move(name)));
@@ -58,6 +153,36 @@ void Gfx::createPipelineResources(
     // Vertex factory
     std::vector<vk::VertexInputBindingDescription> vertex_bindings;
     std::vector<vk::VertexInputAttributeDescription> vertex_attributes;
+    std::map<size_t, uint32_t> vb_index_to_binding;
+    for (auto&& description : pipeline->vertex_factory_.getCombinedDescriptions()) {
+        uint32_t binding = [&vb_index_to_binding, &description, &vertex_bindings]() {
+            auto it = vb_index_to_binding.find(description.vertex_buffer_index);
+            if (it == vb_index_to_binding.end()) {
+                uint32_t new_binding = static_cast<uint32_t>(vertex_bindings.size());
+                vb_index_to_binding[description.vertex_buffer_index] = new_binding;
+                vertex_bindings.emplace_back(vk::VertexInputBindingDescription{
+                    .binding = new_binding,
+                    .stride = description.stride,
+                    .inputRate = vk::VertexInputRate::eVertex
+                });
+                return new_binding;
+            } else {
+                if (vertex_bindings[it->second].stride != description.stride) {
+                    logger().warn("Vertex binding and buffer stride not identical: {} != {}.", 
+                        vertex_bindings[it->second].stride, description.stride);
+                }
+                return it->second;
+            }
+        }();
+
+        vertex_attributes.emplace_back(vk::VertexInputAttributeDescription{
+            .location = description.location,
+            .binding = binding,
+            .format = gfx_formats::ToVkFormat(description.format),
+            .offset = description.offset
+        });
+    }
+
     auto vertex_input_create_info = vk::PipelineVertexInputStateCreateInfo{}
         .setVertexBindingDescriptions(vertex_bindings)
         .setVertexAttributeDescriptions(vertex_attributes);

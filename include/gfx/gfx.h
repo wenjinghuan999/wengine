@@ -61,7 +61,7 @@ public:
     void render(const std::shared_ptr<RenderTarget>& render_target);
 
     // VertexBuffer
-    void createVertexBufferResources(const std::shared_ptr<VertexBuffer>& vertex_buffer);
+    void createVertexBufferResources(const std::shared_ptr<VertexBufferBase>& vertex_buffer);
 
 protected:
     explicit Gfx(const App& app);

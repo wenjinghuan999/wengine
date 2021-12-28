@@ -11,7 +11,7 @@ struct VertexBufferResources {
     vk::raii::DeviceMemory memory{ nullptr };
 };
 
-struct VertexBuffer::Impl {
+struct VertexBufferBase::Impl {
     OwnedResourceHandle<VertexBufferResources> resources;
 };
 

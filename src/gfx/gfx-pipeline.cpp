@@ -90,6 +90,28 @@ bool GfxVertexFactory::valid() const {
     return true;
 }
 
+bool GfxVertexFactory::draw_indexed() const {
+    return static_cast<bool>(index_buffer_);
+}
+
+size_t GfxVertexFactory::vertex_count() const {
+    if (vertex_buffers_.empty()) {
+        return 0;
+    }
+    size_t result = std::numeric_limits<size_t>::max();
+    for (auto&& vertex_buffer : vertex_buffers_) {
+        result = std::min(result, vertex_buffer->vertex_count());
+    }
+    return result;
+}
+
+size_t GfxVertexFactory::index_count() const {
+    if (index_buffer_) {
+        return index_buffer_->index_count();
+    }
+    return 0;
+}
+
 std::vector<VertexFactoryCombinedDescription> GfxVertexFactory::getCombinedDescriptions() const {
     std::vector<VertexBufferDescription> vertex_buffer_descriptions;
     for (auto&& vertex_buffer : vertex_buffers_) {
@@ -203,8 +225,8 @@ void Gfx::createPipelineResources(
     vk::Buffer index_buffer = nullptr;
     vk::DeviceSize index_buffer_offset = 0;
     vk::IndexType index_type = {};
-    const bool use_index_buffer = static_cast<bool>(pipeline->vertex_factory_.index_buffer_);
-    if (use_index_buffer) {
+    const bool draw_indexed = pipeline->vertex_factory_.draw_indexed();
+    if (draw_indexed) {
         if (auto index_buffer_resources = pipeline->vertex_factory_.index_buffer_->impl_->resources.get()) {
             index_buffer = *index_buffer_resources->buffer;
         }
@@ -332,7 +354,7 @@ void Gfx::createPipelineResources(
         .pipeline = *resources->pipeline.back(),
         .vertex_buffers = vertex_buffers,
         .vertex_buffer_offsets = vertex_buffer_offsets,
-        .use_index_buffer = use_index_buffer,
+        .draw_indexed = draw_indexed,
         .index_buffer = index_buffer,
         .index_buffer_offset = index_buffer_offset,
         .index_type = index_type

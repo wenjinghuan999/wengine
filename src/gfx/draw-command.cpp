@@ -27,8 +27,14 @@ std::shared_ptr<DrawCommand> SimpleDrawCommand::Create(
 SimpleDrawCommand::SimpleDrawCommand(const std::shared_ptr<GfxPipeline>& pipeline)
     : DrawCommand(pipeline) {
     
-    impl_->draw = [](const vk::CommandBuffer& command_buffer) {
-        command_buffer.drawIndexed(3, 1, 0, 0, 0);
+    impl_->draw = [this](const vk::CommandBuffer& command_buffer) {
+        if (pipeline_->vertex_factory().draw_indexed()) {
+            uint32_t index_count = static_cast<uint32_t>(pipeline_->vertex_factory().index_count());
+            command_buffer.drawIndexed(index_count, 1, 0, 0, 0);
+        } else {
+            uint32_t vertex_count = static_cast<uint32_t>(pipeline_->vertex_factory().vertex_count());
+            command_buffer.draw(vertex_count, 1, 0, 0);
+        }
     };
 }
 

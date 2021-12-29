@@ -87,6 +87,9 @@ class VertexBufferBase : public GfxBufferBase {
 public:
     virtual ~VertexBufferBase() override;
     virtual std::vector<VertexBufferDescription> descriptions() const = 0;
+    size_t vertex_count() const { return vertex_count_; };
+protected:
+    size_t vertex_count_{0};
 protected:
     explicit VertexBufferBase(bool keep_cpu_data);
 };
@@ -100,6 +103,7 @@ public:
         return vertex_buffer;
     }
     void setVertexArray(std::vector<VertexType> vertices) {
+        vertex_count_ = vertices.size();
         vertices_ = std::move(vertices);
         has_cpu_data_ = true;
         has_gpu_data_ = false;
@@ -118,6 +122,9 @@ protected:
         std::vector<VertexType> empty_vertices;
         std::swap(vertices_, empty_vertices);
         has_cpu_data_ = false;
+        if (!has_gpu_data_) {
+            vertex_count_ = 0;
+        }
     }
 };
 
@@ -131,6 +138,7 @@ public:
     }
     template <typename IndexType, typename = std::enable_if_t<std::is_integral_v<IndexType>>>
     void setIndexArray(const std::vector<IndexType>& indices) {
+        index_count_ = indices.size();
         indices_.clear();
 
         if (index_type_ == index_types::index_16) {
@@ -158,9 +166,11 @@ public:
     index_types::IndexType index_type() const { return index_type_; }
     virtual size_t data_size() const override { return indices_.size() * sizeof(uint32_t); }
     virtual const void* data() const override { return indices_.data(); };
+    size_t index_count() const { return index_count_; }
 protected:
     index_types::IndexType index_type_;
     std::vector<uint32_t> indices_;
+    size_t index_count_{0};
 protected:
     friend class Gfx;
     explicit IndexBuffer(index_types::IndexType index_type, bool keep_cpu_data);
@@ -168,6 +178,9 @@ protected:
         std::vector<uint32_t> empty_indices;
         std::swap(indices_, empty_indices);
         has_cpu_data_ = false;
+        if (!has_gpu_data_) {
+            index_count_ = 0;
+        }
     }
 };
 

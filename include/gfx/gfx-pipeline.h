@@ -36,6 +36,9 @@ public:
     void setIndexBuffer(const std::shared_ptr<IndexBuffer>& index_buffer);
     void clearIndexBuffer();
     bool valid() const;
+    bool draw_indexed() const;
+    size_t vertex_count() const;
+    size_t index_count() const;
     std::vector<VertexFactoryCombinedDescription> getCombinedDescriptions() const;
 protected:
     std::vector<VertexFactoryDescription> descriptions_;

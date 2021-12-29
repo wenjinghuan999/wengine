@@ -33,11 +33,14 @@ public:
     void clearDescriptions();
     void addVertexBuffer(const std::shared_ptr<VertexBufferBase>& vertex_buffer);
     void clearVertexBuffers();
+    void setIndexBuffer(const std::shared_ptr<IndexBuffer>& index_buffer);
+    void clearIndexBuffer();
     bool valid() const;
     std::vector<VertexFactoryCombinedDescription> getCombinedDescriptions() const;
 protected:
     std::vector<VertexFactoryDescription> descriptions_;
     std::vector<std::shared_ptr<VertexBufferBase>> vertex_buffers_;
+    std::shared_ptr<IndexBuffer> index_buffer_;
 protected:
     friend class Gfx;
     static void AddDescriptionImpl(std::vector<VertexFactoryDescription>& attributes, VertexFactoryDescription attribute);

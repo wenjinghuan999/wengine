@@ -28,7 +28,7 @@ SimpleDrawCommand::SimpleDrawCommand(const std::shared_ptr<GfxPipeline>& pipelin
     : DrawCommand(pipeline) {
     
     impl_->draw = [](const vk::CommandBuffer& command_buffer) {
-        command_buffer.draw(3, 1, 0, 0);
+        command_buffer.drawIndexed(3, 1, 0, 0, 0);
     };
 }
 

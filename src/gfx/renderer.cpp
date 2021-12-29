@@ -75,6 +75,11 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
             vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, draw_command_resources.pipeline);
             vk_command_buffer.bindVertexBuffers(0, draw_command_resources.vertex_buffers, draw_command_resources.vertex_buffer_offsets);
 
+            if (draw_command_resources.use_index_buffer) {
+                vk_command_buffer.bindIndexBuffer(
+                    draw_command_resources.index_buffer, draw_command_resources.index_buffer_offset, draw_command_resources.index_type);
+            }
+
             draw_command->impl_->draw(vk_command_buffer);
         }
 

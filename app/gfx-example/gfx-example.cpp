@@ -28,12 +28,17 @@ int main(int, char**) {
     };
     auto vertex_buffer = wg::VertexBuffer<wg::SimpleVertex>::CreateFromVertexArray(vertices);
     gfx->createVertexBufferResources(vertex_buffer);
+    
+    auto indices = std::vector<uint32_t>{ 0, 1, 2 };
+    auto index_buffer = wg::IndexBuffer::CreateFromIndexArray(wg::index_types::index_16, indices);
+    gfx->createIndexBufferResources(index_buffer);
 
     auto vertex_factory = wg::GfxVertexFactory{
         { .attribute = wg::vertex_attributes::position, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 0 },
         { .attribute = wg::vertex_attributes::color, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 1 },
     };
     vertex_factory.addVertexBuffer(vertex_buffer);
+    vertex_factory.setIndexBuffer(index_buffer);
 
     auto pipeline = wg::GfxPipeline::Create("simple");
     pipeline->addShader(vert_shader);

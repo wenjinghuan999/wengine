@@ -60,6 +60,14 @@ void GfxVertexFactory::clearVertexBuffers() {
     vertex_buffers_.clear();
 }
 
+void GfxVertexFactory::setIndexBuffer(const std::shared_ptr<IndexBuffer>& index_buffer) {
+    index_buffer_ = index_buffer;
+}
+
+void GfxVertexFactory::clearIndexBuffer() {
+    index_buffer_.reset();
+}
+
 bool GfxVertexFactory::valid() const {
     std::vector<VertexBufferDescription> vertex_buffer_descriptions;
     for (auto&& vertex_buffer : vertex_buffers_) {
@@ -191,6 +199,18 @@ void Gfx::createPipelineResources(
         }
     }
 
+    
+    vk::Buffer index_buffer = nullptr;
+    vk::DeviceSize index_buffer_offset = 0;
+    vk::IndexType index_type = {};
+    const bool use_index_buffer = static_cast<bool>(pipeline->vertex_factory_.index_buffer_);
+    if (use_index_buffer) {
+        if (auto index_buffer_resources = pipeline->vertex_factory_.index_buffer_->impl_->resources.get()) {
+            index_buffer = *index_buffer_resources->buffer;
+        }
+        index_type = index_types::ToVkIndexType(pipeline->vertex_factory_.index_buffer_->index_type());
+    }
+
     auto vertex_input_create_info = vk::PipelineVertexInputStateCreateInfo{}
         .setVertexBindingDescriptions(vertex_bindings)
         .setVertexAttributeDescriptions(vertex_attributes);
@@ -311,7 +331,11 @@ void Gfx::createPipelineResources(
     resources->draw_command_resources.emplace_back(DrawCommandResources{
         .pipeline = *resources->pipeline.back(),
         .vertex_buffers = vertex_buffers,
-        .vertex_buffer_offsets = vertex_buffer_offsets
+        .vertex_buffer_offsets = vertex_buffer_offsets,
+        .use_index_buffer = use_index_buffer,
+        .index_buffer = index_buffer,
+        .index_buffer_offset = index_buffer_offset,
+        .index_type = index_type
     });
 }
 

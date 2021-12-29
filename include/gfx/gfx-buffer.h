@@ -124,7 +124,7 @@ protected:
 class IndexBuffer : public GfxBufferBase {
 public:
     template <typename IndexType, typename = std::enable_if_t<std::is_integral_v<IndexType>>>
-    static std::shared_ptr<IndexBuffer> CreateFromVertexArray(index_types::IndexType index_type, const std::vector<IndexType>& indices, bool keep_cpu_data = false) {
+    static std::shared_ptr<IndexBuffer> CreateFromIndexArray(index_types::IndexType index_type, const std::vector<IndexType>& indices, bool keep_cpu_data = false) {
         auto index_buffer = std::shared_ptr<IndexBuffer>(new IndexBuffer(index_type, keep_cpu_data));
         index_buffer->setIndexArray(indices);
         return index_buffer;
@@ -137,8 +137,10 @@ public:
             size_t array_size = (indices.size() + 1U) / 2U;
             indices_.resize(array_size);
             uint32_t mask = 0xffff;
+            const uint8_t shift[] = { 0, 16 };
             for (size_t i = 0; i < indices.size(); ++i) {
-                indices_[i / 2] = (indices_[i / 2] & mask) | static_cast<uint16_t>(indices[i]);
+                indices_[i / 2] &= ~mask;
+                indices_[i / 2] |= (static_cast<uint16_t>(indices[i] & 0xffff) << shift[i % 2]);
                 mask = ~mask;
             }
         } else {

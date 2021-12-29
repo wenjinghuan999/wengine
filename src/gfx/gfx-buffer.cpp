@@ -87,5 +87,11 @@ void Gfx::createVertexBufferResources(const std::shared_ptr<VertexBufferBase>& v
     );
 }
 
+void Gfx::createIndexBufferResources(const std::shared_ptr<IndexBuffer>& index_buffer) {
+    impl_->createBufferResources(
+        index_buffer, 
+        vk::BufferUsageFlagBits::eIndexBuffer
+    );
+}
 
 } // namespace wg

@@ -15,6 +15,10 @@ struct DrawCommandResources {
     vk::Pipeline pipeline;
     std::vector<vk::Buffer> vertex_buffers;
     std::vector<vk::DeviceSize> vertex_buffer_offsets;
+    bool use_index_buffer;
+    vk::Buffer index_buffer;
+    vk::DeviceSize index_buffer_offset;
+    vk::IndexType index_type;
 };
 
 struct RenderTargetResources {

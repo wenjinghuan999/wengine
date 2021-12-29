@@ -253,6 +253,7 @@ std::shared_ptr<Gfx> Gfx::Create(const App& app) {
 Gfx::Gfx(const App& app)
     : impl_(std::make_unique<Gfx::Impl>()) {
     
+    impl_->gfx = this;
     logger().info("Initializing gfx.");
 
     auto instance_version = impl_->context.enumerateInstanceVersion();

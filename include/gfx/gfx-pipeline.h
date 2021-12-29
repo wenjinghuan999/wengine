@@ -2,7 +2,7 @@
 
 #include "common/common.h"
 #include "common/owned-resources.h"
-#include "gfx/vertex-buffer.h"
+#include "gfx/gfx-buffer.h"
 
 #include <cinttypes>
 #include <initializer_list>

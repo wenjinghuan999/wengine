@@ -11,7 +11,7 @@
 #include "gfx/inc/surface-private.h"
 #include "gfx/inc/shader-private.h"
 #include "gfx/inc/render-target-private.h"
-#include "gfx/inc/vertex-buffer-private.h"
+#include "gfx/inc/gfx-buffer-private.h"
 
 namespace wg {
 
@@ -24,6 +24,9 @@ struct Gfx::Impl {
     vk::raii::Instance instance{nullptr};
     vk::raii::DebugUtilsMessengerEXT debug_messenger{nullptr};
     OwnedResources<WindowSurfaceResources> window_surfaces_;
+
+    Gfx* gfx;
+    void createBufferResources(const std::shared_ptr<GfxBufferBase>& gfx_buffer, vk::BufferUsageFlags usage);
 };
 
 struct PhysicalDevice::Impl {
@@ -75,8 +78,8 @@ struct LogicalDevice::Impl {
     OwnedResources<ShaderResources> shader_resources;
     // resources of render targets (may be accessed by render target using OwnedResourcesHandle)
     OwnedResources<RenderTargetResources> render_target_resources;
-    // resources of vertex buffers (may be accessed by vertex buffer using OwnedResourcesHandle)
-    OwnedResources<VertexBufferResources> vertex_buffer_resources;
+    // resources of buffers (may be accessed by buffer using OwnedResourcesHandle)
+    OwnedResources<BufferResources> buffer_resources;
     
     explicit Impl(vk::raii::Device vk_device) 
         : vk_device(std::move(vk_device)) {}

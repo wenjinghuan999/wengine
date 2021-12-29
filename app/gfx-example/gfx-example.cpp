@@ -5,7 +5,7 @@
 #include "gfx/gfx-pipeline.h"
 #include "gfx/draw-command.h"
 #include "gfx/renderer.h"
-#include "gfx/vertex-buffer.h"
+#include "gfx/gfx-buffer.h"
 
 int main(int, char**) {
     wg::App app("wegnine-gfx-example", std::make_tuple(0, 0, 1));

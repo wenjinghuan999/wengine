@@ -8,7 +8,7 @@
 #include "gfx/render-target.h"
 #include "gfx/gfx-pipeline.h"
 #include "gfx/renderer.h"
-#include "gfx/vertex-buffer.h"
+#include "gfx/gfx-buffer.h"
 
 #include <map>
 #include <memory>
@@ -60,13 +60,15 @@ public:
     void submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target);
     void render(const std::shared_ptr<RenderTarget>& render_target);
 
-    // VertexBuffer
+    // Buffer
     void createVertexBufferResources(const std::shared_ptr<VertexBufferBase>& vertex_buffer);
+    void createIndexBufferResources(const std::shared_ptr<IndexBuffer>& index_buffer);
 
 protected:
     explicit Gfx(const App& app);
 protected:
     struct Impl;
+    friend struct Impl;
     std::unique_ptr<Impl> impl_;
     std::vector<std::unique_ptr<PhysicalDevice>> physical_devices_;
     int current_physical_device_index_{ -1 };

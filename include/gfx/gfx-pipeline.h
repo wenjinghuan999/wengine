@@ -62,12 +62,12 @@ public:
 
 public:
     [[nodiscard]] const std::string& name() const { return name_; }
-    [[nodiscard]] const GfxVertexFactory& vertex_factroy() const { return vertex_factory_; }
+    [[nodiscard]] const GfxVertexFactory& vertex_factory() const { return vertex_factory_; }
     [[nodiscard]] const GfxPipelineState& pipeline_state() const { return pipeline_state_; }
     [[nodiscard]] const GfxUniformLayout& uniform_layout() const { return uniform_layout_; }
     [[nodiscard]] const std::vector<std::shared_ptr<Shader>>& shaders() const { return shaders_; }
 
-    void setVertexFactroy(GfxVertexFactory vertex_factory) { vertex_factory_ = vertex_factory; }
+    void setVertexFactory(GfxVertexFactory vertex_factory) { vertex_factory_ = vertex_factory; }
     void setPipelineState(GfxPipelineState pipeline_state) { pipeline_state_ = pipeline_state; }
     void setUniformLayout(GfxUniformLayout uniform_layout) { uniform_layout_ = uniform_layout; }
     void addShader(const std::shared_ptr<Shader>& shader) { shaders_.push_back(shader); }

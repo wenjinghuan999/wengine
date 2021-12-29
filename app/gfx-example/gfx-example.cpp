@@ -43,7 +43,7 @@ int main(int, char**) {
     auto pipeline = wg::GfxPipeline::Create("simple");
     pipeline->addShader(vert_shader);
     pipeline->addShader(frag_shader);
-    pipeline->setVertexFactroy(std::move(vertex_factory));
+    pipeline->setVertexFactory(std::move(vertex_factory));
 
     auto simple_draw_command = wg::SimpleDrawCommand::Create(pipeline);
     auto renderer = wg::Renderer::Create();

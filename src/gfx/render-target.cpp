@@ -121,12 +121,12 @@ void RenderTargetSurface::finishImage(Gfx& gfx, int image_index) {
                 .setSwapchains(swapchains)
                 .setImageIndices(image_indices);
             
-            auto* present_queue = resources->queues[1];
+            auto& present_queue = resources->queues[1];
             // Do not use VulkanHpp for present because it throws when result == VK_ERROR_OUT_OF_DATE_KHR
             // See https://github.com/KhronosGroup/Vulkan-Hpp/issues/274
             auto result = 
-                static_cast<vk::Result>(present_queue->vk_queue.getDispatcher()->vkQueuePresentKHR(
-                    static_cast<VkQueue>(*present_queue->vk_queue), reinterpret_cast<const VkPresentInfoKHR*>(&present_info)));
+                static_cast<vk::Result>(present_queue.vk_device->getDispatcher()->vkQueuePresentKHR(
+                    static_cast<VkQueue>(present_queue.vk_queue), reinterpret_cast<const VkPresentInfoKHR*>(&present_info)));
             
             if (result == vk::Result::eSuboptimalKHR || result == vk::Result::eErrorOutOfDateKHR) {
                 logger().info("Skip present: result = {}.", vk::to_string(result));
@@ -216,12 +216,12 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 
     // Queues
     for (auto queue_id : render_target->queues()) {
-        auto& queue_info_array = logical_device_->impl_->queues[queue_id];
+        auto& queue_info_array = logical_device_->impl_->queue_references[queue_id];
         if (!queue_info_array.empty()) {
-            auto& queue_info = queue_info_array[0]; // Choose first for now
-            resources->queues.push_back(queue_info.get());
-            if (queue_id == gfx_queues::graphics && !resources->graphics_queue) {
-                resources->graphics_queue = queue_info.get();
+            auto& queue_info_ref = queue_info_array[0]; // Choose first for now
+            resources->queues.push_back(queue_info_ref);
+            if (queue_id == gfx_queues::graphics && resources->graphics_queue_index < 0) {
+                resources->graphics_queue_index = static_cast<int>(resources->queues.size()) - 1;
             }
         } else {
             logger().error("Cannot get queue \"{}\" from device.", 
@@ -242,10 +242,10 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     }
 
     // Command buffers
-    if (resources->graphics_queue) {
+    if (resources->graphics_queue_index >= 0) {
         resources->command_buffers.resize(image_views.size());
         auto command_buffer_allocate_info = vk::CommandBufferAllocateInfo{
-            .commandPool = *resources->graphics_queue->vk_command_pool,
+            .commandPool = resources->queues[resources->graphics_queue_index].vk_command_pool,
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = static_cast<uint32_t>(image_views.size())
         };
@@ -312,8 +312,8 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
         .setCommandBuffers(command_buffers)
         .setSignalSemaphores(signal_semaphores);
     
-    if (resources->graphics_queue) {
-        resources->graphics_queue->vk_queue.submit({ submit_info }, fence);
+    if (resources->graphics_queue_index >= 0) {
+        resources->queues[resources->graphics_queue_index].vk_queue.submit({ submit_info }, fence);
     } else {
         logger().error("Cannot render because no graphics queue has been assigned to render target.");
         return;

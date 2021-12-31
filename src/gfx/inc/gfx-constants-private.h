@@ -39,4 +39,12 @@ struct QueueInfo {
     vk::raii::CommandPool vk_command_pool{nullptr};
 };
 
+struct QueueInfoRef {
+    uint32_t queue_family_index{};
+    uint32_t queue_index_in_family{};
+    vk::raii::Device* vk_device{nullptr};
+    vk::Queue vk_queue{nullptr};
+    vk::CommandPool vk_command_pool{nullptr};
+};
+
 } // namespace wg

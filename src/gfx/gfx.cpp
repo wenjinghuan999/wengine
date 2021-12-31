@@ -436,18 +436,17 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
         }
 
         for (auto& window_surface : impl_->window_surfaces_) {
-            const auto& num_queues = device.impl_->num_queues[gfx_queues::present];
             bool has_any_family = false;
             const auto& surface = window_surface.surface;
             auto window = surface->window_.lock();
             if (!window) {
                 continue;
             }
-            for (auto&& [queue_family_index, num_queues_of_family] : num_queues) {
-                if (!device.impl_->vk_physical_device.getSurfaceSupportKHR(queue_family_index, *surface->impl_->vk_surface)) {
-                    continue;
+            for (uint32_t family_index = 0; family_index < device.impl_->num_queues.size(); ++family_index) {
+                if (device.impl_->vk_physical_device.getSurfaceSupportKHR(family_index, *surface->impl_->vk_surface)) {
+                    has_any_family = true;
+                    break;
                 }
-                has_any_family = true;
             }
             if (!has_any_family) {
                 logger().info("Physical device {} does not support surface of window \"{}\" (no suitable queue family).",
@@ -486,12 +485,237 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
     selectPhysicalDevice(index);
 }
 
+PhysicalDevice::Impl::Impl(vk::raii::PhysicalDevice vk_physical_device) 
+    : vk_physical_device(std::move(vk_physical_device)) {
+    auto queue_families = this->vk_physical_device.getQueueFamilyProperties();
+    std::fill(num_queues_total.begin(), num_queues_total.end(), 0);
+    num_queues = std::vector<int>(queue_families.size(), 0);
+    queue_supports = std::vector<std::bitset<gfx_queues::NUM_QUEUES>>(queue_families.size(), 0);
+    for (uint32_t queue_family_index = 0; 
+        queue_family_index < static_cast<uint32_t>(queue_families.size()); 
+        ++queue_family_index) {
+
+        const auto& queue_family = queue_families[queue_family_index];
+        num_queues[queue_family_index] = static_cast<int>(queue_family.queueCount);
+
+        for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
+            auto queue_id = static_cast<gfx_queues::QueueId>(i);
+            vk::QueueFlags required_flags = GetRequiredQueueFlags(queue_id);
+
+            if (queue_family.queueFlags & required_flags) {
+                queue_supports[queue_family_index][i] = true;
+                num_queues_total[i] += num_queues[queue_family_index];
+            }
+        }
+    }
+}
+
+int PhysicalDevice::Impl::findMemoryTypeIndex(vk::MemoryRequirements requirements, vk::MemoryPropertyFlags property_flags) {
+    auto memory_properties = vk_physical_device.getMemoryProperties();
+    for (int i = 0; i < static_cast<int>(memory_properties.memoryTypeCount); i++) {
+        if (requirements.memoryTypeBits & (1 << i) && 
+            (memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+bool PhysicalDevice::Impl::allocateQueues(
+    std::array<int, gfx_queues::NUM_QUEUES> required_queues,
+    const std::vector<vk::SurfaceKHR>& surfaces,
+    std::array<std::vector<std::pair<uint32_t, uint32_t>>, gfx_queues::NUM_QUEUES>& out_queue_index_remap
+) {
+    bool num_queues_valid = [this]() {
+        for (size_t i = 0; i < num_queues.size(); ++i) {
+            if (num_queues[i] <= 0) {
+                return false;
+            }
+        }
+        return !num_queues.empty();
+    }();
+    if (!num_queues_valid) {
+        logger().error("Cannot allocate queues because num_queues is invalid.");
+        return false;
+    }
+
+    // 1. Find out queue support considering surfaces
+    std::vector<std::bitset<gfx_queues::NUM_QUEUES>> real_queue_supports = queue_supports;
+    for (uint32_t family_index = 0; family_index < num_queues.size(); ++family_index) {
+        // Fill queue_counts[queue_family_index][NUM_QUEUES] = num of queues available
+        for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
+            auto queue_id = static_cast<gfx_queues::QueueId>(i);
+            if (!checkQueueSupport(family_index, queue_id, surfaces)) {
+                real_queue_supports[family_index][i] = false;
+            }
+        }
+    }
+
+    // 2. Try allocate queues. If failed, reduce queue counts one by one.
+    std::vector<std::map<gfx_queues::QueueId, int>> allocated_queue_counts;
+    bool succeeded = false;
+    bool succeeded_allocating_all = true;
+    int last_reduced_queue_id = 0;
+    while (!succeeded) {
+        succeeded = tryAllocateQueues(required_queues, real_queue_supports, allocated_queue_counts);
+        if (succeeded) {
+            break;
+        }
+        succeeded_allocating_all = false;
+        bool reduced = false;
+        for (int i = 1; i <= gfx_queues::NUM_QUEUES; ++i) {
+            int queue_id_to_reduce = (last_reduced_queue_id + i) % gfx_queues::NUM_QUEUES;
+            if (required_queues[queue_id_to_reduce] > 1) {
+                required_queues[queue_id_to_reduce] -= 1;
+                reduced = true;
+                last_reduced_queue_id = queue_id_to_reduce;
+                break;
+            }
+        }
+        if (!reduced) {
+            break;
+        }
+    };
+
+    // 3. If we still failed after reducing queue counts, we can only allow duplicated queues
+    // Now just allocate required queues one by one
+    if (!succeeded) {
+        succeeded_allocating_all = false;
+        uint32_t last_family_index = 0;
+        std::vector<size_t> queue_index_in_family(num_queues.size());
+        allocated_queue_counts.clear();
+        allocated_queue_counts.resize(num_queues.size());
+        for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
+            auto queue_id = static_cast<gfx_queues::QueueId>(i);
+            if (required_queues[i] == 0) {
+                continue;
+            }
+
+            bool allocated = false;
+            for (uint32_t j = 0; j < num_queues.size(); ++j) {
+                uint32_t family_index = (last_family_index + j) % static_cast<uint32_t>(num_queues.size());
+                if (real_queue_supports[family_index][i]) {
+                    allocated_queue_counts[family_index][queue_id] = 1;
+                    required_queues[i] = 0;
+                    queue_index_in_family[family_index] = (queue_index_in_family[family_index] + 1U) % num_queues[family_index];
+                    last_family_index = queue_index_in_family[family_index] == 0 ? 
+                        (family_index + 1U) % num_queues.size() : family_index;
+                    break;
+                }
+            }
+            if (!allocated) {
+                logger().error("Failed to allocate queue %s due to no family support!",
+                    gfx_queues::QUEUE_NAMES[queue_id]);
+            }
+        }
+    }
+
+    // 4. Remap queues
+    // queue_index_remap[queue_id][index_in_queue_id] = <queue_family_index, queue_index_in_family>
+    for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
+        out_queue_index_remap[i].clear();
+    }
+    for (uint32_t family_index = 0; family_index < num_queues.size(); ++family_index) {
+        uint32_t queue_index_in_family = 0;
+        for (auto&& kv : allocated_queue_counts[family_index]) {
+            gfx_queues::QueueId queue_id = kv.first;
+            int queue_count_of_queue_id_in_family = kv.second;
+            for (int i = 0; i < queue_count_of_queue_id_in_family; ++i) {
+                out_queue_index_remap[queue_id].push_back( 
+                    std::make_pair(family_index, queue_index_in_family));
+                queue_index_in_family = (queue_index_in_family + 1U) % num_queues[family_index];
+            }
+        }
+    }
+    return succeeded_allocating_all;
+}
+
+bool PhysicalDevice::Impl::tryAllocateQueues(
+    std::array<int, gfx_queues::NUM_QUEUES> required_queues,
+    const std::vector<std::bitset<gfx_queues::NUM_QUEUES>>& real_queue_supports,
+    std::vector<std::map<gfx_queues::QueueId, int>>& out_allocated_queue_counts) {
+    
+    out_allocated_queue_counts.clear();
+    out_allocated_queue_counts.resize(num_queues.size());
+
+    // 1. Allocate queues if family is large enough to contain all supported queues
+    std::vector<int> num_queues_remained = num_queues;
+    for (uint32_t family_index = 0; family_index < num_queues.size(); ++family_index) {
+        int total_requires = 0;
+        for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
+            if (real_queue_supports[family_index][i]) {
+                total_requires += required_queues[i];
+            }
+        }
+
+        // This family can contain all queues supported
+        if (total_requires < num_queues[family_index]) {
+            for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
+                auto queue_id = static_cast<gfx_queues::QueueId>(i);
+                if (real_queue_supports[family_index][i]) {
+                    out_allocated_queue_counts[family_index][queue_id] = required_queues[i];
+                    num_queues_remained[family_index] -= required_queues[i];
+                    required_queues[i] = 0;
+                }
+            }
+        }
+    }
+
+    // 2. Fill queues of each queue_id one by one
+    uint32_t family_index = 0;
+    for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
+        auto queue_id = static_cast<gfx_queues::QueueId>(i);
+        bool final_round = false;
+        while (required_queues[i] > 0) {
+            if (num_queues_remained[family_index] == 0) {
+                ++family_index;
+                if (family_index >= num_queues.size()) {
+                    // If we reached the end of families, try another round.
+                    // If we still can't fill queues in this queue_id, we failed.
+                    if (final_round) {
+                        return false;
+                    }
+                    final_round = true;
+                    family_index = 0;
+                }
+            }
+            if (real_queue_supports[family_index][i]) {
+                int allocated = std::min(required_queues[i], num_queues_remained[family_index]);
+                out_allocated_queue_counts[family_index][queue_id] += allocated;
+                num_queues_remained[family_index] -= allocated;
+                required_queues[i] -= allocated;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool PhysicalDevice::Impl::checkQueueSupport(
+    uint32_t queue_family_index, gfx_queues::QueueId queue_id, 
+    const std::vector<vk::SurfaceKHR>& surfaces) {
+    if (!queue_supports[queue_family_index][queue_id]) {
+        return false;
+    }
+    if (queue_id == gfx_queues::present) {
+        // Check queue family available to all surfaces
+        const bool support_all_surfaces = std::all_of(surfaces.begin(), surfaces.end(),
+            [this, queue_family_index1=queue_family_index](const vk::SurfaceKHR& surface) {
+            if (!vk_physical_device.getSurfaceSupportKHR(queue_family_index1, surface)) {
+                logger().debug("Queue family {} does not support all surfaces.", queue_family_index1);
+                return false;
+            }
+            return true;
+        });
+        if (!support_all_surfaces) {
+            return false;
+        }
+    }
+    return true;
+}
+
 LogicalDevice::LogicalDevice()
     : impl_() {}
-
-} // namespace wg
-
-namespace wg {
 
 void Gfx::createLogicalDevice() {
     logger().info("Creating logical device.");
@@ -524,14 +748,11 @@ void Gfx::createLogicalDevice() {
     }
 
     logger().info("Device queues:");
-    for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
-        auto& num_queues = physical_device().impl_->num_queues[i];
-        if (!num_queues.empty()) {
-            logger().info(" - {}", gfx_queues::QUEUE_NAMES[i]);
-            for (auto&& [queue_family_index, queue_count] : num_queues) {
-                logger().info("   - family {}: {}", queue_family_index, queue_count);
-            }
-        }
+    for (uint32_t queue_family_index = 0; 
+        queue_family_index < physical_device().impl_->num_queues.size(); 
+        ++queue_family_index) {
+        logger().info(" - family {} : {}", 
+            queue_family_index, physical_device().impl_->num_queues[queue_family_index]);
     }
 
     VulkanFeatures enabled_features;
@@ -575,47 +796,24 @@ void Gfx::createLogicalDevice() {
         }
     }
 
+    std::vector<vk::SurfaceKHR> surfaces;
+    for (auto&& window_surface : impl_->window_surfaces_) {
+        surfaces.emplace_back(*window_surface.surface->impl_->vk_surface);
+    }
+
+    // Allocate queues.
     // <queue_id, index_in_queue_id> => <queue_family_index, queue_index_in_family>
-    std::map<std::pair<gfx_queues::QueueId, int>, std::pair<uint32_t, uint32_t>> queue_index_remap;
+    std::array<std::vector<std::pair<uint32_t, uint32_t>>, gfx_queues::NUM_QUEUES> queue_index_remap;
+    bool succeeded = physical_device().impl_->allocateQueues(
+        enabled_features.device_queues, surfaces, queue_index_remap);
     // queue_counts[queue_family_index] = num of queues to be allocated in queue family
     std::map<uint32_t, uint32_t> queue_counts;
     for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
-        auto queue_id = static_cast<gfx_queues::QueueId>(i);
-        int queue_num = enabled_features.device_queues[i];
-        int queue_index = 0;
-        
-        for (auto&& [queue_family_index, queue_num_of_family] : physical_device().impl_->num_queues[i]) {
-            // Check queue family available to all surfaces
-            const bool support_all_surfaces = std::all_of(impl_->window_surfaces_.begin(), impl_->window_surfaces_.end(),
-                [this, queue_family_index1=queue_family_index](WindowSurfaceResources& window_surface) {
-                const auto& surface = window_surface.surface;
-                auto window = surface->window_.lock();
-                if (!window) {
-                    return true;
-                }
-                if (!physical_device().impl_->vk_physical_device.getSurfaceSupportKHR(queue_family_index1, *surface->impl_->vk_surface)) {
-                    logger().debug("Queue family {} does not support surface of window \"{}\".", 
-                        queue_family_index1, window->title());
-                    return false;
-                }
-                return true;
-            });
-            if (!support_all_surfaces) {
-                continue;
-            }
-            // Allocate queues
-            while (queue_index < queue_num && queue_counts[queue_family_index] < queue_num_of_family) {
-                queue_index_remap[std::make_pair(queue_id, queue_index)] 
-                    = std::make_pair(queue_family_index, queue_counts[queue_family_index]);
-                queue_index++;
-                queue_counts[queue_family_index]++;
-            }
-            if (queue_index == queue_num) {
-                break;
-            }
-        }
-        if (queue_index < queue_num) {
-            logger().error("No enough queues on device. Requesting {}[{}], allocated {}.", gfx_queues::QUEUE_NAMES[i], queue_num, queue_index);
+        for (auto&& kv : queue_index_remap[i]) {
+            uint32_t queue_family_index = kv.first;
+            uint32_t queue_index_in_family = kv.second;
+            queue_counts[queue_family_index] = std::max(
+                queue_counts[queue_family_index], queue_index_in_family + 1U);
         }
     }
 
@@ -652,23 +850,43 @@ void Gfx::createLogicalDevice() {
     logical_device_->impl_ = std::make_unique<LogicalDevice::Impl>(std::move(vk_device));
 
     // Get all queues
-    for (auto&& kv : queue_index_remap) {
-        gfx_queues::QueueId queue_id = kv.first.first;
-        uint32_t queue_family_index = kv.second.first;
-        uint32_t queue_index_in_family = kv.second.second;
+    logical_device_->impl_->allocated_queues.resize(physical_device().impl_->num_queues.size());
+    for (auto&& [queue_family_index, queue_count] : queue_counts) {
+        for (uint32_t queue_index_in_family = 0; queue_index_in_family < queue_count; ++queue_index_in_family) {
+            auto queue_info = std::make_unique<QueueInfo>();
+            queue_info->queue_family_index = queue_family_index;
+            queue_info->queue_index_in_family = queue_index_in_family;
+            queue_info->vk_queue = 
+                logical_device_->impl_->vk_device.getQueue(queue_family_index, queue_index_in_family);
 
-        logical_device_->impl_->queues[queue_id].push_back(
-            std::make_unique<QueueInfo>()
-        );
-        auto& queue_info = logical_device_->impl_->queues[queue_id].back();
-        queue_info->queue_family_index = queue_family_index;
-        queue_info->queue_index_in_family = queue_index_in_family;
-        queue_info->vk_queue = logical_device_->impl_->vk_device.getQueue(queue_family_index, queue_index_in_family);
-        
-        auto command_pool_create_info = vk::CommandPoolCreateInfo{
-            .queueFamilyIndex = queue_family_index
-        };
-        queue_info->vk_command_pool = logical_device_->impl_->vk_device.createCommandPool(command_pool_create_info);
+            auto command_pool_create_info = vk::CommandPoolCreateInfo{
+                .queueFamilyIndex = queue_family_index
+            };
+            queue_info->vk_command_pool = logical_device_->impl_->vk_device.createCommandPool(command_pool_create_info);
+
+            logical_device_->impl_->allocated_queues[queue_family_index].emplace_back(std::move(queue_info));
+        }
+    }
+
+    // Get all queue references
+    for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
+        gfx_queues::QueueId queue_id = static_cast<gfx_queues::QueueId>(i);
+        for (auto&& kv : queue_index_remap[i]) {
+            uint32_t queue_family_index = kv.first;
+            uint32_t queue_index_in_family = kv.second;
+
+            const auto& queue_info = 
+                *logical_device_->impl_->allocated_queues[queue_family_index][queue_index_in_family].get();
+
+            auto queue_info_ref = QueueInfoRef{
+                .queue_family_index = queue_family_index,
+                .queue_index_in_family = queue_index_in_family,
+                .vk_device = &logical_device_->impl_->vk_device,
+                .vk_queue = *queue_info.vk_queue,
+                .vk_command_pool = *queue_info.vk_command_pool
+            };
+            logical_device_->impl_->queue_references[queue_id].emplace_back(queue_info_ref);
+        }
     }
 
     logger().info("Logical device created.");

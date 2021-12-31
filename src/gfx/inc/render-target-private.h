@@ -32,8 +32,8 @@ struct RenderTargetResources {
     std::vector<vk::CommandBuffer> command_buffers;
 
     vk::raii::Device* device{nullptr};
-    std::vector<QueueInfo*> queues;
-    QueueInfo* graphics_queue{nullptr};
+    std::vector<QueueInfoRef> queues; // queues needed for render target
+    int graphics_queue_index{-1};
     std::vector<DrawCommandResources> draw_command_resources;
 
     std::vector<vk::Fence> images_in_flight;
@@ -42,8 +42,11 @@ struct RenderTargetResources {
 
     ~RenderTargetResources() {
         // handle manually for better performance
-        device->waitIdle();
-        (**device).freeCommandBuffers(*graphics_queue->vk_command_pool, command_buffers);
+        if (graphics_queue_index >= 0) {
+            device->waitIdle();
+            auto vk_command_pool = queues[graphics_queue_index].vk_command_pool;
+            (**device).freeCommandBuffers(vk_command_pool, command_buffers);
+        }
     }
 };
 

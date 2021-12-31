@@ -220,14 +220,14 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
         return false;
     }
     
-    if (logical_device_->impl_->queues[gfx_queues::graphics].empty() || 
-        logical_device_->impl_->queues[gfx_queues::present].empty()) {
+    if (logical_device_->impl_->queue_references[gfx_queues::graphics].empty() || 
+        logical_device_->impl_->queue_references[gfx_queues::present].empty()) {
         logger().info("Skip creating resources for surface of window \"{}\" because no queues available.", window->title());
         return false;
     }
         
-    uint32_t graphics_family_index = logical_device_->impl_->queues[gfx_queues::graphics][0]->queue_family_index;
-    uint32_t present_family_index = logical_device_->impl_->queues[gfx_queues::present][0]->queue_family_index;
+    uint32_t graphics_family_index = logical_device_->impl_->queue_references[gfx_queues::graphics][0].queue_family_index;
+    uint32_t present_family_index = logical_device_->impl_->queue_references[gfx_queues::present][0].queue_family_index;
     logger().info(" - Creating swapchain: Graphics family: {}, present family: {}.",
         graphics_family_index, present_family_index);
     

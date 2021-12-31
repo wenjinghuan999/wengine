@@ -3,6 +3,7 @@
 #include "platform/inc/platform.inc"
 
 #include <array>
+#include <bitset>
 #include <vector>
 #include <tuple>
 
@@ -33,44 +34,32 @@ struct PhysicalDevice::Impl {
     vk::raii::PhysicalDevice vk_physical_device;
     // num_queues_total[queue_id] = total num of queues available in all families
     std::array<int, gfx_queues::NUM_QUEUES> num_queues_total{};
-    // num_queues[queue_id] = <queue_family_index, num_queues_of_family>[]
-    std::array<std::vector<std::pair<uint32_t, uint32_t>>, gfx_queues::NUM_QUEUES> num_queues{};
+    // num_queues[queue_family_index] = num_queues_of_family
+    std::vector<int> num_queues{};
+    // queue_supports[queue_family_index] = bitset of support of each gfx_queue
+    std::vector<std::bitset<gfx_queues::NUM_QUEUES>> queue_supports{};
     
-    explicit Impl(vk::raii::PhysicalDevice vk_physical_device) 
-        : vk_physical_device(std::move(vk_physical_device)) {
-        auto queue_families = this->vk_physical_device.getQueueFamilyProperties();
-        for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
-            auto queue_id = static_cast<gfx_queues::QueueId>(i);
-            vk::QueueFlags required_flags = GetRequiredQueueFlags(queue_id);
-            for (uint32_t queue_family_index = 0; 
-                queue_family_index < static_cast<uint32_t>(queue_families.size()); 
-                ++queue_family_index) {
-                
-                const auto& queue_family = queue_families[queue_family_index];
-                if (queue_family.queueFlags & required_flags) {
-                    num_queues[i].emplace_back(queue_family_index, queue_family.queueCount);
-                    num_queues_total[i] += static_cast<int>(queue_family.queueCount);
-                }
-            }
-        }
-    }
-
-    int findMemoryTypeIndex(vk::MemoryRequirements requirements, vk::MemoryPropertyFlags property_flags) {
-        auto memory_properties = vk_physical_device.getMemoryProperties();
-        for (int i = 0; i < static_cast<int>(memory_properties.memoryTypeCount); i++) {
-            if (requirements.memoryTypeBits & (1 << i) && 
-                (memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags) {
-                return i;
-            }
-        }
-        return -1;
-    }
+    explicit Impl(vk::raii::PhysicalDevice vk_physical_device);
+    int findMemoryTypeIndex(vk::MemoryRequirements requirements, vk::MemoryPropertyFlags property_flags);
+    bool allocateQueues(
+        std::array<int, gfx_queues::NUM_QUEUES> required_queues,
+        const std::vector<vk::SurfaceKHR>& surfaces,
+        std::array<std::vector<std::pair<uint32_t, uint32_t>>, gfx_queues::NUM_QUEUES>& out_queue_index_remap);
+    bool tryAllocateQueues(
+        std::array<int, gfx_queues::NUM_QUEUES> required_queues,
+        const std::vector<std::bitset<gfx_queues::NUM_QUEUES>>& real_queue_supports,
+        std::vector<std::map<gfx_queues::QueueId, int>>& out_allocated_queue_counts);
+    bool checkQueueSupport(
+        uint32_t queue_family_index, gfx_queues::QueueId queue_id,
+        const std::vector<vk::SurfaceKHR>& surfaces);
 };
 
 struct LogicalDevice::Impl {
     vk::raii::Device vk_device;
-    // queues[queue_id][queue_index] = <queue_family_index, vk_queue, vk_command_poll>
-    std::map<gfx_queues::QueueId, std::vector<std::unique_ptr<QueueInfo>>> queues;
+    // allocated_queues[queue_family_index][] = QueueInfo
+    std::vector<std::vector<std::unique_ptr<QueueInfo>>> allocated_queues;
+    // queue_references[queue_id][] = QueueInfoRef
+    std::array<std::vector<QueueInfoRef>, gfx_queues::NUM_QUEUES> queue_references;
 
     // resources of surfaces (may be accessed by surface using OwnedResourcesHandle)
     OwnedResources<SurfaceResources> surface_resources;

@@ -751,8 +751,15 @@ void Gfx::createLogicalDevice() {
     for (uint32_t queue_family_index = 0; 
         queue_family_index < physical_device().impl_->num_queues.size(); 
         ++queue_family_index) {
-        logger().info(" - family {} : {}", 
-            queue_family_index, physical_device().impl_->num_queues[queue_family_index]);
+        
+        auto num_queues = physical_device().impl_->num_queues[queue_family_index];
+        auto g = physical_device().impl_->checkQueueSupport(queue_family_index, gfx_queues::graphics, {});
+        auto p = physical_device().impl_->checkQueueSupport(queue_family_index, gfx_queues::present, {});
+        auto t = physical_device().impl_->checkQueueSupport(queue_family_index, gfx_queues::transfer, {});
+        auto c = physical_device().impl_->checkQueueSupport(queue_family_index, gfx_queues::compute, {});
+        logger().info(" - family {}: {}\t{}{}{}{}",
+            queue_family_index, num_queues,
+            g ? "G" : "", p ? "P" : "", t ? "T" : "", c ? "C" : "");
     }
 
     VulkanFeatures enabled_features;

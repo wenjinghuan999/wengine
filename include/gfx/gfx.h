@@ -102,6 +102,7 @@ namespace gfx_features {
     enum FeatureId {
         // User controlled features
         window_surface,
+        separate_transfer,
         // Engine controlled features
         _must_enable_if_valid, NUM_FEATURES = _must_enable_if_valid,
         _debug_utils,
@@ -121,8 +122,10 @@ public:
     bool disableFeature(gfx_features::FeatureId feature);
     // Features required
     [[nodiscard]] std::vector<gfx_features::FeatureId> features_required() const;
+    [[nodiscard]] bool feature_required(gfx_features::FeatureId feature_id) const;
     // Features enabled
     [[nodiscard]] std::vector<gfx_features::FeatureId> features_enabled() const;
+    [[nodiscard]] bool feature_enabled(gfx_features::FeatureId feature_id) const;
     // Queues required
     [[nodiscard]] std::array<int, gfx_queues::NUM_QUEUES> queues_required() const;
     // Queues enabled

@@ -21,6 +21,7 @@ namespace gfx_features {
 
 const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL] = {
     "window_surface",
+    "separate_transfer",
     "_must_enable_if_valid",
     "_debug_utils"
 };
@@ -168,6 +169,12 @@ private:
                 vk_features.device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
                 vk_features.device_queues[wg::gfx_queues::graphics] = 1;
                 vk_features.device_queues[wg::gfx_queues::present] = 1;
+                return vk_features;
+            }();
+        case wg::gfx_features::separate_transfer:
+            return [](){
+                auto vk_features = VulkanFeatures();
+                vk_features.device_queues[wg::gfx_queues::transfer] = 1;
                 return vk_features;
             }();
         case wg::gfx_features::_must_enable_if_valid:
@@ -944,8 +951,22 @@ std::vector<gfx_features::FeatureId> GfxFeaturesManager::features_required() con
     return instance_enabled_;
 }
 
+bool GfxFeaturesManager::feature_required(gfx_features::FeatureId feature_id) const {
+    if (std::find(user_disabled_.begin(), user_disabled_.end(), feature_id) != user_disabled_.end()) {
+        return false;
+    } else if (std::find(defaults_.begin(), defaults_.end(), feature_id) != defaults_.end()) {
+        return true;
+    } else {
+        return std::find(user_enabled_.begin(), user_enabled_.end(), feature_id) != user_enabled_.end();
+    }
+}
+
 std::vector<gfx_features::FeatureId> GfxFeaturesManager::features_enabled() const {
     return features_enabled_;
+}
+
+bool GfxFeaturesManager::feature_enabled(gfx_features::FeatureId feature_id) const {
+    return std::find(features_enabled_.begin(), features_enabled_.end(), feature_id) != features_enabled_.end();
 }
 
 std::array<int, gfx_queues::NUM_QUEUES> GfxFeaturesManager::queues_required() const {

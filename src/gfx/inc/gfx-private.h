@@ -27,6 +27,10 @@ struct Gfx::Impl {
     OwnedResources<WindowSurfaceResources> window_surfaces_;
 
     Gfx* gfx;
+    bool createBuffer(vk::DeviceSize data_size, 
+        vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memeory_properties, vk::SharingMode sharing_mode,
+        BufferResources& out_resources);
+    void copyBuffer(const QueueInfoRef& transfer_queue_info, vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
     void createBufferResources(const std::shared_ptr<GfxBufferBase>& gfx_buffer, vk::BufferUsageFlags usage);
 };
 

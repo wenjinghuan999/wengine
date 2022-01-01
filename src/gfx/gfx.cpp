@@ -600,11 +600,12 @@ bool PhysicalDevice::Impl::allocateQueues(
                     queue_index_in_family[family_index] = (queue_index_in_family[family_index] + 1U) % num_queues[family_index];
                     last_family_index = queue_index_in_family[family_index] == 0 ? 
                         (family_index + 1U) % num_queues.size() : family_index;
+                    allocated = true;
                     break;
                 }
             }
             if (!allocated) {
-                logger().error("Failed to allocate queue %s due to no family support!",
+                logger().error("Failed to allocate queue {} due to no family support!",
                     gfx_queues::QUEUE_NAMES[queue_id]);
             }
         }
@@ -667,7 +668,13 @@ bool PhysicalDevice::Impl::tryAllocateQueues(
         auto queue_id = static_cast<gfx_queues::QueueId>(i);
         bool final_round = false;
         while (required_queues[i] > 0) {
-            if (num_queues_remained[family_index] == 0) {
+            if (real_queue_supports[family_index][i] && num_queues_remained[family_index] > 0) {
+                int allocated = std::min(required_queues[i], num_queues_remained[family_index]);
+                out_allocated_queue_counts[family_index][queue_id] += allocated;
+                num_queues_remained[family_index] -= allocated;
+                required_queues[i] -= allocated;
+            }
+            else {
                 ++family_index;
                 if (family_index >= num_queues.size()) {
                     // If we reached the end of families, try another round.
@@ -678,12 +685,6 @@ bool PhysicalDevice::Impl::tryAllocateQueues(
                     final_round = true;
                     family_index = 0;
                 }
-            }
-            if (real_queue_supports[family_index][i]) {
-                int allocated = std::min(required_queues[i], num_queues_remained[family_index]);
-                out_allocated_queue_counts[family_index][queue_id] += allocated;
-                num_queues_remained[family_index] -= allocated;
-                required_queues[i] -= allocated;
             }
         }
     }

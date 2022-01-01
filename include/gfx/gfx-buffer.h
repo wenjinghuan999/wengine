@@ -1,8 +1,7 @@
 #pragma once
 
-#include "glm/glm.hpp"
-
 #include "common/common.h"
+#include "common/math.h"
 
 #include <cstddef>
 #include <memory>

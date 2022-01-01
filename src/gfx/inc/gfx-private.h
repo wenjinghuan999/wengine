@@ -31,7 +31,7 @@ struct Gfx::Impl {
 };
 
 struct PhysicalDevice::Impl {
-    vk::raii::PhysicalDevice vk_physical_device;
+    vk::raii::PhysicalDevice vk_physical_device{nullptr};
     // num_queues_total[queue_id] = total num of queues available in all families
     std::array<int, gfx_queues::NUM_QUEUES> num_queues_total{};
     // num_queues[queue_family_index] = num_queues_of_family
@@ -52,6 +52,8 @@ struct PhysicalDevice::Impl {
     bool checkQueueSupport(
         uint32_t queue_family_index, gfx_queues::QueueId queue_id,
         const std::vector<vk::SurfaceKHR>& surfaces);
+protected:
+    Impl() = default;
 };
 
 struct LogicalDevice::Impl {

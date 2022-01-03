@@ -15,12 +15,6 @@ namespace {
 
 namespace wg {
 
-std::shared_ptr<Renderer> Renderer::Create() {
-    return std::shared_ptr<Renderer>(new Renderer());
-}
-
-Renderer::Renderer() {}
-
 void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target) {
 
     if (!logical_device_) {
@@ -42,7 +36,8 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
         return;
     }
 
-    for (auto&& draw_command : render_target->renderer()->draw_commands) {
+    auto draw_commands = render_target->renderer()->getDrawCommands();
+    for (auto&& draw_command : draw_commands) {
         createPipelineResources(render_target, draw_command->pipeline());
     }
 
@@ -68,8 +63,8 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
         }   .setClearValues(clear_values);
         vk_command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
-        for (size_t i = 0; i < render_target->renderer()->draw_commands.size(); ++i) {
-            const auto& draw_command = render_target->renderer()->draw_commands[i];
+        for (size_t i = 0; i < draw_commands.size(); ++i) {
+            const auto& draw_command = draw_commands[i];
             const auto& draw_command_resources = resources->draw_command_resources[i];
 
             vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, draw_command_resources.pipeline);

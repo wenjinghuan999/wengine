@@ -1,27 +1,46 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include "common/common.h"
+#include "common/math.h"
 #include "gfx/draw-command.h"
+#include "gfx/gfx-buffer.h"
+#include "gfx/gfx-constants.h"
 
 namespace wg {
 
-class Renderer : public std::enable_shared_from_this<Renderer> {
+class IRenderer : public IGfxObject {
 public:
-    [[nodiscard]] static std::shared_ptr<Renderer> Create();
-     // Indicates that command buffer is ready to be drawn
+    virtual std::vector<std::shared_ptr<DrawCommand>> getDrawCommands() const = 0;
+protected:
+    IRenderer() = default;
+    ~IRenderer() = default;
+};
+
+class BasicRenderer : public IRenderer, public std::enable_shared_from_this<BasicRenderer> {
+public:
+    [[nodiscard]] static std::shared_ptr<BasicRenderer> Create() {
+        return std::shared_ptr<BasicRenderer>(new BasicRenderer());
+    }
+    virtual std::shared_ptr<IRenderData> createRenderData() override {
+        return DummyRenderData::Create();
+    }
+    virtual std::vector<std::shared_ptr<DrawCommand>> getDrawCommands() const override {
+        return draw_commands;
+    }
     void addDrawCommand(const std::shared_ptr<DrawCommand>& draw_command) {
         draw_commands.push_back(draw_command);
     }
     void clearDrawCommands() {
         draw_commands.clear();
     }
-    ~Renderer() = default;
+    ~BasicRenderer() = default;
 protected:
     std::vector<std::shared_ptr<DrawCommand>> draw_commands;
 protected:
-    explicit Renderer();
+    BasicRenderer() = default;
     friend class Gfx;
     friend class RenderTarget;
 };

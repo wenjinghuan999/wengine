@@ -18,11 +18,11 @@ namespace {
 namespace wg {
 
 std::shared_ptr<Shader> Shader::Load(
-    const std::string& filename, shader_stage::ShaderStage stage, const std::string& entry) {
+    const std::string& filename, shader_stages::ShaderStage stage, const std::string& entry) {
     return std::shared_ptr<Shader>(new Shader(filename, stage, entry));
 }
 
-Shader::Shader(const std::string& filename, shader_stage::ShaderStage stage, const std::string& entry)
+Shader::Shader(const std::string& filename, shader_stages::ShaderStage stage, const std::string& entry)
     : filename_(filename), entry_(entry), stage_(stage), impl_(std::make_unique<Shader::Impl>()) {
     loadStatic(filename, entry);
 }
@@ -100,7 +100,7 @@ void Gfx::createShaderResources(const std::shared_ptr<Shader>& shader) {
         .setCode(shader->impl_->raw_data);
     shader_resources->shader_module = logical_device_->impl_->vk_device.createShaderModule(shader_module_create_info);
 
-    vk::ShaderStageFlagBits vk_stage = GetShaderStageFlags(shader->stage());
+    vk::ShaderStageFlagBits vk_stage = GetShaderStageFlag(shader->stage());
     if (vk_stage == vk::ShaderStageFlagBits{}) {
         logger().warn("Shader stage is empty: \"{}\"", shader->filename());
     }

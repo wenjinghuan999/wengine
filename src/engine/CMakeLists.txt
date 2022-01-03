@@ -1,6 +1,4 @@
 add_library(wengine-engine
-    engine.cpp
-    ${PROJECT_SOURCE_DIR}/include/engine/engine.h
 )
 
 target_include_directories(wengine-engine
@@ -9,5 +7,6 @@ target_include_directories(wengine-engine
 
 target_link_libraries(wengine-engine
     PUBLIC wengine-common
-    PRIVATE fmt::fmt
+    PUBLIC wengine-logger
+    PUBLIC wengine-gfx
 )

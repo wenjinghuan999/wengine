@@ -3,6 +3,7 @@
 #include "common/common.h"
 #include "common/owned-resources.h"
 #include "gfx/gfx-buffer.h"
+#include "gfx/shader.h"
 
 #include <cinttypes>
 #include <initializer_list>
@@ -54,8 +55,23 @@ class GfxPipelineState {
 
 };
 
-class GfxUniformLayout {
+struct UniformDescription {
+    uniform_attributes::UniformAttribute attribute;
+    uint32_t binding;
+    shader_stages::ShaderStages stages;
+};
 
+class GfxUniformLayout {
+public:
+    void addDescription(UniformDescription description);
+    void clearDescriptions();
+    void addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
+    void clearUniformBuffers();
+    bool valid() const;
+protected:
+    friend class Gfx;
+    std::vector<UniformDescription> descriptions_;
+    std::vector<std::shared_ptr<UniformBufferBase>> uniform_buffers_;
 };
 
 class GfxPipeline : public std::enable_shared_from_this<GfxPipeline> {

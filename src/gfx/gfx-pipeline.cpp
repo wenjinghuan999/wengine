@@ -13,10 +13,10 @@ namespace {
     return *logger_;
 }
 
-template<typename VertexDescriptionType>
-void AddDescriptionImplTemplate(std::vector<VertexDescriptionType>& descriptions, VertexDescriptionType description) {
+template<typename DescriptionType>
+void AddDescriptionImplTemplate(std::vector<DescriptionType>& descriptions, DescriptionType description) {
     auto it = std::lower_bound(descriptions.begin(), descriptions.end(), description, 
-        [](const VertexDescriptionType& element, const VertexDescriptionType& value) {
+        [](const DescriptionType& element, const DescriptionType& value) {
             return element.attribute < value.attribute;
         });
     if (it == descriptions.end() || it->attribute != description.attribute) {
@@ -142,6 +142,41 @@ std::vector<VertexFactoryCombinedDescription> GfxVertexFactory::getCombinedDescr
     return combined_descriptions;
 }
 
+void GfxUniformLayout::addDescription(UniformDescription description) {
+    AddDescriptionImplTemplate(descriptions_, description);
+}
+
+void GfxUniformLayout::clearDescriptions() {
+    descriptions_.clear();
+}
+
+void GfxUniformLayout::addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer) {
+    uniform_buffers_.push_back(uniform_buffer);
+}
+
+void GfxUniformLayout::clearUniformBuffers() {
+    uniform_buffers_.clear();
+}
+
+bool GfxUniformLayout::valid() const {
+    std::vector<UniformObjectDescription> uniform_buffer_descriptions;
+    for (auto&& uniform_buffer : uniform_buffers_) {
+        AddDescriptionImplTemplate(uniform_buffer_descriptions, uniform_buffer->description());
+    }
+    for (auto&& description : descriptions_) {
+        auto it = std::lower_bound(
+            uniform_buffer_descriptions.begin(), uniform_buffer_descriptions.end(), description, 
+            [](const UniformObjectDescription& element, const UniformDescription& value) {
+                return element.attribute < value.attribute;
+            });
+        if (it == uniform_buffer_descriptions.end() ||
+            it->attribute != description.attribute) {
+            return false;
+        }
+    }
+    return true;
+}
+
 std::shared_ptr<GfxPipeline> GfxPipeline::Create(std::string name) {
     return std::shared_ptr<GfxPipeline>(new GfxPipeline(std::move(name)));
 }
@@ -173,7 +208,7 @@ void Gfx::createPipelineResources(
     for (auto& shader : pipeline->shaders()) {
         if (auto* shader_resources = shader->impl_->resources.get()) {
             shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
-                .stage  = GetShaderStageFlags(shader->stage()),
+                .stage  = GetShaderStageFlag(shader->stage()),
                 .module = *shader_resources->shader_module,
                 .pName  = shader->entry().c_str()
             });
@@ -323,8 +358,27 @@ void Gfx::createPipelineResources(
     auto dynamic_state_create_info = vk::PipelineDynamicStateCreateInfo{}
         .setDynamicStates(dynamic_states);
     
+    std::vector<vk::DescriptorSetLayout> set_layouts;
+    
     // Uniform layout
-    auto set_layouts = std::array<vk::DescriptorSetLayout, 0>{};
+    if (!pipeline->uniform_layout_.descriptions_.empty()) {
+        std::vector<vk::DescriptorSetLayoutBinding> uniform_bindings;
+        uniform_bindings.reserve(pipeline->uniform_layout_.descriptions_.size());
+        for (auto&& description : pipeline->uniform_layout_.descriptions_) {
+            uniform_bindings.emplace_back(vk::DescriptorSetLayoutBinding{
+                .binding         = description.binding,
+                .descriptorType  = vk::DescriptorType::eUniformBuffer,
+                .descriptorCount = 1,
+                .stageFlags      = GetShaderStageFlags(description.stages)
+            });
+        }
+        auto uniform_layout_create_info = vk::DescriptorSetLayoutCreateInfo{}
+            .setBindings(uniform_bindings);
+        resources->uniform_layout = logical_device_->impl_->vk_device.createDescriptorSetLayout(
+            uniform_layout_create_info);
+        set_layouts.push_back(*resources->uniform_layout);
+    }
+
     auto push_constant_ranges = std::array<vk::PushConstantRange, 0>{};
     auto pipeline_layout_create_info = vk::PipelineLayoutCreateInfo{}
         .setSetLayouts(set_layouts)

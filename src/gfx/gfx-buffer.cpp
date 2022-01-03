@@ -25,6 +25,9 @@ IndexBuffer::IndexBuffer(index_types::IndexType index_type, bool keep_cpu_data)
     : GfxBufferBase(keep_cpu_data), index_type_(index_type) {}
 IndexBuffer::~IndexBuffer() {}
 
+UniformBufferBase::UniformBufferBase() : GfxBufferBase(true) {}
+UniformBufferBase::~UniformBufferBase() {}
+
 bool Gfx::Impl::createBuffer(vk::DeviceSize data_size, 
     vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memeory_properties, vk::SharingMode sharing_mode,
     BufferResources& out_resources) {

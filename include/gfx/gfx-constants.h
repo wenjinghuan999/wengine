@@ -266,4 +266,31 @@ namespace gfx_formats {
     [[nodiscard]] std::string ToString(Format format);
 }
 
+class IRenderData {
+public:
+    virtual void createGfxResources(class Gfx& gfx) = 0;
+protected:
+    IRenderData() = default;
+    ~IRenderData() = default;
+};
+
+class DummyRenderData : public IRenderData, public std::enable_shared_from_this<DummyRenderData> {
+public:
+    static std::shared_ptr<DummyRenderData> Create() {
+        return std::shared_ptr<DummyRenderData>(new DummyRenderData());
+    }
+    virtual void createGfxResources(class Gfx& gfx) override {}
+    ~DummyRenderData() = default;
+protected:
+    DummyRenderData() = default;
+};
+
+class IGfxObject {
+public:
+    virtual std::shared_ptr<IRenderData> createRenderData() = 0;
+protected:
+    IGfxObject() = default;
+    ~IGfxObject() = default;
+};
+
 } // namespace wg

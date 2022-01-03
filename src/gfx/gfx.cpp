@@ -9,8 +9,8 @@
 
 #include "gfx/gfx.h"
 #include "common/logger.h"
+#include "common/constants.h"
 #include "gfx/gfx-constants.h"
-#include "engine/engine.h"
 #include "platform/platform.h"
 #include "platform/inc/window-private.h"
 #include "gfx-private.h"
@@ -287,13 +287,14 @@ Gfx::Gfx(const App& app)
             VK_API_VERSION_MINOR(extension.specVersion), VK_API_VERSION_PATCH(extension.specVersion));
     }
 
-    const Engine& engine = Engine::Get();
+    const EngineConstants& engine_constants = EngineConstants::Get();
 
     vk::ApplicationInfo application_info{
         .pApplicationName   = app.name().c_str(),
         .applicationVersion = VK_MAKE_VERSION(app.major_version(), app.minor_version(), app.patch_version()),
-        .pEngineName        = engine.name().c_str(),
-        .engineVersion      = VK_MAKE_VERSION(engine.major_version(), engine.minor_version(), engine.patch_version()),
+        .pEngineName        = engine_constants.name().c_str(),
+        .engineVersion      = VK_MAKE_VERSION(engine_constants.major_version(), 
+                                engine_constants.minor_version(), engine_constants.patch_version()),
         .apiVersion         = VK_API_VERSION_1_0
     };
 

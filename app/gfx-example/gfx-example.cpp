@@ -21,8 +21,8 @@ int main(int, char**) {
     gfx->selectBestPhysicalDevice();
     gfx->createLogicalDevice();
 
-    auto vert_shader = wg::Shader::Load("shader/static/simple.vert.spv", wg::shader_stage::vert);
-    auto frag_shader = wg::Shader::Load("shader/static/simple.frag.spv", wg::shader_stage::frag);
+    auto vert_shader = wg::Shader::Load("shader/static/simple.vert.spv", wg::shader_stages::vert);
+    auto frag_shader = wg::Shader::Load("shader/static/simple.frag.spv", wg::shader_stages::frag);
     gfx->createShaderResources(vert_shader);
     gfx->createShaderResources(frag_shader);
 
@@ -73,7 +73,7 @@ int main(int, char**) {
 
     auto simple_draw_command2 = wg::SimpleDrawCommand::Create(pipeline2);
 
-    auto renderer = wg::Renderer::Create();
+    auto renderer = wg::BasicRenderer::Create();
     renderer->addDrawCommand(simple_draw_command);
     renderer->addDrawCommand(simple_draw_command2);
 

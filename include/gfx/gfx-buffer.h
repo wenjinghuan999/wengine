@@ -25,6 +25,16 @@ namespace index_types {
     };
 }
 
+namespace uniform_attributes {
+    enum UniformAttribute{
+        none     = 0,
+        scene    = 1,
+        camera   = 2,
+        material = 3,
+        model    = 4,
+    };
+}
+
 struct VertexBufferDescription {
     vertex_attributes::VertexAttribute attribute;
     gfx_formats::Format format;
@@ -181,6 +191,91 @@ protected:
             index_count_ = 0;
         }
     }
+};
+
+struct UniformObjectDescription {
+    uniform_attributes::UniformAttribute attribute;
+};
+
+class UniformBufferBase : public GfxBufferBase {
+public:
+    virtual ~UniformBufferBase() override;
+    virtual UniformObjectDescription description() const = 0;
+protected:
+    explicit UniformBufferBase();
+};
+
+struct SceneUniform {
+
+    static UniformObjectDescription Description() {
+        return { uniform_attributes::scene };
+    }
+};
+
+struct CameraUniform {
+    glm::mat4 view_mat;
+    glm::mat4 project_mat;
+
+    static UniformObjectDescription Description() {
+        return { uniform_attributes::camera };
+    }
+};
+
+struct MaterialUniform {
+
+    static UniformObjectDescription Description() {
+        return { uniform_attributes::material };
+    }
+};
+
+struct ModelUniform {
+    glm::mat4 model_mat;
+
+    static UniformObjectDescription Description() {
+        return { uniform_attributes::model };
+    }
+};
+
+template <typename T>
+class is_uniform_object
+{
+    template<typename U>
+    static constexpr auto test(U*)
+        -> typename std::is_same<decltype(U::Description()), UniformObjectDescription>::type;
+
+    template<typename>
+    static constexpr std::false_type test(...);
+
+    typedef decltype(test<T>(0)) type;
+public:
+    static constexpr bool value = type::value;
+};
+
+template <typename T>
+inline constexpr bool is_uniform_object_v = is_uniform_object<T>::value;
+
+template<typename UniformObjectType, typename = std::enable_if_t<is_uniform_object<UniformObjectType>::value>>
+class UniformBuffer : public UniformBufferBase, public std::enable_shared_from_this<UniformBuffer<UniformObjectType>> {
+public:
+    static std::shared_ptr<UniformBuffer> Create(UniformObjectType uniform_object) {
+        auto uniform_buffer = std::shared_ptr<UniformBuffer<UniformObjectType>>(new UniformBuffer<UniformObjectType>());
+        uniform_buffer->setUniformObject(uniform_object);
+        return uniform_buffer;
+    }
+    void setUniformObject(UniformObjectType uniform_object) {
+        uniform_object_ = uniform_object;
+    }
+    virtual UniformObjectDescription description() const override {
+        return UniformObjectType::Description();
+    }
+    virtual size_t data_size() const override { return sizeof(UniformObjectType); }
+    virtual const void* data() const override { return &uniform_object_; }
+protected:
+    UniformObjectType uniform_object_;
+protected:
+    friend class Gfx;
+    explicit UniformBuffer() : UniformBufferBase() {}
+    virtual void clearCpuData() override {}
 };
 
 }

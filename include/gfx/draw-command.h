@@ -11,14 +11,14 @@ class DrawCommand : public std::enable_shared_from_this<DrawCommand> {
 public:
     const std::shared_ptr<GfxPipeline>& pipeline() const { return pipeline_; }
     virtual ~DrawCommand() = default;
+    virtual void setPipeline(const std::shared_ptr<GfxPipeline>& pipeline);
 protected:
     std::shared_ptr<GfxPipeline> pipeline_;
 protected:
-    explicit DrawCommand(const std::shared_ptr<GfxPipeline>& pipeline);
+    DrawCommand() = default;
     friend class Gfx;
-    friend class RenderTarget;
     struct Impl;
-    std::unique_ptr<Impl> impl_;
+    virtual Impl* getImpl() = 0;
 };
 
 class SimpleDrawCommand : public DrawCommand {
@@ -29,6 +29,10 @@ public:
     virtual ~SimpleDrawCommand() override = default;
 protected:
     explicit SimpleDrawCommand(const std::shared_ptr<GfxPipeline>& pipeline);
+    friend class Gfx;
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+    virtual DrawCommand::Impl* getImpl() override;
 };
 
 

@@ -51,6 +51,8 @@ public:
 
     // GfxPipeline
     void createPipelineResources(
+        const std::shared_ptr<GfxPipeline>& pipeline);
+    void createPipelineResourcesForRenderTarget(
         const std::shared_ptr<RenderTarget>& render_target,
         const std::shared_ptr<GfxPipeline>& pipeline);
 

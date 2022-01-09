@@ -50,6 +50,7 @@ int main(int, char**) {
     pipeline->addShader(vert_shader);
     pipeline->addShader(frag_shader);
     pipeline->setVertexFactory(std::move(vertex_factory));
+    gfx->createPipelineResources(pipeline);
 
     auto simple_draw_command = wg::SimpleDrawCommand::Create(pipeline);
 
@@ -70,6 +71,7 @@ int main(int, char**) {
     pipeline2->addShader(vert_shader);
     pipeline2->addShader(frag_shader);
     pipeline2->setVertexFactory(std::move(vertex_factory2));
+    gfx->createPipelineResources(pipeline2);
 
     auto simple_draw_command2 = wg::SimpleDrawCommand::Create(pipeline2);
 

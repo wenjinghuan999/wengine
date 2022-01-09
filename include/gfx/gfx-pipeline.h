@@ -101,6 +101,9 @@ protected:
 protected:
     explicit GfxPipeline(std::string name);
     friend class Gfx;
+    friend class DrawCommand;
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 }

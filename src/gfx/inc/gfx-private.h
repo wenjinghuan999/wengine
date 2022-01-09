@@ -11,6 +11,7 @@
 #include "common/owned-resources.h"
 #include "gfx/inc/surface-private.h"
 #include "gfx/inc/shader-private.h"
+#include "gfx/inc/gfx-pipeline-private.h"
 #include "gfx/inc/render-target-private.h"
 #include "gfx/inc/gfx-buffer-private.h"
 
@@ -71,6 +72,8 @@ struct LogicalDevice::Impl {
     OwnedResources<SurfaceResources> surface_resources;
     // resources of shaders (may be accessed by shader using OwnedResourcesHandle)
     OwnedResources<ShaderResources> shader_resources;
+    // resources of gfx pipelines (may be accessed by gfx pipeline using OwnedResourcesHandle)
+    OwnedResources<GfxPipelineResources> gfx_pipeline_resources;
     // resources of render targets (may be accessed by render target using OwnedResourcesHandle)
     OwnedResources<RenderTargetResources> render_target_resources;
     // resources of buffers (may be accessed by buffer using OwnedResourcesHandle)

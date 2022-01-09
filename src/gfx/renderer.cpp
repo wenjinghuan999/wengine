@@ -38,7 +38,7 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
 
     auto draw_commands = render_target->renderer()->getDrawCommands();
     for (auto&& draw_command : draw_commands) {
-        createPipelineResources(render_target, draw_command->pipeline());
+        createPipelineResourcesForRenderTarget(render_target, draw_command->pipeline());
     }
 
     // Record commands
@@ -68,14 +68,7 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
             const auto& draw_command_resources = resources->draw_command_resources[i];
 
             vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, draw_command_resources.pipeline);
-            vk_command_buffer.bindVertexBuffers(0, draw_command_resources.vertex_buffers, draw_command_resources.vertex_buffer_offsets);
-
-            if (draw_command_resources.draw_indexed) {
-                vk_command_buffer.bindIndexBuffer(
-                    draw_command_resources.index_buffer, draw_command_resources.index_buffer_offset, draw_command_resources.index_type);
-            }
-
-            draw_command->impl_->draw(vk_command_buffer);
+            draw_command->getImpl()->draw(vk_command_buffer);
         }
 
         vk_command_buffer.endRenderPass();

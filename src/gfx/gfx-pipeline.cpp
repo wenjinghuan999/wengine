@@ -4,6 +4,7 @@
 #include "common/logger.h"
 #include "gfx-private.h"
 #include "gfx-constants-private.h"
+#include "gfx-pipeline-private.h"
 #include "render-target-private.h"
 
 namespace {
@@ -182,13 +183,12 @@ std::shared_ptr<GfxPipeline> GfxPipeline::Create(std::string name) {
 }
 
 GfxPipeline::GfxPipeline(std::string name)
-    : name_(std::move(name)) {
+    : name_(std::move(name)), impl_(std::make_unique<Impl>()) {
 }
 
 void Gfx::createPipelineResources(
-    const std::shared_ptr<RenderTarget>& render_target,
     const std::shared_ptr<GfxPipeline>& pipeline) {
-
+    
     logger().info("Creating resources for pipeline \"{}\".", pipeline->name());
 
     if (!logical_device_) {
@@ -197,17 +197,16 @@ void Gfx::createPipelineResources(
     }
     waitDeviceIdle();
 
-    auto* resources = render_target->impl_->resources.get();
+    auto resources = std::make_unique<GfxPipelineResources>();
     if (!resources) {
         logger().error("Cannot create pipeline because render target resources are not available.");
         return;
     }
     
     // Stages
-    std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
     for (auto& shader : pipeline->shaders()) {
         if (auto* shader_resources = shader->impl_->resources.get()) {
-            shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
+            resources->shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
                 .stage  = GetShaderStageFlag(shader->stage()),
                 .module = *shader_resources->shader_module,
                 .pName  = shader->entry().c_str()
@@ -216,33 +215,30 @@ void Gfx::createPipelineResources(
     }
     
     // Vertex factory
-    std::vector<vk::VertexInputBindingDescription> vertex_bindings;
-    std::vector<vk::VertexInputAttributeDescription> vertex_attributes;
-    std::vector<vk::Buffer> vertex_buffers;
-    std::vector<vk::DeviceSize> vertex_buffer_offsets;
+    resources->vertex_count = static_cast<uint32_t>(pipeline->vertex_factory_.vertex_count());
     std::map<size_t, uint32_t> vb_index_to_binding;
     for (auto&& description : pipeline->vertex_factory_.getCombinedDescriptions()) {
-        uint32_t binding = [&vb_index_to_binding, &description, &vertex_bindings]() {
+        uint32_t binding = [&vb_index_to_binding, &description, &resources]() {
             auto it = vb_index_to_binding.find(description.vertex_buffer_index);
             if (it == vb_index_to_binding.end()) {
-                uint32_t new_binding = static_cast<uint32_t>(vertex_bindings.size());
+                uint32_t new_binding = static_cast<uint32_t>(resources->vertex_bindings.size());
                 vb_index_to_binding[description.vertex_buffer_index] = new_binding;
-                vertex_bindings.emplace_back(vk::VertexInputBindingDescription{
+                resources->vertex_bindings.emplace_back(vk::VertexInputBindingDescription{
                     .binding = new_binding,
                     .stride = description.stride,
                     .inputRate = vk::VertexInputRate::eVertex
                 });
                 return new_binding;
             } else {
-                if (vertex_bindings[it->second].stride != description.stride) {
+                if (resources->vertex_bindings[it->second].stride != description.stride) {
                     logger().warn("Vertex binding and buffer stride not identical: {} != {}.", 
-                        vertex_bindings[it->second].stride, description.stride);
+                        resources->vertex_bindings[it->second].stride, description.stride);
                 }
                 return it->second;
             }
         }();
 
-        vertex_attributes.emplace_back(vk::VertexInputAttributeDescription{
+        resources->vertex_attributes.emplace_back(vk::VertexInputAttributeDescription{
             .location = description.location,
             .binding = binding,
             .format = gfx_formats::ToVkFormat(description.format),
@@ -251,32 +247,86 @@ void Gfx::createPipelineResources(
 
         auto&& vertex_buffer = pipeline->vertex_factory_.vertex_buffers_[description.vertex_buffer_index];
         if (auto vertex_buffer_resources = vertex_buffer->impl_->resources.get()) {
-            vertex_buffers.emplace_back(*vertex_buffer_resources->buffer);
-            vertex_buffer_offsets.emplace_back(0);
+            resources->vertex_buffers.emplace_back(*vertex_buffer_resources->buffer);
+            resources->vertex_buffer_offsets.emplace_back(0);
         }
     }
 
-    
-    vk::Buffer index_buffer = nullptr;
-    vk::DeviceSize index_buffer_offset = 0;
-    vk::IndexType index_type = {};
-    const bool draw_indexed = pipeline->vertex_factory_.draw_indexed();
-    if (draw_indexed) {
+    resources->draw_indexed = pipeline->vertex_factory_.draw_indexed();
+    if (resources->draw_indexed) {
         if (auto index_buffer_resources = pipeline->vertex_factory_.index_buffer_->impl_->resources.get()) {
-            index_buffer = *index_buffer_resources->buffer;
+            resources->index_buffer = *index_buffer_resources->buffer;
         }
-        index_type = index_types::ToVkIndexType(pipeline->vertex_factory_.index_buffer_->index_type());
+        resources->index_buffer_offset = 0;
+        resources->index_type = index_types::ToVkIndexType(pipeline->vertex_factory_.index_buffer_->index_type());
+        resources->index_count = static_cast<uint32_t>(pipeline->vertex_factory_.index_count());
     }
 
-    auto vertex_input_create_info = vk::PipelineVertexInputStateCreateInfo{}
-        .setVertexBindingDescriptions(vertex_bindings)
-        .setVertexAttributeDescriptions(vertex_attributes);
+    resources->vertex_input_create_info = vk::PipelineVertexInputStateCreateInfo{}
+        .setVertexBindingDescriptions(resources->vertex_bindings)
+        .setVertexAttributeDescriptions(resources->vertex_attributes);
 
-    auto input_assembly_create_info = vk::PipelineInputAssemblyStateCreateInfo{
+    resources->input_assembly_create_info = vk::PipelineInputAssemblyStateCreateInfo{
         .topology = vk::PrimitiveTopology::eTriangleList,
         .primitiveRestartEnable = false
     };
 
+    std::vector<vk::DescriptorSetLayout> set_layouts;
+    
+    // Uniform layout
+    if (!pipeline->uniform_layout_.descriptions_.empty()) {
+        std::vector<vk::DescriptorSetLayoutBinding> uniform_bindings;
+        uniform_bindings.reserve(pipeline->uniform_layout_.descriptions_.size());
+        for (auto&& description : pipeline->uniform_layout_.descriptions_) {
+            uniform_bindings.emplace_back(vk::DescriptorSetLayoutBinding{
+                .binding         = description.binding,
+                .descriptorType  = vk::DescriptorType::eUniformBuffer,
+                .descriptorCount = 1,
+                .stageFlags      = GetShaderStageFlags(description.stages)
+            });
+        }
+        auto uniform_layout_create_info = vk::DescriptorSetLayoutCreateInfo{}
+            .setBindings(uniform_bindings);
+        resources->uniform_layout = logical_device_->impl_->vk_device.createDescriptorSetLayout(
+            uniform_layout_create_info);
+        set_layouts.push_back(*resources->uniform_layout);
+    }
+
+    auto push_constant_ranges = std::array<vk::PushConstantRange, 0>{};
+    auto pipeline_layout_create_info = vk::PipelineLayoutCreateInfo{}
+        .setSetLayouts(set_layouts)
+        .setPushConstantRanges(push_constant_ranges);
+    resources->pipeline_layout = 
+        logical_device_->impl_->vk_device.createPipelineLayout(pipeline_layout_create_info);
+
+    pipeline->impl_->resources = 
+        logical_device_->impl_->gfx_pipeline_resources.store(std::move(resources));
+}
+
+void Gfx::createPipelineResourcesForRenderTarget(
+    const std::shared_ptr<RenderTarget>& render_target,
+    const std::shared_ptr<GfxPipeline>& pipeline) {
+
+    logger().info("Creating pipeline resources \"{}\" for render target.", pipeline->name());
+
+    if (!logical_device_) {
+        logger().error("Cannot create pipeline resources for render target because logical device is not available.");
+        return;
+    }
+    waitDeviceIdle();
+
+    auto* resources = render_target->impl_->resources.get();
+    if (!resources) {
+        logger().error("Cannot create pipeline resources for render target because render target resources are not available.");
+        return;
+    }
+
+    auto* pipeline_resources = pipeline->impl_->resources.get();
+    if (!pipeline_resources) {
+        logger().error("Cannot create pipeline resources for render target because pipeline resources are not available.");
+        return;
+    }
+    
     // Pipeline state
     auto [width, height] = render_target->extent();
     auto viewport = vk::Viewport{
@@ -358,60 +408,26 @@ void Gfx::createPipelineResources(
     auto dynamic_state_create_info = vk::PipelineDynamicStateCreateInfo{}
         .setDynamicStates(dynamic_states);
     
-    std::vector<vk::DescriptorSetLayout> set_layouts;
-    
-    // Uniform layout
-    if (!pipeline->uniform_layout_.descriptions_.empty()) {
-        std::vector<vk::DescriptorSetLayoutBinding> uniform_bindings;
-        uniform_bindings.reserve(pipeline->uniform_layout_.descriptions_.size());
-        for (auto&& description : pipeline->uniform_layout_.descriptions_) {
-            uniform_bindings.emplace_back(vk::DescriptorSetLayoutBinding{
-                .binding         = description.binding,
-                .descriptorType  = vk::DescriptorType::eUniformBuffer,
-                .descriptorCount = 1,
-                .stageFlags      = GetShaderStageFlags(description.stages)
-            });
-        }
-        auto uniform_layout_create_info = vk::DescriptorSetLayoutCreateInfo{}
-            .setBindings(uniform_bindings);
-        resources->uniform_layout = logical_device_->impl_->vk_device.createDescriptorSetLayout(
-            uniform_layout_create_info);
-        set_layouts.push_back(*resources->uniform_layout);
-    }
-
-    auto push_constant_ranges = std::array<vk::PushConstantRange, 0>{};
-    auto pipeline_layout_create_info = vk::PipelineLayoutCreateInfo{}
-        .setSetLayouts(set_layouts)
-        .setPushConstantRanges(push_constant_ranges);
-    resources->pipeline_layout.emplace_back( 
-        logical_device_->impl_->vk_device.createPipelineLayout(pipeline_layout_create_info));
-
     // Pipeline
     auto pipeline_create_info = vk::GraphicsPipelineCreateInfo{
-        .pVertexInputState   = &vertex_input_create_info,
-        .pInputAssemblyState = &input_assembly_create_info,
+        .pVertexInputState   = &pipeline_resources->vertex_input_create_info,
+        .pInputAssemblyState = &pipeline_resources->input_assembly_create_info,
         .pViewportState      = &viewport_create_info,
         .pRasterizationState = &rasterization_create_info,
         .pMultisampleState   = &multisample_create_info,
         .pDepthStencilState  = &depth_stencil_create_info,
         .pColorBlendState    = &color_blend_create_info,
         .pDynamicState       = &dynamic_state_create_info,
-        .layout              = *resources->pipeline_layout.back(),
+        .layout              = *pipeline_resources->pipeline_layout,
         .renderPass          = *resources->render_pass,
         .subpass             = 0,
-    }   .setStages(shader_stages);
+    }   .setStages(pipeline_resources->shader_stages);
 
-    resources->pipeline.emplace_back(
+    resources->pipelines.emplace_back(
         logical_device_->impl_->vk_device.createGraphicsPipeline({ nullptr }, pipeline_create_info));
-
-    resources->draw_command_resources.emplace_back(DrawCommandResources{
-        .pipeline = *resources->pipeline.back(),
-        .vertex_buffers = vertex_buffers,
-        .vertex_buffer_offsets = vertex_buffer_offsets,
-        .draw_indexed = draw_indexed,
-        .index_buffer = index_buffer,
-        .index_buffer_offset = index_buffer_offset,
-        .index_type = index_type
+    
+    resources->draw_command_resources.emplace_back(RenderTargetDrawCommandResources{
+        .pipeline = *resources->pipelines.back()
     });
 }
 

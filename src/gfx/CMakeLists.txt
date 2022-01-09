@@ -12,6 +12,7 @@ add_library(wengine-gfx
     inc/draw-command-private.h
     inc/gfx-constants-private.h
     inc/gfx-buffer-private.h
+    inc/gfx-pipeline-private.h
     inc/shader-private.h
     inc/surface-private.h
     inc/render-target-private.h

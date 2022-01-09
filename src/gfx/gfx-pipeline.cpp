@@ -299,6 +299,83 @@ void Gfx::createPipelineResources(
     resources->pipeline_layout = 
         logical_device_->impl_->vk_device.createPipelineLayout(pipeline_layout_create_info);
 
+    auto viewport = vk::Viewport{
+        .x        = 0.f, // will multiply by actual width
+        .y        = 0.f, // will multiply by actual height
+        .width    = 1.f, // will multiply by actual width
+        .height   = 1.f, // will multiply by actual height
+        .minDepth = 0.f,
+        .maxDepth = 1.f
+    };
+    resources->viewports = { viewport };
+
+    auto scissor = vk::Viewport{
+        .x        = 0.f, // will multiply by actual width
+        .y        = 0.f, // will multiply by actual height
+        .width    = 1.f, // will multiply by actual width
+        .height   = 1.f, // will multiply by actual height
+    };
+    resources->scissors = { scissor };
+
+    resources->rasterization_create_info = vk::PipelineRasterizationStateCreateInfo{
+        .depthClampEnable        = false,
+        .rasterizerDiscardEnable = false,
+        .polygonMode             = vk::PolygonMode::eFill,
+        .cullMode                = vk::CullModeFlagBits::eBack,
+        .frontFace               = vk::FrontFace::eClockwise,
+        .depthBiasEnable         = false,
+        .depthBiasConstantFactor = 0.f,
+        .depthBiasClamp          = 0.f,
+        .depthBiasSlopeFactor    = 0.f,
+        .lineWidth               = 1.f,
+    };
+
+    resources->multisample_create_info = vk::PipelineMultisampleStateCreateInfo{
+        .rasterizationSamples  = vk::SampleCountFlagBits::e1,
+        .sampleShadingEnable   = false,
+        .minSampleShading      = 1.f,
+        .pSampleMask           = nullptr,
+        .alphaToCoverageEnable = false,
+        .alphaToOneEnable      = false
+    };
+
+    resources->depth_stencil_create_info = vk::PipelineDepthStencilStateCreateInfo{
+        .depthTestEnable       = false,
+        .depthWriteEnable      = false,
+        .depthCompareOp        = {},
+        .depthBoundsTestEnable = false,
+        .stencilTestEnable     = false,
+        .front                 = {},
+        .back                  = {},
+        .minDepthBounds        = 0.f,
+        .maxDepthBounds        = 0.f
+    };
+
+    auto color_blend_attachment = vk::PipelineColorBlendAttachmentState{
+        .blendEnable         = false,
+        .srcColorBlendFactor = vk::BlendFactor::eOne,
+        .dstColorBlendFactor = vk::BlendFactor::eZero,
+        .colorBlendOp        = vk::BlendOp::eAdd,
+        .srcAlphaBlendFactor = vk::BlendFactor::eOne,
+        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
+        .alphaBlendOp        = vk::BlendOp::eAdd,
+        .colorWriteMask      = vk::ColorComponentFlagBits::eR |
+                               vk::ColorComponentFlagBits::eG |
+                               vk::ColorComponentFlagBits::eB |
+                               vk::ColorComponentFlagBits::eA,
+    };
+    resources->color_blend_attachments = { color_blend_attachment };
+
+    resources->color_blend_create_info = vk::PipelineColorBlendStateCreateInfo{
+        .logicOpEnable  = false,
+        .logicOp        = vk::LogicOp::eCopy,
+        .blendConstants = std::array{ 0.f, 0.f, 0.f, 0.f }
+    }   .setAttachments(resources->color_blend_attachments);
+
+    resources->dynamic_states = {};
+    resources->dynamic_state_create_info = vk::PipelineDynamicStateCreateInfo{}
+        .setDynamicStates(resources->dynamic_states);
+
     pipeline->impl_->resources = 
         logical_device_->impl_->gfx_pipeline_resources.store(std::move(resources));
 }
@@ -329,95 +406,45 @@ void Gfx::createPipelineResourcesForRenderTarget(
     
     // Pipeline state
     auto [width, height] = render_target->extent();
-    auto viewport = vk::Viewport{
-        .x        = 0.f,
-        .y        = 0.f,
-        .width    = static_cast<float>(width),
-        .height   = static_cast<float>(height),
-        .minDepth = 0.f,
-        .maxDepth = 1.f
-    };
-    auto viewports = std::array{ viewport };
-
-    auto scissor = vk::Rect2D{
-        .offset = { 0, 0 },
-        .extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) }
-    };
-    auto scissors = std::array{ scissor };
+    std::vector<vk::Viewport> viewports;
+    viewports.reserve(pipeline_resources->viewports.size());
+    for (auto&& viewport : pipeline_resources->viewports) {
+        viewports.emplace_back(viewport);
+        viewports.back().x *= static_cast<float>(width);
+        viewports.back().y *= static_cast<float>(height);
+        viewports.back().width *= static_cast<float>(width);
+        viewports.back().height *= static_cast<float>(height);
+    }
+    
+    std::vector<vk::Rect2D> scissors;
+    scissors.reserve(pipeline_resources->scissors.size());
+    for (auto&& scissor : pipeline_resources->scissors) {
+        scissors.emplace_back(vk::Rect2D{
+            .offset = { 
+                static_cast<int32_t>(scissor.x * width), 
+                static_cast<int32_t>(scissor.y * height)
+            },
+            .extent = {
+                static_cast<uint32_t>(scissor.width * width), 
+                static_cast<uint32_t>(scissor.height * height)
+            }
+        });
+    }
 
     auto viewport_create_info = vk::PipelineViewportStateCreateInfo{}
         .setViewports(viewports)
         .setScissors(scissors);
 
-    auto rasterization_create_info = vk::PipelineRasterizationStateCreateInfo{
-        .depthClampEnable        = false,
-        .rasterizerDiscardEnable = false,
-        .polygonMode             = vk::PolygonMode::eFill,
-        .cullMode                = vk::CullModeFlagBits::eBack,
-        .frontFace               = vk::FrontFace::eClockwise,
-        .depthBiasEnable         = false,
-        .depthBiasConstantFactor = 0.f,
-        .depthBiasClamp          = 0.f,
-        .depthBiasSlopeFactor    = 0.f,
-        .lineWidth               = 1.f,
-    };
-
-    auto multisample_create_info = vk::PipelineMultisampleStateCreateInfo{
-        .rasterizationSamples  = vk::SampleCountFlagBits::e1,
-        .sampleShadingEnable   = false,
-        .minSampleShading      = 1.f,
-        .pSampleMask           = nullptr,
-        .alphaToCoverageEnable = false,
-        .alphaToOneEnable      = false
-    };
-
-    auto depth_stencil_create_info = vk::PipelineDepthStencilStateCreateInfo{
-        .depthTestEnable       = false,
-        .depthWriteEnable      = false,
-        .depthCompareOp        = {},
-        .depthBoundsTestEnable = false,
-        .stencilTestEnable     = false,
-        .front                 = {},
-        .back                  = {},
-        .minDepthBounds        = 0.f,
-        .maxDepthBounds        = 0.f
-    };
-
-    auto color_blend_attachment = vk::PipelineColorBlendAttachmentState{
-        .blendEnable         = false,
-        .srcColorBlendFactor = vk::BlendFactor::eOne,
-        .dstColorBlendFactor = vk::BlendFactor::eZero,
-        .colorBlendOp        = vk::BlendOp::eAdd,
-        .srcAlphaBlendFactor = vk::BlendFactor::eOne,
-        .dstAlphaBlendFactor = vk::BlendFactor::eZero,
-        .alphaBlendOp        = vk::BlendOp::eAdd,
-        .colorWriteMask      = vk::ColorComponentFlagBits::eR |
-                               vk::ColorComponentFlagBits::eG |
-                               vk::ColorComponentFlagBits::eB |
-                               vk::ColorComponentFlagBits::eA,
-    };
-    auto color_blend_attachments = std::array{ color_blend_attachment };
-
-    auto color_blend_create_info = vk::PipelineColorBlendStateCreateInfo{
-        .logicOpEnable  = false,
-        .logicOp        = vk::LogicOp::eCopy,
-        .blendConstants = std::array{ 0.f, 0.f, 0.f, 0.f }
-    }   .setAttachments(color_blend_attachments);
-
-    auto dynamic_states = std::array<vk::DynamicState, 0>{};
-    auto dynamic_state_create_info = vk::PipelineDynamicStateCreateInfo{}
-        .setDynamicStates(dynamic_states);
-    
     // Pipeline
     auto pipeline_create_info = vk::GraphicsPipelineCreateInfo{
         .pVertexInputState   = &pipeline_resources->vertex_input_create_info,
         .pInputAssemblyState = &pipeline_resources->input_assembly_create_info,
         .pViewportState      = &viewport_create_info,
-        .pRasterizationState = &rasterization_create_info,
-        .pMultisampleState   = &multisample_create_info,
-        .pDepthStencilState  = &depth_stencil_create_info,
-        .pColorBlendState    = &color_blend_create_info,
-        .pDynamicState       = &dynamic_state_create_info,
+        .pRasterizationState = &pipeline_resources->rasterization_create_info,
+        .pMultisampleState   = &pipeline_resources->multisample_create_info,
+        .pDepthStencilState  = &pipeline_resources->depth_stencil_create_info,
+        .pColorBlendState    = &pipeline_resources->color_blend_create_info,
+        .pDynamicState       = &pipeline_resources->dynamic_state_create_info,
         .layout              = *pipeline_resources->pipeline_layout,
         .renderPass          = *resources->render_pass,
         .subpass             = 0,

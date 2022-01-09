@@ -11,8 +11,17 @@ struct GfxPipelineResources {
     vk::raii::PipelineLayout pipeline_layout{nullptr};
     std::vector<vk::VertexInputBindingDescription> vertex_bindings;
     std::vector<vk::VertexInputAttributeDescription> vertex_attributes;
-    vk::PipelineVertexInputStateCreateInfo vertex_input_create_info{};
-    vk::PipelineInputAssemblyStateCreateInfo input_assembly_create_info{};
+    vk::PipelineVertexInputStateCreateInfo vertex_input_create_info;
+    vk::PipelineInputAssemblyStateCreateInfo input_assembly_create_info;
+    std::vector<vk::Viewport> viewports;
+    std::vector<vk::Viewport> scissors; // use Viewport struct for float point scissors
+    vk::PipelineRasterizationStateCreateInfo rasterization_create_info;
+    vk::PipelineMultisampleStateCreateInfo multisample_create_info;
+    vk::PipelineDepthStencilStateCreateInfo depth_stencil_create_info;
+    std::vector<vk::PipelineColorBlendAttachmentState> color_blend_attachments;
+    vk::PipelineColorBlendStateCreateInfo color_blend_create_info;
+    std::vector<vk::DynamicState> dynamic_states;
+    vk::PipelineDynamicStateCreateInfo dynamic_state_create_info;
     
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
     std::vector<vk::Buffer> vertex_buffers;

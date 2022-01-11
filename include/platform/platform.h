@@ -44,7 +44,7 @@ protected:
 class App : IMovable {
 public:
     App(std::string name, std::tuple<int, int, int> version);
-    void loop(const std::function<void()>& func);
+    void loop(const std::function<void(float)>& func);
     ~App() override;
 
     [[nodiscard]] const std::string& name() const { return name_; }

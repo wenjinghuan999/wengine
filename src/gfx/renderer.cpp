@@ -63,10 +63,12 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
         }   .setClearValues(clear_values);
         vk_command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
-        for (size_t i = 0; i < draw_commands.size(); ++i) {
-            const auto& draw_command = draw_commands[i];
-            const auto& draw_command_resources = resources->draw_command_resources[i];
-
+        for (size_t j = 0; j < draw_commands.size(); ++j) {
+            const auto& draw_command = draw_commands[j];
+            const auto& draw_command_resources = resources->draw_command_resources[j][i];
+    
+            vk_command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, 
+                draw_command_resources.pipeline_layout, 0, { draw_command_resources.descriptor_set }, {});
             vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, draw_command_resources.pipeline);
             draw_command->getImpl()->draw(vk_command_buffer);
         }

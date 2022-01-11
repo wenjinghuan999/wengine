@@ -9,6 +9,9 @@ namespace wg {
 struct BufferResources {
     vk::raii::Buffer buffer{ nullptr };
     vk::raii::DeviceMemory memory{ nullptr };
+    
+    vk::MemoryPropertyFlags memory_properties;
+    vk::SharingMode sharing_mode;
 };
 
 struct GfxBufferBase::Impl {

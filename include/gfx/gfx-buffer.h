@@ -32,6 +32,7 @@ namespace uniform_attributes {
         camera   = 2,
         material = 3,
         model    = 4,
+        NUM_UNIFORMS
     };
 }
 
@@ -257,13 +258,14 @@ inline constexpr bool is_uniform_object_v = is_uniform_object<T>::value;
 template<typename UniformObjectType, typename = std::enable_if_t<is_uniform_object<UniformObjectType>::value>>
 class UniformBuffer : public UniformBufferBase, public std::enable_shared_from_this<UniformBuffer<UniformObjectType>> {
 public:
-    static std::shared_ptr<UniformBuffer> Create(UniformObjectType uniform_object) {
+    static std::shared_ptr<UniformBuffer> Create() {
         auto uniform_buffer = std::shared_ptr<UniformBuffer<UniformObjectType>>(new UniformBuffer<UniformObjectType>());
-        uniform_buffer->setUniformObject(uniform_object);
         return uniform_buffer;
     }
     void setUniformObject(UniformObjectType uniform_object) {
         uniform_object_ = uniform_object;
+        has_cpu_data_ = true;
+        has_gpu_data_ = false;
     }
     virtual UniformObjectDescription description() const override {
         return UniformObjectType::Description();

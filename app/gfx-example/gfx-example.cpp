@@ -26,6 +26,20 @@ int main(int, char**) {
     gfx->createShaderResources(vert_shader);
     gfx->createShaderResources(frag_shader);
 
+    auto camera_uniform_buffer = wg::UniformBuffer<wg::CameraUniform>::Create();
+    camera_uniform_buffer->setUniformObject({
+        .view_mat = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        .project_mat = glm::perspective(glm::radians(45.0f), 4.f / 3.f, 0.1f, 10.0f)
+    });
+    gfx->createUniformBufferResources(camera_uniform_buffer);
+    auto model_uniform_buffer = wg::UniformBuffer<wg::ModelUniform>::Create();
+    gfx->createUniformBufferResources(model_uniform_buffer);
+    auto uniform_layout = wg::GfxUniformLayout{}
+        .addDescription({ .attribute = wg::uniform_attributes::camera, .binding = 0, .stages = wg::shader_stages::vert | wg::shader_stages::frag })
+        .addDescription({ .attribute = wg::uniform_attributes::model, .binding = 1, .stages = wg::shader_stages::vert | wg::shader_stages::frag })
+        .addUniformBuffer(camera_uniform_buffer)
+        .addUniformBuffer(model_uniform_buffer);
+
     auto vertices = std::vector<wg::SimpleVertex>{
         { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f } },
         { .position = {  0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f } },
@@ -50,6 +64,7 @@ int main(int, char**) {
     pipeline->addShader(vert_shader);
     pipeline->addShader(frag_shader);
     pipeline->setVertexFactory(std::move(vertex_factory));
+    pipeline->setUniformLayout(uniform_layout);
     gfx->createPipelineResources(pipeline);
 
     auto simple_draw_command = wg::SimpleDrawCommand::Create(pipeline);
@@ -71,6 +86,7 @@ int main(int, char**) {
     pipeline2->addShader(vert_shader);
     pipeline2->addShader(frag_shader);
     pipeline2->setVertexFactory(std::move(vertex_factory2));
+    pipeline2->setUniformLayout(uniform_layout);
     gfx->createPipelineResources(pipeline2);
 
     auto simple_draw_command2 = wg::SimpleDrawCommand::Create(pipeline2);
@@ -83,7 +99,13 @@ int main(int, char**) {
     render_target->setRenderer(renderer);
     gfx->submitDrawCommands(render_target);
 
-    app.loop([&gfx, &render_target]() {
+    app.loop([&gfx, &render_target, &model_uniform_buffer](float time) {
+        
+        model_uniform_buffer->setUniformObject({
+            .model_mat = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f))
+        });
+        gfx->commitBuffer(model_uniform_buffer);
+
         gfx->render(render_target);
     });
 

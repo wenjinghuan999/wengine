@@ -7,6 +7,8 @@
 #include "gfx-pipeline-private.h"
 #include "render-target-private.h"
 
+#include <iterator>
+
 namespace {
     
 [[nodiscard]] auto& logger() {
@@ -143,16 +145,18 @@ std::vector<VertexFactoryCombinedDescription> GfxVertexFactory::getCombinedDescr
     return combined_descriptions;
 }
 
-void GfxUniformLayout::addDescription(UniformDescription description) {
+GfxUniformLayout& GfxUniformLayout::addDescription(UniformDescription description) {
     AddDescriptionImplTemplate(descriptions_, description);
+    return *this;
 }
 
 void GfxUniformLayout::clearDescriptions() {
     descriptions_.clear();
 }
 
-void GfxUniformLayout::addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer) {
+GfxUniformLayout& GfxUniformLayout::addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer) {
     uniform_buffers_.push_back(uniform_buffer);
+    return *this;
 }
 
 void GfxUniformLayout::clearUniformBuffers() {
@@ -198,11 +202,7 @@ void Gfx::createPipelineResources(
     waitDeviceIdle();
 
     auto resources = std::make_unique<GfxPipelineResources>();
-    if (!resources) {
-        logger().error("Cannot create pipeline because render target resources are not available.");
-        return;
-    }
-    
+
     // Stages
     for (auto& shader : pipeline->shaders()) {
         if (auto* shader_resources = shader->impl_->resources.get()) {
@@ -285,10 +285,10 @@ void Gfx::createPipelineResources(
                 .stageFlags      = GetShaderStageFlags(description.stages)
             });
         }
-        auto uniform_layout_create_info = vk::DescriptorSetLayoutCreateInfo{}
+        auto set_layout_create_info = vk::DescriptorSetLayoutCreateInfo{}
             .setBindings(uniform_bindings);
-        resources->uniform_layout = logical_device_->impl_->vk_device.createDescriptorSetLayout(
-            uniform_layout_create_info);
+        resources->uniform_layout = 
+            logical_device_->impl_->vk_device.createDescriptorSetLayout(set_layout_create_info);
         set_layouts.push_back(*resources->uniform_layout);
     }
 
@@ -435,6 +435,8 @@ void Gfx::createPipelineResourcesForRenderTarget(
         .setViewports(viewports)
         .setScissors(scissors);
 
+    auto& render_target_pipeline_resources = resources->pipeline_resources.emplace_back();
+
     // Pipeline
     auto pipeline_create_info = vk::GraphicsPipelineCreateInfo{
         .pVertexInputState   = &pipeline_resources->vertex_input_create_info,
@@ -449,13 +451,66 @@ void Gfx::createPipelineResourcesForRenderTarget(
         .renderPass          = *resources->render_pass,
         .subpass             = 0,
     }   .setStages(pipeline_resources->shader_stages);
-
-    resources->pipelines.emplace_back(
-        logical_device_->impl_->vk_device.createGraphicsPipeline({ nullptr }, pipeline_create_info));
     
-    resources->draw_command_resources.emplace_back(RenderTargetDrawCommandResources{
-        .pipeline = *resources->pipelines.back()
-    });
+    render_target_pipeline_resources.pipeline =
+        logical_device_->impl_->vk_device.createGraphicsPipeline({ nullptr }, pipeline_create_info);
+
+    // Descriptor pool
+    size_t image_count = resources->command_buffers.size();
+    uint32_t uniform_descriptors_count = static_cast<uint32_t>(image_count);
+    auto descriptor_pool_sizes = std::array{ vk::DescriptorPoolSize{
+        .type = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = uniform_descriptors_count
+    }};
+    auto descriptor_pool_create_info = vk::DescriptorPoolCreateInfo{
+        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+        .maxSets = uniform_descriptors_count
+    }   .setPoolSizes(descriptor_pool_sizes);
+    render_target_pipeline_resources.descriptor_pool = 
+        logical_device_->impl_->vk_device.createDescriptorPool(descriptor_pool_create_info);
+
+    // Descriptor
+    resources->draw_command_resources.emplace_back();
+
+    std::vector<vk::DescriptorSetLayout> set_layouts(
+        image_count, *pipeline_resources->uniform_layout);
+    
+    auto descriptor_pool_alloc_info = vk::DescriptorSetAllocateInfo{
+        .descriptorPool = *render_target_pipeline_resources.descriptor_pool
+    }   .setSetLayouts(set_layouts);
+    render_target_pipeline_resources.descriptor_sets = 
+        logical_device_->impl_->vk_device.allocateDescriptorSets(descriptor_pool_alloc_info);
+        
+    for (size_t i = 0; i < image_count; ++i) {
+        resources->draw_command_resources.back().emplace_back(RenderTargetDrawCommandResources{
+            .pipeline        = *render_target_pipeline_resources.pipeline,
+            .pipeline_layout = *pipeline_resources->pipeline_layout,
+            .descriptor_set  = *render_target_pipeline_resources.descriptor_sets[i]
+        });
+    }
+    
+    for (size_t i = 0; i < image_count; ++i) {
+        for (size_t j = 0; j < pipeline->uniform_layout().descriptions_.size(); ++j) {
+            auto& description = pipeline->uniform_layout().descriptions_[j];
+            auto& buffer = pipeline->uniform_layout().uniform_buffers_[j];
+            std::vector<vk::DescriptorBufferInfo> buffer_info;
+            if (auto* buffer_resources = buffer->impl_->resources.get()) {
+                buffer_info.emplace_back(vk::DescriptorBufferInfo{
+                    .buffer = *buffer_resources->buffer,
+                    .offset = 0,
+                    .range  = buffer->data_size()
+                });
+            }
+            auto write_description_set = vk::WriteDescriptorSet{
+                .dstSet          = *render_target_pipeline_resources.descriptor_sets[i],
+                .dstBinding      = description.binding,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType  = vk::DescriptorType::eUniformBuffer
+            }   .setBufferInfo(buffer_info);
+            logical_device_->impl_->vk_device.updateDescriptorSets({ write_description_set }, {});
+        }
+    }
 }
 
 } // namespace wg

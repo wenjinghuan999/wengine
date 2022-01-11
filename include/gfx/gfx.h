@@ -65,7 +65,9 @@ public:
     // Buffer
     void createVertexBufferResources(const std::shared_ptr<VertexBufferBase>& vertex_buffer);
     void createIndexBufferResources(const std::shared_ptr<IndexBuffer>& index_buffer);
-
+    void createUniformBufferResources(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
+    void commitBuffer(const std::shared_ptr<GfxBufferBase>& gfx_buffer, bool hint_use_stage_buffer = false);
+    
 protected:
     explicit Gfx(const App& app);
 protected:

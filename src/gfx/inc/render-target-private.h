@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+#include <iterator>
 #include <functional>
 
 #include "platform/inc/platform.inc"
@@ -13,6 +15,14 @@ namespace wg {
 
 struct RenderTargetDrawCommandResources {
     vk::Pipeline pipeline;
+    vk::PipelineLayout pipeline_layout;
+    vk::DescriptorSet descriptor_set;
+};
+
+struct RenderTargetPipelineResources {
+    vk::raii::Pipeline pipeline{nullptr};
+    vk::raii::DescriptorPool descriptor_pool{nullptr};
+    std::vector<vk::raii::DescriptorSet> descriptor_sets;
 };
 
 struct RenderTargetResources {
@@ -21,13 +31,14 @@ struct RenderTargetResources {
     std::vector<vk::raii::Semaphore> image_available_semaphores;
     std::vector<vk::raii::Semaphore> render_finished_semaphores;
     std::vector<vk::raii::Fence> in_flight_fences;
-    std::vector<vk::raii::Pipeline> pipelines;
     std::vector<vk::CommandBuffer> command_buffers;
+    std::vector<RenderTargetPipelineResources> pipeline_resources;
 
     vk::raii::Device* device{nullptr};
     std::vector<QueueInfoRef> queues; // queues needed for render target
     int graphics_queue_index{-1};
-    std::vector<RenderTargetDrawCommandResources> draw_command_resources;
+    // draw_command_resources[...][image_index]
+    std::vector<std::vector<RenderTargetDrawCommandResources>> draw_command_resources;
 
     std::vector<vk::Fence> images_in_flight;
     int max_frames_in_flight{0};

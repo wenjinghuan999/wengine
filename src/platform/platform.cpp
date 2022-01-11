@@ -70,8 +70,9 @@ std::string App::version_string() const {
     return fmt::format("v{}.{}.{}", major_version(), minor_version(), patch_version());
 }
 
-void App::loop(const std::function<void()>& func) {
+void App::loop(const std::function<void(float)>& func) {
     logger().info("Event loop start.");
+    static auto startTime = std::chrono::high_resolution_clock::now();
 
     while (!windows_.empty()) {
         for (auto it = windows_.begin(); it != windows_.end(); ) {
@@ -86,7 +87,9 @@ void App::loop(const std::function<void()>& func) {
             break;
         }
 
-        func();
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+        func(time);
 
         glfwPollEvents();
     }

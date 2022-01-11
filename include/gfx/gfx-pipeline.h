@@ -63,9 +63,9 @@ struct UniformDescription {
 
 class GfxUniformLayout {
 public:
-    void addDescription(UniformDescription description);
+    GfxUniformLayout& addDescription(UniformDescription description);
     void clearDescriptions();
-    void addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
+    GfxUniformLayout& addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
     void clearUniformBuffers();
     bool valid() const;
 protected:

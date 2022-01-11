@@ -32,6 +32,7 @@ struct Gfx::Impl {
         vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memeory_properties, vk::SharingMode sharing_mode,
         BufferResources& out_resources);
     void copyBuffer(const QueueInfoRef& transfer_queue_info, vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
+    vk::SharingMode getTransferQueueInfo(QueueInfoRef& out_transfer_queue_info) const;
     void createBufferResources(const std::shared_ptr<GfxBufferBase>& gfx_buffer, vk::BufferUsageFlags usage);
 };
 

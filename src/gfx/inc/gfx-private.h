@@ -35,6 +35,9 @@ struct Gfx::Impl {
     vk::SharingMode getTransferQueueInfo(QueueInfoRef& out_transfer_queue_info) const;
     void createBufferResources(const std::shared_ptr<GfxBufferBase>& gfx_buffer, 
         vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties);
+    void createReferenceBufferResources(const std::shared_ptr<GfxBufferBase>& cpu_buffer, 
+        const std::shared_ptr<GfxBufferBase>& gpu_buffer, 
+        vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties);
 };
 
 struct PhysicalDevice::Impl {

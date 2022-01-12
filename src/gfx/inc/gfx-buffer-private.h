@@ -9,7 +9,8 @@ namespace wg {
 struct BufferResources {
     vk::raii::Buffer buffer{ nullptr };
     vk::raii::DeviceMemory memory{ nullptr };
-    
+
+    vk::DeviceSize data_size{0};
     vk::MemoryPropertyFlags memory_properties;
     vk::SharingMode sharing_mode;
 };

@@ -105,7 +105,13 @@ vk::SharingMode Gfx::Impl::getTransferQueueInfo(QueueInfoRef& out_transfer_queue
 
 void Gfx::Impl::createBufferResources(const std::shared_ptr<GfxBufferBase>& gfx_buffer, 
     vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties) {
-    gfx_buffer->impl_->resources.reset();
+    createReferenceBufferResources(gfx_buffer, gfx_buffer, usage, memory_properties);
+}
+
+void Gfx::Impl::createReferenceBufferResources(const std::shared_ptr<GfxBufferBase>& cpu_buffer, 
+    const std::shared_ptr<GfxBufferBase>& gpu_buffer, 
+    vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties) {
+    gpu_buffer->impl_->resources.reset();
 
     if (!gfx->logical_device_) {
         logger().error("Cannot create buffer resources because logical device is not available.");
@@ -114,38 +120,48 @@ void Gfx::Impl::createBufferResources(const std::shared_ptr<GfxBufferBase>& gfx_
     gfx->waitDeviceIdle();
 
     auto resources = std::make_unique<BufferResources>();
-    const size_t data_size = gfx_buffer->data_size();
-
-    gfx_buffer->impl_->resources = gfx->logical_device_->impl_->buffer_resources.store(std::move(resources));
+    resources->data_size = cpu_buffer->data_size();
 
     QueueInfoRef transfer_queue_info;
     vk::SharingMode sharing_mode = getTransferQueueInfo(transfer_queue_info);
 
     // Create buffer.
-    createBuffer(data_size, 
+    createBuffer(resources->data_size, 
         vk::BufferUsageFlagBits::eTransferDst | usage,
         memory_properties,
-        sharing_mode, *gfx_buffer->impl_->resources.get());
+        sharing_mode, *resources);
+
+    gpu_buffer->impl_->resources = gfx->logical_device_->impl_->buffer_resources.store(std::move(resources));
 }
 
 void Gfx::commitBuffer(const std::shared_ptr<GfxBufferBase>& gfx_buffer, bool hint_use_stage_buffer) {
+    commitReferenceBuffer(gfx_buffer, gfx_buffer, hint_use_stage_buffer);
+}
 
-    if (!gfx_buffer->has_cpu_data()) {
+void Gfx::commitReferenceBuffer(const std::shared_ptr<GfxBufferBase>& cpu_buffer, 
+    const std::shared_ptr<GfxBufferBase>& gpu_buffer, bool hint_use_stage_buffer) {
+    
+    if (!cpu_buffer->has_cpu_data()) {
         logger().error("Skip creating buffer resources because has no CPU data.");
         return;
     }
     waitDeviceIdle();
 
-    auto* resources = gfx_buffer->impl_->resources.get();
+    auto* resources = gpu_buffer->impl_->resources.get();
     if (!resources) {
         logger().error("Cannot commit buffer because buffer resources are not available.");
+        return;
+    }
+
+    if (cpu_buffer->data_size() != resources->data_size) {
+        logger().error("Cannot commit buffer because cpu data size differs from gpu resources.");
         return;
     }
 
     QueueInfoRef transfer_queue_info;
     vk::SharingMode sharing_mode = impl_->getTransferQueueInfo(transfer_queue_info);
     
-    const size_t data_size = gfx_buffer->data_size();
+    const size_t data_size = cpu_buffer->data_size();
     bool use_stage_buffer = !(resources->memory_properties & vk::MemoryPropertyFlagBits::eHostVisible);
     if (hint_use_stage_buffer) {
         use_stage_buffer = true;
@@ -164,7 +180,7 @@ void Gfx::commitBuffer(const std::shared_ptr<GfxBufferBase>& gfx_buffer, bool hi
 
     // Copy data to target buffer or stage buffer.
     void* mapped = memory->mapMemory(0, data_size, {});
-    std::memcpy(mapped, gfx_buffer->data(), data_size);
+    std::memcpy(mapped, cpu_buffer->data(), data_size);
     memory->unmapMemory();
 
     if (use_stage_buffer) {
@@ -172,9 +188,9 @@ void Gfx::commitBuffer(const std::shared_ptr<GfxBufferBase>& gfx_buffer, bool hi
         impl_->copyBuffer(transfer_queue_info, *staging_resources.buffer, *resources->buffer, data_size);
     }
 
-    gfx_buffer->has_gpu_data_ = true;
-    if (!gfx_buffer->keep_cpu_data_) {
-        gfx_buffer->clearCpuData();
+    gpu_buffer->has_gpu_data_ = true;
+    if (!cpu_buffer->keep_cpu_data_) {
+        cpu_buffer->clearCpuData();
     }
 }
 

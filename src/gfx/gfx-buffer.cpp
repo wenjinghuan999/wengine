@@ -103,7 +103,8 @@ vk::SharingMode Gfx::Impl::getTransferQueueInfo(QueueInfoRef& out_transfer_queue
     return transfer_queue_different_family ? vk::SharingMode::eConcurrent : vk::SharingMode::eExclusive;
 }
 
-void Gfx::Impl::createBufferResources(const std::shared_ptr<GfxBufferBase>& gfx_buffer, vk::BufferUsageFlags usage) {
+void Gfx::Impl::createBufferResources(const std::shared_ptr<GfxBufferBase>& gfx_buffer, 
+    vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties) {
     gfx_buffer->impl_->resources.reset();
 
     if (!gfx->logical_device_) {
@@ -123,7 +124,7 @@ void Gfx::Impl::createBufferResources(const std::shared_ptr<GfxBufferBase>& gfx_
     // Create buffer.
     createBuffer(data_size, 
         vk::BufferUsageFlagBits::eTransferDst | usage,
-        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        memory_properties,
         sharing_mode, *gfx_buffer->impl_->resources.get());
 }
 
@@ -180,26 +181,29 @@ void Gfx::commitBuffer(const std::shared_ptr<GfxBufferBase>& gfx_buffer, bool hi
 void Gfx::createVertexBufferResources(const std::shared_ptr<VertexBufferBase>& vertex_buffer) {
     impl_->createBufferResources(
         vertex_buffer, 
-        vk::BufferUsageFlagBits::eVertexBuffer
+        vk::BufferUsageFlagBits::eVertexBuffer,
+        vk::MemoryPropertyFlagBits::eDeviceLocal
     );
-    commitBuffer(vertex_buffer);
+    commitBuffer(vertex_buffer, true);
 }
 
 void Gfx::createIndexBufferResources(const std::shared_ptr<IndexBuffer>& index_buffer) {
     impl_->createBufferResources(
         index_buffer, 
-        vk::BufferUsageFlagBits::eIndexBuffer
+        vk::BufferUsageFlagBits::eIndexBuffer,
+        vk::MemoryPropertyFlagBits::eDeviceLocal
     );
-    commitBuffer(index_buffer);
+    commitBuffer(index_buffer, true);
 }
 
 void Gfx::createUniformBufferResources(const std::shared_ptr<UniformBufferBase>& uniform_buffer) {
     impl_->createBufferResources(
         uniform_buffer, 
-        vk::BufferUsageFlagBits::eUniformBuffer
+        vk::BufferUsageFlagBits::eUniformBuffer,
+        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
     );
     if (uniform_buffer->has_cpu_data()) {
-        commitBuffer(uniform_buffer);
+        commitBuffer(uniform_buffer, false);
     }
 }
 

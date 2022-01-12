@@ -41,6 +41,28 @@ bool Renderer::valid() const {
     return true;
 }
 
+size_t Renderer::getDrawCommandIndex(const std::shared_ptr<DrawCommand>& draw_command) const {
+    const auto& draw_commands = getDrawCommands();
+    for (size_t i = 0; i < draw_commands.size(); ++i) {
+        if (draw_commands[i] == draw_command) {
+            return i;
+        }
+    }
+    return SIZE_MAX;
+}
+
+void Renderer::markUniformDirty(uniform_attributes::UniformAttribute attribute) {
+    dirty_framebuffer_uniforms_[attribute] = 0;
+}
+
+void Renderer::markUniformDirty(
+    const std::shared_ptr<DrawCommand>& draw_command, uniform_attributes::UniformAttribute attribute) {
+    size_t draw_command_index = getDrawCommandIndex(draw_command);
+    if (draw_command_index != SIZE_MAX) {
+        dirty_draw_command_uniforms_[std::make_tuple(draw_command_index, attribute)] = 0;
+    }
+}
+
 void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target) {
 
     if (!logical_device_) {
@@ -106,7 +128,8 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
 
 void Gfx::commitFramebufferUniformBuffers(
     const std::shared_ptr<RenderTarget>& render_target,
-    uniform_attributes::UniformAttribute specified_attribute) {
+    uniform_attributes::UniformAttribute specified_attribute,
+    int image_index) {
 
     auto& renderer = render_target->renderer_;
     if (!renderer) {
@@ -126,7 +149,9 @@ void Gfx::commitFramebufferUniformBuffers(
     }
 
     size_t image_count = resources->command_buffers.size();
-    for (size_t i = 0; i < image_count; ++i) {
+    int start_index = image_index >= 0 ? image_index : 0;
+    int end_index = image_index >= 0 ? image_index + 1U : static_cast<int>(image_count);
+    for (int i = start_index; i < end_index; ++i) {
         auto& framebuffer_resources = resources->framebuffer_resources[i];
         for (auto&& [attribute, cpu_uniform] : renderer->uniform_buffers_) {
             if (specified_attribute == uniform_attributes::none || specified_attribute == attribute) {

@@ -108,8 +108,8 @@ int main(int, char**) {
         model_uniform_buffer->setUniformObject({
             .model_mat = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f))
         });
-        gfx->commitDrawCommandUniformBuffers(render_target, quad_draw_command, wg::uniform_attributes::model);
-        gfx->commitDrawCommandUniformBuffers(render_target, triangle_draw_command, wg::uniform_attributes::model);
+        renderer->markUniformDirty(quad_draw_command, wg::uniform_attributes::model);
+        renderer->markUniformDirty(triangle_draw_command, wg::uniform_attributes::model);
 
         gfx->render(render_target);
     });

@@ -59,11 +59,17 @@ public:
         const std::shared_ptr<DrawCommand>& draw_command);
     void commitDrawCommandUniformBuffers(
         const std::shared_ptr<RenderTarget>& render_target, const std::shared_ptr<DrawCommand>& draw_command,
-        uniform_attributes::UniformAttribute specified_attribute = uniform_attributes::none);
+        uniform_attributes::UniformAttribute specified_attribute = uniform_attributes::none,
+        int image_index = -1);
+    void commitDrawCommandUniformBuffers(
+        const std::shared_ptr<RenderTarget>& render_target, size_t draw_command_index,
+        uniform_attributes::UniformAttribute specified_attribute = uniform_attributes::none,
+        int image_index = -1);
 
     // Renderer
     void commitFramebufferUniformBuffers(const std::shared_ptr<RenderTarget>& render_target,
-        uniform_attributes::UniformAttribute specified_attribute = uniform_attributes::none);
+        uniform_attributes::UniformAttribute specified_attribute = uniform_attributes::none,
+        int image_index = -1);
 
     // RenderTarget
     std::shared_ptr<RenderTarget> createRenderTarget(const std::shared_ptr<Window>& window);

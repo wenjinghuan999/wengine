@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "common/common.h"
@@ -13,15 +14,23 @@ namespace wg {
 
 class Renderer : public IGfxObject {
 public:
-    virtual const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const = 0;
+    [[nodiscard]] virtual const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const = 0;
     Renderer& addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
     void clearUniformBuffers();
     bool valid() const;
+    size_t getDrawCommandIndex(const std::shared_ptr<DrawCommand>& draw_command) const;
+    void markUniformDirty(uniform_attributes::UniformAttribute attribute);
+    void markUniformDirty(
+        const std::shared_ptr<DrawCommand>& draw_command, uniform_attributes::UniformAttribute attribute);
 protected:
     friend class Gfx;
     // CPU data of framebuffer uniforms
     std::map<uniform_attributes::UniformAttribute,
         std::shared_ptr<UniformBufferBase>> uniform_buffers_;
+    std::map<uniform_attributes::UniformAttribute, 
+        int> dirty_framebuffer_uniforms_;
+    std::map<std::tuple<size_t, uniform_attributes::UniformAttribute>, 
+        int> dirty_draw_command_uniforms_;
 protected:
     Renderer() = default;
     ~Renderer() = default;

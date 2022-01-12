@@ -505,12 +505,34 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
 
 void Gfx::commitDrawCommandUniformBuffers(
     const std::shared_ptr<RenderTarget>& render_target, const std::shared_ptr<DrawCommand>& draw_command,
-    uniform_attributes::UniformAttribute specified_attribute) {
+    uniform_attributes::UniformAttribute specified_attribute,
+    int image_index) {
 
-    auto& pipeline = draw_command->pipeline_;
+    auto& renderer = render_target->renderer_;
 
-    if (!pipeline) {
-        logger().error("Cannot commit draw command uniform buffer because pipeline is not available.");
+    if (!renderer) {
+        logger().error("Cannot commit draw command uniform buffer because renderer is not available.");
+        return;
+    }
+
+    size_t draw_command_index = renderer->getDrawCommandIndex(draw_command);
+    if (draw_command_index == SIZE_MAX) {
+        logger().error("Cannot commit draw command uniform buffer because it is not in render target resources.");
+        return;
+    }
+
+    commitDrawCommandUniformBuffers(render_target, draw_command_index, specified_attribute, image_index);
+}
+
+void Gfx::commitDrawCommandUniformBuffers(
+    const std::shared_ptr<RenderTarget>& render_target, size_t draw_command_index,
+    uniform_attributes::UniformAttribute specified_attribute,
+    int image_index) {
+    
+    auto& renderer = render_target->renderer_;
+
+    if (!renderer) {
+        logger().error("Cannot commit draw command uniform buffer because renderer is not available.");
         return;
     }
 
@@ -524,22 +546,13 @@ void Gfx::commitDrawCommandUniformBuffers(
         logger().error("Cannot commit draw command uniform buffer because render target resources are not available.");
         return;
     }
-    
-    const auto& draw_commands = render_target->renderer_->getDrawCommands();
-    size_t draw_command_index = SIZE_MAX;
-    for (size_t j = 0; j < draw_commands.size(); ++j) {
-        if (draw_commands[j] == draw_command) {
-            draw_command_index = j;
-            break;
-        }
-    }
-    if (draw_command_index == SIZE_MAX) {
-        logger().error("Cannot commit draw command uniform buffer because it is not in render target resources.");
-        return;
-    }
 
+    const auto& draw_command = renderer->getDrawCommands()[draw_command_index];
+    
     size_t image_count = resources->command_buffers.size();
-    for (size_t i = 0; i < image_count; ++i) {
+    int start_index = image_index >= 0 ? image_index : 0;
+    int end_index = image_index >= 0 ? image_index + 1U : static_cast<int>(image_count);
+    for (int i = start_index; i < end_index; ++i) {
         auto& draw_command_resources = resources->draw_command_resources[draw_command_index][i];
         for (auto&& [attribute, cpu_uniform] : draw_command->uniform_buffers_) {
             if (specified_attribute == uniform_attributes::none || specified_attribute == attribute) {

@@ -292,6 +292,12 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
         return;
     }
 
+    auto& renderer = render_target->renderer_;
+    if (!renderer) {
+        logger().error("Cannot render because renderer is not valid!");
+        return;
+    }
+
     auto* resources = render_target->impl_->resources.get();
     if (!resources) {
         logger().error("Cannot render because render target resources is not valid!");
@@ -304,7 +310,9 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
         logger().error("Wait for fence error: {}", vk::to_string(result));
     }
 
+    // Acquire image
     auto image_index = render_target->acquireImage(*this);
+    auto image_count = resources->framebuffer_resources.size();
     if (image_index < 0) {
         return;
     } else if (image_index >= int(resources->command_buffers.size())) {
@@ -312,6 +320,28 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
         return;
     }
 
+    // Update uniforms
+    for (auto it = renderer->dirty_framebuffer_uniforms_.begin();
+        it != renderer->dirty_framebuffer_uniforms_.end(); ++it) {
+        auto&& [attribute, mask] = *it;
+        commitFramebufferUniformBuffers(render_target, attribute, image_index);
+        mask |= (1 << image_index);
+        if (mask == (1 << image_count) - 1) {
+            it = renderer->dirty_framebuffer_uniforms_.erase(it);
+        }
+    }
+    for (auto it = renderer->dirty_draw_command_uniforms_.begin();
+        it != renderer->dirty_draw_command_uniforms_.end(); ++it) {
+        auto&& [key, mask] = *it;
+        auto&& [draw_command_index, attribute] = key;
+        commitDrawCommandUniformBuffers(render_target, draw_command_index, attribute, image_index);
+        mask |= (1 << image_index);
+        if (mask == (1 << image_count) - 1) {
+            it = renderer->dirty_draw_command_uniforms_.erase(it);
+        }
+    }
+
+    // Wait for image in flight
     if (resources->images_in_flight[image_index]) {
         auto result = logical_device_->impl_->vk_device.waitForFences(
             { resources->images_in_flight[image_index] }, true, UINT64_MAX);
@@ -320,6 +350,7 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
         }
     }
 
+    // Submit
     auto wait_semaphores = std::array{ *resources->image_available_semaphores[resources->current_frame_index] };
     auto wait_stages = std::array<vk::PipelineStageFlags, 1>{
         vk::PipelineStageFlagBits::eColorAttachmentOutput
@@ -344,6 +375,7 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
         return;
     }
 
+    // Finish image
     render_target->finishImage(*this, image_index);
 }
 

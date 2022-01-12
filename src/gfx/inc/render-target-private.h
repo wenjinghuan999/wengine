@@ -8,6 +8,7 @@
 #include "gfx/gfx.h"
 #include "gfx/render-target.h"
 #include "gfx/gfx-pipeline.h"
+#include "gfx/gfx-buffer.h"
 #include "common/owned-resources.h"
 #include "gfx-constants-private.h"
 
@@ -17,6 +18,8 @@ struct RenderTargetDrawCommandResources {
     vk::Pipeline pipeline;
     vk::PipelineLayout pipeline_layout;
     vk::DescriptorSet descriptor_set;
+    // Uniforms that has gpu data only
+    std::vector<std::shared_ptr<UniformBufferBase>> uniforms;
 };
 
 struct RenderTargetPipelineResources {
@@ -25,13 +28,20 @@ struct RenderTargetPipelineResources {
     std::vector<vk::raii::DescriptorSet> descriptor_sets;
 };
 
+struct RenderTargetFramebufferResources {
+    vk::raii::Framebuffer framebuffer{nullptr};
+    vk::CommandBuffer command_buffer{nullptr};
+    // Uniforms that has gpu data only
+    std::vector<std::shared_ptr<UniformBufferBase>> uniforms;
+};
+
 struct RenderTargetResources {
     vk::raii::RenderPass render_pass{nullptr};
-    std::vector<vk::raii::Framebuffer> framebuffers;
     std::vector<vk::raii::Semaphore> image_available_semaphores;
     std::vector<vk::raii::Semaphore> render_finished_semaphores;
     std::vector<vk::raii::Fence> in_flight_fences;
     std::vector<vk::CommandBuffer> command_buffers;
+    std::vector<RenderTargetFramebufferResources> framebuffer_resources;
     std::vector<RenderTargetPipelineResources> pipeline_resources;
 
     vk::raii::Device* device{nullptr};

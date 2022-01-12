@@ -65,22 +65,18 @@ class GfxUniformLayout {
 public:
     GfxUniformLayout& addDescription(UniformDescription description);
     void clearDescriptions();
-    GfxUniformLayout& addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
-    void clearUniformBuffers();
-    bool valid() const;
+    const std::vector<UniformDescription>& descriptions() const { return descriptions_; }
 protected:
     friend class Gfx;
     std::vector<UniformDescription> descriptions_;
-    std::vector<std::shared_ptr<UniformBufferBase>> uniform_buffers_;
 };
 
 class GfxPipeline : public std::enable_shared_from_this<GfxPipeline> {
 public:
-    static std::shared_ptr<GfxPipeline> Create(std::string name);
+    static std::shared_ptr<GfxPipeline> Create();
     ~GfxPipeline() = default;
 
 public:
-    [[nodiscard]] const std::string& name() const { return name_; }
     [[nodiscard]] const GfxVertexFactory& vertex_factory() const { return vertex_factory_; }
     [[nodiscard]] const GfxPipelineState& pipeline_state() const { return pipeline_state_; }
     [[nodiscard]] const GfxUniformLayout& uniform_layout() const { return uniform_layout_; }
@@ -93,13 +89,12 @@ public:
     void setShaders(std::vector<std::shared_ptr<Shader>> shaders) { shaders_ = std::move(shaders); }
     void clearShaders() { shaders_.clear(); }
 protected:
-    std::string name_;
     GfxVertexFactory vertex_factory_;
     GfxPipelineState pipeline_state_;
     GfxUniformLayout uniform_layout_;
     std::vector<std::shared_ptr<Shader>> shaders_;
 protected:
-    explicit GfxPipeline(std::string name);
+    GfxPipeline();
     friend class Gfx;
     friend class DrawCommand;
     struct Impl;

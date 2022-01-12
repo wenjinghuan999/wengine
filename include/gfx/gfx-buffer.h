@@ -27,12 +27,16 @@ namespace index_types {
 
 namespace uniform_attributes {
     enum UniformAttribute{
-        none     = 0,
-        scene    = 1,
-        camera   = 2,
-        material = 3,
-        model    = 4,
-        NUM_UNIFORMS
+        none = -1,
+        FRAMEBUFFER_UNIFORMS_START = 0,
+        scene = FRAMEBUFFER_UNIFORMS_START,
+        camera,
+        FRAMEBUFFER_UNIFORMS_END,
+        DRAW_COMMAND_UNIFORMS_START = FRAMEBUFFER_UNIFORMS_END,
+        material = DRAW_COMMAND_UNIFORMS_START,
+        model,
+        DRAW_COMMAND_UNIFORMS_END,
+        NUM_UNIFORMS = DRAW_COMMAND_UNIFORMS_END
     };
 }
 
@@ -42,6 +46,19 @@ struct VertexBufferDescription {
     uint32_t stride;
     uint32_t offset;
 };
+
+template<typename DescriptionType>
+void AddDescriptionImplTemplate(std::vector<DescriptionType>& descriptions, DescriptionType description) {
+    auto it = std::lower_bound(descriptions.begin(), descriptions.end(), description, 
+        [](const DescriptionType& element, const DescriptionType& value) {
+            return element.attribute < value.attribute;
+        });
+    if (it == descriptions.end() || it->attribute != description.attribute) {
+        descriptions.emplace(it, description);
+    } else {
+        *it = description;
+    }
+}
 
 struct SimpleVertex {
     glm::vec3 position;
@@ -202,6 +219,7 @@ class UniformBufferBase : public GfxBufferBase {
 public:
     virtual ~UniformBufferBase() override;
     virtual UniformObjectDescription description() const = 0;
+    static std::shared_ptr<UniformBufferBase> Create(uniform_attributes::UniformAttribute attribute);
 protected:
     explicit UniformBufferBase();
 };

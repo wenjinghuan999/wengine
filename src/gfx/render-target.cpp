@@ -21,6 +21,8 @@ namespace {
 
 namespace wg {
 
+RenderTarget::RenderTarget(std::string name) : name_(std::move(name)) {}
+
 std::shared_ptr<RenderTarget> Gfx::createRenderTarget(const std::shared_ptr<Window>& window) {
     auto surface = getWindowSurface(window);
     if (!surface) {
@@ -29,13 +31,11 @@ std::shared_ptr<RenderTarget> Gfx::createRenderTarget(const std::shared_ptr<Wind
         return {};
     }
     
-    auto render_target = std::shared_ptr<RenderTarget>(new RenderTargetSurface(surface));
-    createRenderTargetResources(render_target);
-    return render_target;
+    return std::shared_ptr<RenderTarget>(new RenderTargetSurface(window->title(), surface));
 }
 
-RenderTargetSurface::RenderTargetSurface(const std::shared_ptr<Surface>& surface)
-    : surface_(surface) {
+RenderTargetSurface::RenderTargetSurface(std::string name, const std::shared_ptr<Surface>& surface)
+    : RenderTarget(std::move(name)), surface_(surface) {
     
     impl_ = std::make_unique<Impl>();
     impl_->get_image_views = [
@@ -145,6 +145,13 @@ void RenderTargetSurface::finishImage(Gfx& gfx, int image_index) {
 void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& render_target) {
 
     render_target->impl_->resources.reset();
+    logger().info("Creating resources for render target \"{}\".", render_target->name());
+
+    auto& renderer = render_target->renderer_;
+    if (!renderer) {
+        logger().error("Cannot create render target resources because renderer is not available.");
+        return;
+    }
 
     if (!logical_device_) {
         logger().error("Cannot create render target resources because logical device is not available.");
@@ -154,6 +161,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 
     auto [width, height] = render_target->extent();
     auto image_views = render_target->impl_->get_image_views();
+    auto image_count = image_views.size();
 
     auto resources = std::make_unique<RenderTargetResources>();
     resources->device = &logical_device_->impl_->vk_device;
@@ -200,20 +208,6 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     resources->render_pass = 
         logical_device_->impl_->vk_device.createRenderPass(render_pass_create_info);
     
-    // Framebuffers
-    resources->framebuffers.reserve(image_views.size());
-    for (auto&& image_view : image_views) {
-        auto render_target_attachments = std::array{ image_view };
-        auto framebuffer_create_info = vk::FramebufferCreateInfo{
-            .renderPass = *resources->render_pass,
-            .width      = static_cast<uint32_t>(width),
-            .height     = static_cast<uint32_t>(height),
-            .layers     = 1
-        }   .setAttachments(render_target_attachments);
-        resources->framebuffers.emplace_back(
-            logical_device_->impl_->vk_device.createFramebuffer(framebuffer_create_info));
-    }
-
     // Queues
     for (auto queue_id : render_target->queues()) {
         auto& queue_info_array = logical_device_->impl_->queue_references[queue_id];
@@ -230,9 +224,9 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     }
 
     // Semaphores & fences
-    resources->max_frames_in_flight = std::max(1, static_cast<int>(image_views.size() - 1));
+    resources->max_frames_in_flight = std::max(1, static_cast<int>(image_count - 1));
     resources->current_frame_index = 0;
-    resources->images_in_flight.resize(image_views.size());
+    resources->images_in_flight.resize(image_count);
     for (int i = 0; i < resources->max_frames_in_flight; ++i) {
         resources->image_available_semaphores.emplace_back(logical_device_->impl_->vk_device.createSemaphore({}));
         resources->render_finished_semaphores.emplace_back(logical_device_->impl_->vk_device.createSemaphore({}));
@@ -241,20 +235,51 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
         }));
     }
 
+    // Framebuffers
+    resources->framebuffer_resources.reserve(image_count);
+    for (auto&& image_view : image_views) {
+        auto render_target_attachments = std::array{ image_view };
+        auto framebuffer_create_info = vk::FramebufferCreateInfo{
+            .renderPass = *resources->render_pass,
+            .width      = static_cast<uint32_t>(width),
+            .height     = static_cast<uint32_t>(height),
+            .layers     = 1
+        }   .setAttachments(render_target_attachments);
+        resources->framebuffer_resources.emplace_back(RenderTargetFramebufferResources{
+            .framebuffer = logical_device_->impl_->vk_device.createFramebuffer(framebuffer_create_info)
+        });
+    }
+
     // Command buffers
     if (resources->graphics_queue_index >= 0) {
-        resources->command_buffers.resize(image_views.size());
         auto command_buffer_allocate_info = vk::CommandBufferAllocateInfo{
             .commandPool = resources->queues[resources->graphics_queue_index].vk_command_pool,
             .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = static_cast<uint32_t>(image_views.size())
+            .commandBufferCount = static_cast<uint32_t>(image_count)
         };
         // Do not use vk::raii::CommandBuffer because there might be compile errors on MSVC
         // Since we are allocating from the pool, we can destruct command buffers together.
         resources->command_buffers = 
             (*logical_device_->impl_->vk_device).allocateCommandBuffers(command_buffer_allocate_info);
+        
+        for (size_t i = 0; i < image_count; ++i) {
+            resources->framebuffer_resources[i].command_buffer = resources->command_buffers[i];
+        }
     } else {
         logger().error("Cannot allocate command buffer because no graphics queue has been assigned to render target.");
+    }
+
+    // Framebuffer uniform buffers
+    for (size_t i = 0; i < image_count; ++i) {
+        for (auto&& [attribute, cpu_uniform] : renderer->uniform_buffers_) {
+            auto& gpu_uniform = resources->framebuffer_resources[i].uniforms.emplace_back(
+                UniformBufferBase::Create(attribute)
+            );
+            createUniformBufferResources(gpu_uniform);
+            if (cpu_uniform->has_cpu_data()) {
+                commitReferenceBuffer(cpu_uniform, gpu_uniform);
+            }
+        }
     }
 
     render_target->impl_->resources = 

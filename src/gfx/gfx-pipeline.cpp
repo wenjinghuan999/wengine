@@ -2,6 +2,7 @@
 #include "gfx/gfx-constants.h"
 #include "gfx/gfx-pipeline.h"
 #include "common/logger.h"
+#include "gfx/gfx-buffer.h"
 #include "gfx-private.h"
 #include "gfx-constants-private.h"
 #include "gfx-pipeline-private.h"
@@ -14,19 +15,6 @@ namespace {
 [[nodiscard]] auto& logger() {
     static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
-}
-
-template<typename DescriptionType>
-void AddDescriptionImplTemplate(std::vector<DescriptionType>& descriptions, DescriptionType description) {
-    auto it = std::lower_bound(descriptions.begin(), descriptions.end(), description, 
-        [](const DescriptionType& element, const DescriptionType& value) {
-            return element.attribute < value.attribute;
-        });
-    if (it == descriptions.end() || it->attribute != description.attribute) {
-        descriptions.emplace(it, description);
-    } else {
-        *it = description;
-    }
 }
 
 } // unnamed namespace
@@ -154,47 +142,17 @@ void GfxUniformLayout::clearDescriptions() {
     descriptions_.clear();
 }
 
-GfxUniformLayout& GfxUniformLayout::addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer) {
-    uniform_buffers_.push_back(uniform_buffer);
-    return *this;
+std::shared_ptr<GfxPipeline> GfxPipeline::Create() {
+    return std::shared_ptr<GfxPipeline>(new GfxPipeline());
 }
 
-void GfxUniformLayout::clearUniformBuffers() {
-    uniform_buffers_.clear();
-}
-
-bool GfxUniformLayout::valid() const {
-    std::vector<UniformObjectDescription> uniform_buffer_descriptions;
-    for (auto&& uniform_buffer : uniform_buffers_) {
-        AddDescriptionImplTemplate(uniform_buffer_descriptions, uniform_buffer->description());
-    }
-    for (auto&& description : descriptions_) {
-        auto it = std::lower_bound(
-            uniform_buffer_descriptions.begin(), uniform_buffer_descriptions.end(), description, 
-            [](const UniformObjectDescription& element, const UniformDescription& value) {
-                return element.attribute < value.attribute;
-            });
-        if (it == uniform_buffer_descriptions.end() ||
-            it->attribute != description.attribute) {
-            return false;
-        }
-    }
-    return true;
-}
-
-std::shared_ptr<GfxPipeline> GfxPipeline::Create(std::string name) {
-    return std::shared_ptr<GfxPipeline>(new GfxPipeline(std::move(name)));
-}
-
-GfxPipeline::GfxPipeline(std::string name)
-    : name_(std::move(name)), impl_(std::make_unique<Impl>()) {
+GfxPipeline::GfxPipeline()
+    : impl_(std::make_unique<Impl>()) {
 }
 
 void Gfx::createPipelineResources(
     const std::shared_ptr<GfxPipeline>& pipeline) {
     
-    logger().info("Creating resources for pipeline \"{}\".", pipeline->name());
-
     if (!logical_device_) {
         logger().error("Cannot create pipeline resources because logical device is not available.");
         return;
@@ -380,27 +338,34 @@ void Gfx::createPipelineResources(
         logical_device_->impl_->gfx_pipeline_resources.store(std::move(resources));
 }
 
-void Gfx::createPipelineResourcesForRenderTarget(
+void Gfx::createDrawCommandResourcesForRenderTarget(
     const std::shared_ptr<RenderTarget>& render_target,
-    const std::shared_ptr<GfxPipeline>& pipeline) {
+    const std::shared_ptr<DrawCommand>& draw_command) {
 
-    logger().info("Creating pipeline resources \"{}\" for render target.", pipeline->name());
+    logger().info("Creating resources of draw command \"{}\" for render target \"{}\".", 
+        draw_command->name(), render_target->name());
+    auto& pipeline = draw_command->pipeline_;
+
+    if (!pipeline) {
+        logger().error("Cannot create draw command resources because pipeline is not available.");
+        return;
+    }
 
     if (!logical_device_) {
-        logger().error("Cannot create pipeline resources for render target because logical device is not available.");
+        logger().error("Cannot create draw command resources for render target because logical device is not available.");
         return;
     }
     waitDeviceIdle();
 
     auto* resources = render_target->impl_->resources.get();
     if (!resources) {
-        logger().error("Cannot create pipeline resources for render target because render target resources are not available.");
+        logger().error("Cannot create draw command resources for render target because render target resources are not available.");
         return;
     }
 
     auto* pipeline_resources = pipeline->impl_->resources.get();
     if (!pipeline_resources) {
-        logger().error("Cannot create pipeline resources for render target because pipeline resources are not available.");
+        logger().error("Cannot create draw command resources for render target because pipeline resources are not available.");
         return;
     }
     
@@ -482,23 +447,48 @@ void Gfx::createPipelineResourcesForRenderTarget(
         logical_device_->impl_->vk_device.allocateDescriptorSets(descriptor_pool_alloc_info);
         
     for (size_t i = 0; i < image_count; ++i) {
+        std::vector<std::shared_ptr<UniformBufferBase>> gpu_uniforms;
+        for (auto&& [attribute, cpu_uniform] : draw_command->uniform_buffers_) {
+            auto& gpu_uniform = gpu_uniforms.emplace_back(UniformBufferBase::Create(attribute));
+            createUniformBufferResources(gpu_uniform);
+            if (cpu_uniform->has_cpu_data()) {
+                commitReferenceBuffer(cpu_uniform, gpu_uniform);
+            }
+        }
         resources->draw_command_resources.back().emplace_back(RenderTargetDrawCommandResources{
             .pipeline        = *render_target_pipeline_resources.pipeline,
             .pipeline_layout = *pipeline_resources->pipeline_layout,
-            .descriptor_set  = *render_target_pipeline_resources.descriptor_sets[i]
+            .descriptor_set  = *render_target_pipeline_resources.descriptor_sets[i],
+            .uniforms        = std::move(gpu_uniforms)
         });
     }
     
     for (size_t i = 0; i < image_count; ++i) {
-        for (size_t j = 0; j < pipeline->uniform_layout().descriptions_.size(); ++j) {
-            auto& description = pipeline->uniform_layout().descriptions_[j];
-            auto& buffer = pipeline->uniform_layout().uniform_buffers_[j];
+        auto& framebuffer_resources = resources->framebuffer_resources[i];
+        auto& draw_command_resources = resources->draw_command_resources.back()[i];
+        for (auto&& description : pipeline->uniform_layout_.descriptions_) {
+            // Find GPU uniform data
+            const auto* gpu_uniform = [description, &framebuffer_resources, &draw_command_resources]() 
+                -> const std::shared_ptr<UniformBufferBase>* {
+                for (auto&& uniform_buffer : framebuffer_resources.uniforms) {
+                    if (description.attribute == uniform_buffer->description().attribute) {
+                        return &uniform_buffer;
+                    }
+                }
+                for (auto&& uniform_buffer : draw_command_resources.uniforms) {
+                    if (description.attribute == uniform_buffer->description().attribute) {
+                        return &uniform_buffer;
+                    }
+                }
+                return nullptr;
+            }();
+            
             std::vector<vk::DescriptorBufferInfo> buffer_info;
-            if (auto* buffer_resources = buffer->impl_->resources.get()) {
+            if (auto* buffer_resources = (*gpu_uniform)->impl_->resources.get()) {
                 buffer_info.emplace_back(vk::DescriptorBufferInfo{
                     .buffer = *buffer_resources->buffer,
                     .offset = 0,
-                    .range  = buffer->data_size()
+                    .range  = (*gpu_uniform)->data_size()
                 });
             }
             auto write_description_set = vk::WriteDescriptorSet{
@@ -509,6 +499,62 @@ void Gfx::createPipelineResourcesForRenderTarget(
                 .descriptorType  = vk::DescriptorType::eUniformBuffer
             }   .setBufferInfo(buffer_info);
             logical_device_->impl_->vk_device.updateDescriptorSets({ write_description_set }, {});
+        }
+    }
+}
+
+void Gfx::commitDrawCommandUniformBuffers(
+    const std::shared_ptr<RenderTarget>& render_target, const std::shared_ptr<DrawCommand>& draw_command,
+    uniform_attributes::UniformAttribute specified_attribute) {
+
+    auto& pipeline = draw_command->pipeline_;
+
+    if (!pipeline) {
+        logger().error("Cannot commit draw command uniform buffer because pipeline is not available.");
+        return;
+    }
+
+    if (!logical_device_) {
+        logger().error("Cannot commit draw command uniform buffer because logical device is not available.");
+        return;
+    }
+
+    auto* resources = render_target->impl_->resources.get();
+    if (!resources) {
+        logger().error("Cannot commit draw command uniform buffer because render target resources are not available.");
+        return;
+    }
+    
+    const auto& draw_commands = render_target->renderer_->getDrawCommands();
+    size_t draw_command_index = SIZE_MAX;
+    for (size_t j = 0; j < draw_commands.size(); ++j) {
+        if (draw_commands[j] == draw_command) {
+            draw_command_index = j;
+            break;
+        }
+    }
+    if (draw_command_index == SIZE_MAX) {
+        logger().error("Cannot commit draw command uniform buffer because it is not in render target resources.");
+        return;
+    }
+
+    size_t image_count = resources->command_buffers.size();
+    for (size_t i = 0; i < image_count; ++i) {
+        auto& draw_command_resources = resources->draw_command_resources[draw_command_index][i];
+        for (auto&& [attribute, cpu_uniform] : draw_command->uniform_buffers_) {
+            if (specified_attribute == uniform_attributes::none || specified_attribute == attribute) {
+                // Find GPU uniform data
+                const auto* gpu_uniform = [attribute, &draw_command_resources]() 
+                    -> const std::shared_ptr<UniformBufferBase>* {
+                    for (auto&& uniform_buffer : draw_command_resources.uniforms) {
+                        if (attribute == uniform_buffer->description().attribute) {
+                            return &uniform_buffer;
+                        }
+                    }
+                    return nullptr;
+                }();
+                commitReferenceBuffer(cpu_uniform, *gpu_uniform);
+            }
         }
     }
 }

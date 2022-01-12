@@ -28,6 +28,22 @@ IndexBuffer::~IndexBuffer() {}
 UniformBufferBase::UniformBufferBase() : GfxBufferBase(true) {}
 UniformBufferBase::~UniformBufferBase() {}
 
+std::shared_ptr<UniformBufferBase> UniformBufferBase::Create(uniform_attributes::UniformAttribute attribute) {
+    switch (attribute)
+    {
+    case uniform_attributes::scene:
+        return UniformBuffer<SceneUniform>::Create();
+    case uniform_attributes::camera:
+        return UniformBuffer<CameraUniform>::Create();
+    case uniform_attributes::material:
+        return UniformBuffer<MaterialUniform>::Create();
+    case uniform_attributes::model:
+        return UniformBuffer<ModelUniform>::Create();
+    default:
+        return {};
+    }
+}
+
 bool Gfx::Impl::createBuffer(vk::DeviceSize data_size, 
     vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memeory_properties, vk::SharingMode sharing_mode,
     BufferResources& out_resources) {

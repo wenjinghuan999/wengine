@@ -52,9 +52,18 @@ public:
     // GfxPipeline
     void createPipelineResources(
         const std::shared_ptr<GfxPipeline>& pipeline);
-    void createPipelineResourcesForRenderTarget(
+
+    // DrawCommand
+    void createDrawCommandResourcesForRenderTarget(
         const std::shared_ptr<RenderTarget>& render_target,
-        const std::shared_ptr<GfxPipeline>& pipeline);
+        const std::shared_ptr<DrawCommand>& draw_command);
+    void commitDrawCommandUniformBuffers(
+        const std::shared_ptr<RenderTarget>& render_target, const std::shared_ptr<DrawCommand>& draw_command,
+        uniform_attributes::UniformAttribute specified_attribute = uniform_attributes::none);
+
+    // Renderer
+    void commitFramebufferUniformBuffers(const std::shared_ptr<RenderTarget>& render_target,
+        uniform_attributes::UniformAttribute specified_attribute = uniform_attributes::none);
 
     // RenderTarget
     std::shared_ptr<RenderTarget> createRenderTarget(const std::shared_ptr<Window>& window);

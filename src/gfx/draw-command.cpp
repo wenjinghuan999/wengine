@@ -15,6 +15,9 @@ namespace {
 
 namespace wg {
 
+DrawCommand::DrawCommand(std::string name)
+    : name_(std::move(name)) {}
+
 void DrawCommand::setPipeline(const std::shared_ptr<GfxPipeline>& pipeline) {
     auto* resources = pipeline->impl_->resources.get();
     if (!resources) {
@@ -26,14 +29,38 @@ void DrawCommand::setPipeline(const std::shared_ptr<GfxPipeline>& pipeline) {
     getImpl()->pipeline_resources = resources;
 }
 
-std::shared_ptr<DrawCommand> SimpleDrawCommand::Create(
-    const std::shared_ptr<GfxPipeline>& pipeline
-) {
-    return std::shared_ptr<DrawCommand>(new SimpleDrawCommand(pipeline));
+DrawCommand& DrawCommand::addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer) {
+    uniform_buffers_[uniform_buffer->description().attribute] = uniform_buffer;
+    return *this;
 }
 
-SimpleDrawCommand::SimpleDrawCommand(const std::shared_ptr<GfxPipeline>& pipeline)
-    : DrawCommand(), impl_(std::make_unique<Impl>())  {
+void DrawCommand::clearUniformBuffers() {
+    uniform_buffers_.clear();
+}
+
+bool DrawCommand::valid() const {
+    if (!pipeline_) {
+        return false;
+    }
+    for (auto&& description : pipeline_->uniform_layout().descriptions()) {
+        if (description.attribute >= uniform_attributes::DRAW_COMMAND_UNIFORMS_START &&
+            description.attribute < uniform_attributes::DRAW_COMMAND_UNIFORMS_END) {
+            if (uniform_buffers_.find(description.attribute) == uniform_buffers_.end()) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+std::shared_ptr<DrawCommand> SimpleDrawCommand::Create(
+    std::string name, const std::shared_ptr<GfxPipeline>& pipeline
+) {
+    return std::shared_ptr<DrawCommand>(new SimpleDrawCommand(std::move(name), pipeline));
+}
+
+SimpleDrawCommand::SimpleDrawCommand(std::string name, const std::shared_ptr<GfxPipeline>& pipeline)
+    : DrawCommand(std::move(name)), impl_(std::make_unique<Impl>())  {
     setPipeline(pipeline);
 }
 

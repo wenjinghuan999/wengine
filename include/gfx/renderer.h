@@ -11,15 +11,23 @@
 
 namespace wg {
 
-class IRenderer : public IGfxObject {
+class Renderer : public IGfxObject {
 public:
-    virtual std::vector<std::shared_ptr<DrawCommand>> getDrawCommands() const = 0;
+    virtual const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const = 0;
+    Renderer& addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
+    void clearUniformBuffers();
+    bool valid() const;
 protected:
-    IRenderer() = default;
-    ~IRenderer() = default;
+    friend class Gfx;
+    // CPU data of framebuffer uniforms
+    std::map<uniform_attributes::UniformAttribute,
+        std::shared_ptr<UniformBufferBase>> uniform_buffers_;
+protected:
+    Renderer() = default;
+    ~Renderer() = default;
 };
 
-class BasicRenderer : public IRenderer, public std::enable_shared_from_this<BasicRenderer> {
+class BasicRenderer : public Renderer, public std::enable_shared_from_this<BasicRenderer> {
 public:
     [[nodiscard]] static std::shared_ptr<BasicRenderer> Create() {
         return std::shared_ptr<BasicRenderer>(new BasicRenderer());
@@ -27,18 +35,18 @@ public:
     virtual std::shared_ptr<IRenderData> createRenderData() override {
         return DummyRenderData::Create();
     }
-    virtual std::vector<std::shared_ptr<DrawCommand>> getDrawCommands() const override {
-        return draw_commands;
+    virtual const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const override {
+        return draw_commands_;
     }
     void addDrawCommand(const std::shared_ptr<DrawCommand>& draw_command) {
-        draw_commands.push_back(draw_command);
+        draw_commands_.push_back(draw_command);
     }
     void clearDrawCommands() {
-        draw_commands.clear();
+        draw_commands_.clear();
     }
     ~BasicRenderer() = default;
 protected:
-    std::vector<std::shared_ptr<DrawCommand>> draw_commands;
+    std::vector<std::shared_ptr<DrawCommand>> draw_commands_;
 protected:
     BasicRenderer() = default;
     friend class Gfx;

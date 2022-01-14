@@ -55,8 +55,6 @@ int main(int, char**) {
         { .attribute = wg::vertex_attributes::position, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 0 },
         { .attribute = wg::vertex_attributes::color, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 1 },
     };
-    vertex_factory.addVertexBuffer(vertex_buffer);
-    vertex_factory.setIndexBuffer(index_buffer);
 
     auto quad_pipeline = wg::GfxPipeline::Create();
     quad_pipeline->addShader(vert_shader);
@@ -66,8 +64,11 @@ int main(int, char**) {
     gfx->createPipelineResources(quad_pipeline);
 
     auto quad_draw_command = wg::SimpleDrawCommand::Create("quad", quad_pipeline);
+    quad_draw_command->addVertexBuffer(vertex_buffer);
+    quad_draw_command->setIndexBuffer(index_buffer);
     quad_draw_command->addUniformBuffer(model_uniform_buffer);
     assert(quad_draw_command->valid());
+    gfx->finishDrawCommand(quad_draw_command);
 
     auto vertices2 = std::vector<wg::SimpleVertex>{
         { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f } },
@@ -80,7 +81,6 @@ int main(int, char**) {
         { .attribute = wg::vertex_attributes::position, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 0 },
         { .attribute = wg::vertex_attributes::color, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 1 },
     };
-    triangle_vertex_factory.addVertexBuffer(vertex_buffer2);
 
     auto triangle_pipeline = wg::GfxPipeline::Create();
     triangle_pipeline->addShader(vert_shader);
@@ -90,8 +90,10 @@ int main(int, char**) {
     gfx->createPipelineResources(triangle_pipeline);
 
     auto triangle_draw_command = wg::SimpleDrawCommand::Create("triangle", triangle_pipeline);
+    triangle_draw_command->addVertexBuffer(vertex_buffer2);
     triangle_draw_command->addUniformBuffer(model_uniform_buffer);
     assert(triangle_draw_command->valid());
+    gfx->finishDrawCommand(triangle_draw_command);
 
     auto renderer = wg::BasicRenderer::Create();
     renderer->addUniformBuffer(camera_uniform_buffer);

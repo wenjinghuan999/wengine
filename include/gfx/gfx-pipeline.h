@@ -17,38 +17,17 @@ struct VertexFactoryDescription {
     uint32_t location;
 };
 
-struct VertexFactoryCombinedDescription {
-    vertex_attributes::VertexAttribute attribute;
-    gfx_formats::Format format;
-    uint32_t location;
-    uint32_t stride;
-    uint32_t offset;
-    size_t vertex_buffer_index;
-};
-
 class GfxVertexFactory {
 public:
     GfxVertexFactory() = default;
     GfxVertexFactory(std::initializer_list<VertexFactoryDescription> initializer_list);
     void addDescription(VertexFactoryDescription description);
     void clearDescriptions();
-    void addVertexBuffer(const std::shared_ptr<VertexBufferBase>& vertex_buffer);
-    void clearVertexBuffers();
-    void setIndexBuffer(const std::shared_ptr<IndexBuffer>& index_buffer);
-    void clearIndexBuffer();
-    bool valid() const;
-    bool draw_indexed() const;
-    size_t vertex_count() const;
-    size_t index_count() const;
-    std::vector<VertexFactoryCombinedDescription> getCombinedDescriptions() const;
+    const std::vector<VertexFactoryDescription>& descriptions() const { return descriptions_; }
 protected:
     std::vector<VertexFactoryDescription> descriptions_;
-    std::vector<std::shared_ptr<VertexBufferBase>> vertex_buffers_;
-    std::shared_ptr<IndexBuffer> index_buffer_;
 protected:
     friend class Gfx;
-    static void AddDescriptionImpl(std::vector<VertexFactoryDescription>& attributes, VertexFactoryDescription attribute);
-    static void AddDescriptionImpl(std::vector<VertexBufferDescription>& attributes, VertexBufferDescription attribute);
 };
 
 class GfxPipelineState {

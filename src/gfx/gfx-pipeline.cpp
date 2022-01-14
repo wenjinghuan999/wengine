@@ -4,6 +4,7 @@
 #include "common/logger.h"
 #include "gfx/gfx-buffer.h"
 #include "gfx-private.h"
+#include "draw-command-private.h"
 #include "gfx-constants-private.h"
 #include "gfx-pipeline-private.h"
 #include "render-target-private.h"
@@ -21,116 +22,18 @@ namespace {
 
 namespace wg {
 
-void GfxVertexFactory::AddDescriptionImpl(std::vector<VertexFactoryDescription>& descriptions, VertexFactoryDescription description) {
-    AddDescriptionImplTemplate(descriptions, description);
-}
-
-void GfxVertexFactory::AddDescriptionImpl(std::vector<VertexBufferDescription>& descriptions, VertexBufferDescription description) {
-    AddDescriptionImplTemplate(descriptions, description);
-}
-
 GfxVertexFactory::GfxVertexFactory(std::initializer_list<VertexFactoryDescription> initializer_list) {
     for (auto&& description : initializer_list) {
-        AddDescriptionImpl(descriptions_, description);
+        AddDescriptionImplTemplate(descriptions_, description);
     }
 }
 
 void GfxVertexFactory::addDescription(VertexFactoryDescription description) {
-    AddDescriptionImpl(descriptions_, description);
+    AddDescriptionImplTemplate(descriptions_, description);
 }
 
 void GfxVertexFactory::clearDescriptions() {
     descriptions_.clear();
-}
-
-void GfxVertexFactory::addVertexBuffer(const std::shared_ptr<VertexBufferBase>& vertex_buffer) {
-    vertex_buffers_.emplace_back(vertex_buffer);
-}
-
-void GfxVertexFactory::clearVertexBuffers() {
-    vertex_buffers_.clear();
-}
-
-void GfxVertexFactory::setIndexBuffer(const std::shared_ptr<IndexBuffer>& index_buffer) {
-    index_buffer_ = index_buffer;
-}
-
-void GfxVertexFactory::clearIndexBuffer() {
-    index_buffer_.reset();
-}
-
-bool GfxVertexFactory::valid() const {
-    std::vector<VertexBufferDescription> vertex_buffer_descriptions;
-    for (auto&& vertex_buffer : vertex_buffers_) {
-        for (auto&& description : vertex_buffer->descriptions()) {
-            AddDescriptionImpl(vertex_buffer_descriptions, description);
-        }
-    }
-    for (auto&& description : descriptions_) {
-        auto it = std::lower_bound(
-            vertex_buffer_descriptions.begin(), vertex_buffer_descriptions.end(), description, 
-            [](const VertexBufferDescription& element, const VertexFactoryDescription& value) {
-                return element.attribute < value.attribute;
-            });
-        if (it == vertex_buffer_descriptions.end() ||
-            it->attribute != description.attribute ||
-            it->format != description.format) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool GfxVertexFactory::draw_indexed() const {
-    return static_cast<bool>(index_buffer_);
-}
-
-size_t GfxVertexFactory::vertex_count() const {
-    if (vertex_buffers_.empty()) {
-        return 0;
-    }
-    size_t result = std::numeric_limits<size_t>::max();
-    for (auto&& vertex_buffer : vertex_buffers_) {
-        result = std::min(result, vertex_buffer->vertex_count());
-    }
-    return result;
-}
-
-size_t GfxVertexFactory::index_count() const {
-    if (index_buffer_) {
-        return index_buffer_->index_count();
-    }
-    return 0;
-}
-
-std::vector<VertexFactoryCombinedDescription> GfxVertexFactory::getCombinedDescriptions() const {
-    std::vector<VertexBufferDescription> vertex_buffer_descriptions;
-    for (auto&& vertex_buffer : vertex_buffers_) {
-        for (auto&& description : vertex_buffer->descriptions()) {
-            AddDescriptionImpl(vertex_buffer_descriptions, description);
-        }
-    }
-    std::vector<VertexFactoryCombinedDescription> combined_descriptions;
-    for (auto&& description : descriptions_) {
-        for (size_t vertex_buffer_index = 0; vertex_buffer_index < vertex_buffers_.size(); ++vertex_buffer_index) {
-            const auto& vertex_buffer = vertex_buffers_[vertex_buffer_index];
-            for (auto&& vertex_buffer_description : vertex_buffer->descriptions()) {
-                if (vertex_buffer_description.attribute == description.attribute &&
-                    vertex_buffer_description.format == description.format) {
-                            
-                    combined_descriptions.emplace_back(VertexFactoryCombinedDescription{
-                        .attribute           = description.attribute,
-                        .format              = description.format,
-                        .location            = description.location,
-                        .stride              = vertex_buffer_description.stride,
-                        .offset              = vertex_buffer_description.offset,
-                        .vertex_buffer_index = vertex_buffer_index,
-                    });
-                }
-            }
-        }
-    }
-    return combined_descriptions;
 }
 
 GfxUniformLayout& GfxUniformLayout::addDescription(UniformDescription description) {
@@ -171,63 +74,6 @@ void Gfx::createPipelineResources(
             });
         }
     }
-    
-    // Vertex factory
-    resources->vertex_count = static_cast<uint32_t>(pipeline->vertex_factory_.vertex_count());
-    std::map<size_t, uint32_t> vb_index_to_binding;
-    for (auto&& description : pipeline->vertex_factory_.getCombinedDescriptions()) {
-        uint32_t binding = [&vb_index_to_binding, &description, &resources]() {
-            auto it = vb_index_to_binding.find(description.vertex_buffer_index);
-            if (it == vb_index_to_binding.end()) {
-                uint32_t new_binding = static_cast<uint32_t>(resources->vertex_bindings.size());
-                vb_index_to_binding[description.vertex_buffer_index] = new_binding;
-                resources->vertex_bindings.emplace_back(vk::VertexInputBindingDescription{
-                    .binding = new_binding,
-                    .stride = description.stride,
-                    .inputRate = vk::VertexInputRate::eVertex
-                });
-                return new_binding;
-            } else {
-                if (resources->vertex_bindings[it->second].stride != description.stride) {
-                    logger().warn("Vertex binding and buffer stride not identical: {} != {}.", 
-                        resources->vertex_bindings[it->second].stride, description.stride);
-                }
-                return it->second;
-            }
-        }();
-
-        resources->vertex_attributes.emplace_back(vk::VertexInputAttributeDescription{
-            .location = description.location,
-            .binding = binding,
-            .format = gfx_formats::ToVkFormat(description.format),
-            .offset = description.offset
-        });
-
-        auto&& vertex_buffer = pipeline->vertex_factory_.vertex_buffers_[description.vertex_buffer_index];
-        if (auto vertex_buffer_resources = vertex_buffer->impl_->resources.get()) {
-            resources->vertex_buffers.emplace_back(*vertex_buffer_resources->buffer);
-            resources->vertex_buffer_offsets.emplace_back(0);
-        }
-    }
-
-    resources->draw_indexed = pipeline->vertex_factory_.draw_indexed();
-    if (resources->draw_indexed) {
-        if (auto index_buffer_resources = pipeline->vertex_factory_.index_buffer_->impl_->resources.get()) {
-            resources->index_buffer = *index_buffer_resources->buffer;
-        }
-        resources->index_buffer_offset = 0;
-        resources->index_type = index_types::ToVkIndexType(pipeline->vertex_factory_.index_buffer_->index_type());
-        resources->index_count = static_cast<uint32_t>(pipeline->vertex_factory_.index_count());
-    }
-
-    resources->vertex_input_create_info = vk::PipelineVertexInputStateCreateInfo{}
-        .setVertexBindingDescriptions(resources->vertex_bindings)
-        .setVertexAttributeDescriptions(resources->vertex_attributes);
-
-    resources->input_assembly_create_info = vk::PipelineInputAssemblyStateCreateInfo{
-        .topology = vk::PrimitiveTopology::eTriangleList,
-        .primitiveRestartEnable = false
-    };
 
     std::vector<vk::DescriptorSetLayout> set_layouts;
     
@@ -368,6 +214,12 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
         logger().error("Cannot create draw command resources for render target because pipeline resources are not available.");
         return;
     }
+
+    auto* impl = draw_command->getImpl();
+    if (!impl) {
+        logger().error("Cannot create draw command resources for render target because draw command impl are not available.");
+        return;
+    }
     
     // Pipeline state
     auto [width, height] = render_target->extent();
@@ -404,8 +256,8 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
 
     // Pipeline
     auto pipeline_create_info = vk::GraphicsPipelineCreateInfo{
-        .pVertexInputState   = &pipeline_resources->vertex_input_create_info,
-        .pInputAssemblyState = &pipeline_resources->input_assembly_create_info,
+        .pVertexInputState   = &impl->vertex_input_create_info,
+        .pInputAssemblyState = &impl->input_assembly_create_info,
         .pViewportState      = &viewport_create_info,
         .pRasterizationState = &pipeline_resources->rasterization_create_info,
         .pMultisampleState   = &pipeline_resources->multisample_create_info,

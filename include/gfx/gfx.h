@@ -54,6 +54,7 @@ public:
         const std::shared_ptr<GfxPipeline>& pipeline);
 
     // DrawCommand
+    void finishDrawCommand(const std::shared_ptr<DrawCommand>& draw_command);
     void createDrawCommandResourcesForRenderTarget(
         const std::shared_ptr<RenderTarget>& render_target,
         const std::shared_ptr<DrawCommand>& draw_command);

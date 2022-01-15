@@ -18,9 +18,7 @@ struct Extent2D : public std::pair<int, int> {
 };
 
 struct Transform {
-    glm::mat4 transform;
-
-    Transform() : transform(glm::identity<glm::mat4>()) {}
+    glm::mat4 transform{ glm::identity<glm::mat4>() };
 };
 
 } // namespace wg

@@ -12,9 +12,11 @@
 
 namespace wg {
 
-class Renderer : public IGfxObject {
+class Renderer : public IGfxObject, public std::enable_shared_from_this<Renderer> {
 public:
+    ~Renderer() override = default;
     [[nodiscard]] virtual const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const = 0;
+    
     Renderer& addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
     void clearUniformBuffers();
     [[nodiscard]] bool valid() const;
@@ -36,19 +38,15 @@ protected:
 protected:
     friend class Gfx;
     Renderer() = default;
-    ~Renderer() = default;
 };
 
-class BasicRenderer : public Renderer, public std::enable_shared_from_this<BasicRenderer> {
+class BasicRenderer : public Renderer {
 public:
+    ~BasicRenderer() override = default;
     [[nodiscard]] static std::shared_ptr<BasicRenderer> Create() {
         return std::shared_ptr<BasicRenderer>(new BasicRenderer());
     }
-    ~BasicRenderer() = default;
     
-    std::shared_ptr<IRenderData> createRenderData() override {
-        return DummyRenderData::Create();
-    }
     const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const override {
         return draw_commands_;
     }
@@ -57,6 +55,10 @@ public:
     }
     void clearDrawCommands() {
         draw_commands_.clear();
+    }
+    
+    std::shared_ptr<IRenderData> createRenderData() override {
+        return DummyRenderData::Create();
     }
 
 protected:

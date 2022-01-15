@@ -1,4 +1,12 @@
-add_library(wengine-engine)
+add_library(wengine-engine
+    material.cpp
+    mesh.cpp
+    mesh-component.cpp
+    scene-renderer.cpp
+    ${PROJECT_SOURCE_DIR}/include/engine/material.h
+    ${PROJECT_SOURCE_DIR}/include/engine/mesh.h
+    ${PROJECT_SOURCE_DIR}/include/engine/mesh-component.h
+    ${PROJECT_SOURCE_DIR}/include/engine/scene-renderer.h)
 
 target_include_directories(wengine-engine
     PUBLIC ${PROJECT_SOURCE_DIR}/include)

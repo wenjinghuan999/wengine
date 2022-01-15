@@ -27,9 +27,9 @@ Using VSCode and CMake plugin should make things easier. Create `settings.json` 
 }
 ```
 
-Remember to replace your VulkanSDK location. Then use command palette to configure your CMake. Type and select `CMake: Configure` in command palette and follow the instruction. Build the project and you should except executables and libs in `binaries/bin` and `binaries/lib` folder.
+Remember to replace your VulkanSDK location. Then use command palette to configure your CMake. Type and select `CMake: Configure` in command palette and follow the instruction. Build the project, and you should except executables and libs in `binaries/bin` and `binaries/lib` folder.
 
-### CLion (Windows/Linux/MacOS)
+### CLion (Windows/Linux/macOS)
 
 - Open `CMakeLists.txt` as project, and then go to [Settings - CMake](jetbrains://CLion/settings?name=Build%2C+Execution%2C+Deployment--CMake).
 - Choose your toolchain (probably `Visual Studio` on Windows).
@@ -49,8 +49,8 @@ Remember to replace your VulkanSDK location. Then use command palette to configu
 
 Install Vulkan SDK (via Ubuntu package manager):
 ```bash
-wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add
-sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add
+sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
 sudo apt update && sudo apt install vulkan-sdk
 ```
 (I'm using Ubuntu 20.04. Change `lunarg-vulkan-focal.list` according to your ubuntu version, like `lunarg-vulkan-bionic.list` for Ubuntu 18.04).

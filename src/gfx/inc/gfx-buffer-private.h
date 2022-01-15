@@ -25,7 +25,7 @@ inline vk::IndexType ToVkIndexType(IndexType index_type) {
     return index_type == index_16 ? vk::IndexType::eUint16 : vk::IndexType::eUint32;
 }
 
-inline IndexType ToVkIndexType(vk::IndexType vk_index_type) {
+inline IndexType FromVkIndexType(vk::IndexType vk_index_type) {
     return vk_index_type == vk::IndexType::eUint16 ? index_16 : index_32;
 }
 

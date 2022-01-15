@@ -17,8 +17,8 @@ public:
     [[nodiscard]] virtual const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const = 0;
     Renderer& addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
     void clearUniformBuffers();
-    bool valid() const;
-    size_t getDrawCommandIndex(const std::shared_ptr<DrawCommand>& draw_command) const;
+    [[nodiscard]] bool valid() const;
+    [[nodiscard]] size_t getDrawCommandIndex(const std::shared_ptr<DrawCommand>& draw_command) const;
     void markUniformDirty(uniform_attributes::UniformAttribute attribute);
     void markUniformDirty(
         const std::shared_ptr<DrawCommand>& draw_command, uniform_attributes::UniformAttribute attribute
@@ -46,10 +46,10 @@ public:
     }
     ~BasicRenderer() = default;
     
-    virtual std::shared_ptr<IRenderData> createRenderData() override {
+    std::shared_ptr<IRenderData> createRenderData() override {
         return DummyRenderData::Create();
     }
-    virtual const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const override {
+    const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const override {
         return draw_commands_;
     }
     void addDrawCommand(const std::shared_ptr<DrawCommand>& draw_command) {

@@ -233,9 +233,6 @@ void SimpleDrawCommand::Impl::draw(vk::CommandBuffer& command_buffer) {
         command_buffer.bindIndexBuffer(
             index_buffer, index_buffer_offset, index_type
         );
-    }
-
-    if (draw_indexed) {
         command_buffer.drawIndexed(index_count, 1, 0, 0, 0);
     } else {
         command_buffer.draw(vertex_count, 1, 0, 0);

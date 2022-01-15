@@ -25,7 +25,7 @@ public:
 protected:
     std::weak_ptr<Window> window_;
     bool resized_{ false }; // indicating surface resources are invalid because of resizing
-    bool hidden_{ false };  // indicating surface is hidden so we should not try to create resources
+    bool hidden_{ false };  // indicating surface is hidden, so we should not try to create resources
 protected:
     friend class Gfx;
     friend class RenderTargetSurface;

@@ -45,9 +45,12 @@ RenderTargetSurface::RenderTargetSurface(std::string name, const std::shared_ptr
         if (auto surface = weak_surface.lock()) {
             if (auto* resources = surface->impl_->resources.data()) {
                 image_views.reserve(resources->vk_image_views.size());
-                for (auto& vk_image_view : resources->vk_image_views) {
-                    image_views.push_back(*vk_image_view);
-                }
+                std::transform(
+                    resources->vk_image_views.begin(), resources->vk_image_views.end(), std::back_inserter(image_views),
+                    [](const auto& vk_image_view) {
+                        return *vk_image_view;
+                    }
+                );
             }
         }
         return image_views;
@@ -261,7 +264,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
             .level = vk::CommandBufferLevel::ePrimary,
             .commandBufferCount = static_cast<uint32_t>(image_count)
         };
-        // Do not use vk::raii::CommandBuffer because there might be compile errors on MSVC
+        // Do not use vk::raii::CommandBuffer because there might be compiling errors on MSVC
         // Since we are allocating from the pool, we can destruct command buffers together.
         resources->command_buffers =
             (*logical_device_->impl_->vk_device).allocateCommandBuffers(command_buffer_allocate_info);
@@ -320,7 +323,7 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
     auto image_count = resources->framebuffer_resources.size();
     if (image_index < 0) {
         return;
-    } else if (image_index >= int(resources->command_buffers.size())) {
+    } else if (image_index >= static_cast<int>(image_count)) {
         logger().error("Cannot render because render target returned invalid image index.");
         return;
     }

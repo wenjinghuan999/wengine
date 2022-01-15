@@ -152,7 +152,7 @@ public:
         has_cpu_data_ = true;
         has_gpu_data_ = false;
     }
-    virtual std::vector<VertexBufferDescription> descriptions() const override {
+    [[nodiscard]] std::vector<VertexBufferDescription> descriptions() const override {
         return VertexType::Descriptions();
     }
     [[nodiscard]] size_t data_size() const override { return vertices_.size() * sizeof(VertexType); }

@@ -1,5 +1,4 @@
 #include "gfx/gfx.h"
-#include "gfx/gfx-constants.h"
 #include "gfx/gfx-pipeline.h"
 #include "common/logger.h"
 #include "gfx/gfx-buffer.h"
@@ -67,15 +66,7 @@ void Gfx::createPipelineResources(
 
     // Stages
     for (auto& shader : pipeline->shaders()) {
-        if (auto* shader_resources = shader->impl_->resources.data()) {
-            resources->shader_stages.emplace_back(
-                vk::PipelineShaderStageCreateInfo{
-                    .stage  = GetShaderStageFlag(shader->stage()),
-                    .module = *shader_resources->shader_module,
-                    .pName  = shader->entry().c_str()
-                }
-            );
-        }
+        resources->shader_stages.emplace_back(shader->impl_->shader_stage_create_info);
     }
 
     std::vector<vk::DescriptorSetLayout> set_layouts;
@@ -284,7 +275,7 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
         logical_device_->impl_->vk_device.createGraphicsPipeline({ nullptr }, pipeline_create_info);
 
     // Descriptor pool
-    size_t image_count = resources->command_buffers.size();
+    size_t image_count = resources->framebuffer_resources.size();
     uint32_t uniform_descriptors_count = static_cast<uint32_t>(image_count);
     auto descriptor_pool_sizes = std::array{
         vk::DescriptorPoolSize{
@@ -427,7 +418,7 @@ void Gfx::commitDrawCommandUniformBuffers(
 
     const auto& draw_command = renderer->getDrawCommands()[draw_command_index];
 
-    size_t image_count = resources->command_buffers.size();
+    size_t image_count = resources->framebuffer_resources.size();
     int start_index = image_index >= 0 ? image_index : 0;
     int end_index = image_index >= 0 ? image_index + 1U : static_cast<int>(image_count);
     for (int i = start_index; i < end_index; ++i) {
@@ -435,10 +426,10 @@ void Gfx::commitDrawCommandUniformBuffers(
         for (auto&&[attribute, cpu_uniform] : draw_command->uniform_buffers_) {
             if (specified_attribute == uniform_attributes::none || specified_attribute == attribute) {
                 // Find GPU uniform data
-                const auto* gpu_uniform = [attribute = attribute, &draw_command_resources]()
+                const auto* gpu_uniform = [attrib = attribute, &draw_command_resources]()
                     -> const std::shared_ptr<UniformBufferBase>* {
                     for (auto&& uniform_buffer : draw_command_resources.uniforms) {
-                        if (attribute == uniform_buffer->description().attribute) {
+                        if (attrib == uniform_buffer->description().attribute) {
                             return &uniform_buffer;
                         }
                     }

@@ -13,16 +13,16 @@
 namespace wg {
 
 struct VertexFactoryDescription {
-    vertex_attributes::VertexAttribute attribute;
-    gfx_formats::Format format;
-    uint32_t location;
+    vertex_attributes::VertexAttribute attribute{ vertex_attributes::none };
+    gfx_formats::Format format{ gfx_formats::none };
+    uint32_t location{ 0 };
 };
 
 class GfxVertexFactory {
 public:
     GfxVertexFactory() = default;
     GfxVertexFactory(std::initializer_list<VertexFactoryDescription> initializer_list);
-    
+
     void addDescription(VertexFactoryDescription description);
     void clearDescriptions();
     [[nodiscard]] const std::vector<VertexFactoryDescription>& descriptions() const { return descriptions_; }
@@ -79,7 +79,7 @@ protected:
     GfxPipelineState pipeline_state_;
     GfxUniformLayout uniform_layout_;
     std::vector<std::shared_ptr<Shader>> shaders_;
-   
+
 protected:
     friend class Gfx;
     friend class DrawCommand;

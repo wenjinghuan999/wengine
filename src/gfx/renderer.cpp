@@ -80,9 +80,8 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
         logger().error("Cannot submit draw commands because render target resource has not been created.");
         return;
     }
-    if (resources->command_buffers.size() != resources->framebuffer_resources.size() ||
-        resources->command_buffers.size() != image_count) {
-        logger().error("Cannot submit draw commands because command buffer count does not match framebuffer/image view count.");
+    if (image_count != resources->framebuffer_resources.size()) {
+        logger().error("Cannot submit draw commands because image count does not match framebuffer count.");
         return;
     }
 
@@ -93,8 +92,9 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
 
     // Record commands
     for (size_t i = 0; i < image_count; i++) {
-        auto& vk_command_buffer = resources->command_buffers[i];
-        vk_command_buffer.begin(
+        auto command_buffer = resources->framebuffer_resources[i].command_buffer;
+        
+        command_buffer.begin(
             {
                 .flags            = {},
                 .pInheritanceInfo = {},
@@ -116,22 +116,22 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
         }
             .setClearValues(clear_values);
 
-        vk_command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
+        command_buffer.beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
         for (size_t j = 0; j < draw_commands_.size(); ++j) {
             const auto& draw_command = draw_commands_[j];
             const auto& draw_command_resources = resources->draw_command_resources[j][i];
 
-            vk_command_buffer.bindDescriptorSets(
+            command_buffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
                 draw_command_resources.pipeline_layout, 0, { draw_command_resources.descriptor_set }, {}
             );
-            vk_command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, draw_command_resources.pipeline);
-            draw_command->getImpl()->draw(vk_command_buffer);
+            command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, draw_command_resources.pipeline);
+            draw_command->getImpl()->draw(command_buffer);
         }
 
-        vk_command_buffer.endRenderPass();
-        vk_command_buffer.end();
+        command_buffer.endRenderPass();
+        command_buffer.end();
     }
 }
 
@@ -157,7 +157,7 @@ void Gfx::commitFramebufferUniformBuffers(
         return;
     }
 
-    size_t image_count = resources->command_buffers.size();
+    size_t image_count = resources->framebuffer_resources.size();
     int start_index = image_index >= 0 ? image_index : 0;
     int end_index = image_index >= 0 ? image_index + 1U : static_cast<int>(image_count);
     for (int i = start_index; i < end_index; ++i) {
@@ -165,10 +165,10 @@ void Gfx::commitFramebufferUniformBuffers(
         for (auto&&[attribute, cpu_uniform] : renderer->uniform_buffers_) {
             if (specified_attribute == uniform_attributes::none || specified_attribute == attribute) {
                 // Find GPU uniform data
-                const auto* gpu_uniform = [attribute = attribute, &framebuffer_resources]()
+                const auto* gpu_uniform = [attrib = attribute, &framebuffer_resources]()
                     -> const std::shared_ptr<UniformBufferBase>* {
                     for (auto&& uniform_buffer : framebuffer_resources.uniforms) {
-                        if (attribute == uniform_buffer->description().attribute) {
+                        if (attrib == uniform_buffer->description().attribute) {
                             return &uniform_buffer;
                         }
                     }

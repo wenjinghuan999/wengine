@@ -918,20 +918,15 @@ void Gfx::createLogicalDevice() {
 
     std::vector<vk::SurfaceKHR> surfaces;
     for (auto&& window_surface : impl_->window_surfaces_) {
-        surfaces.emplace_back(
-            *window_surface.surface
-                ->impl_
-                ->vk_surface
-        );
+        surfaces.emplace_back(*window_surface.surface->impl_->vk_surface);
     }
 
     // Allocate queues.
     // <queue_id, index_in_queue_id> => <queue_family_index, queue_index_in_family>
     std::array<std::vector<std::pair<uint32_t, uint32_t>>, gfx_queues::NUM_QUEUES> queue_index_remap;
-    bool succeeded = physical_device().impl_
-        ->allocateQueues(
-            enabled_features.device_queues, surfaces, queue_index_remap
-        );
+    physical_device().impl_->allocateQueues(
+        enabled_features.device_queues, surfaces, queue_index_remap
+    );
     // queue_counts[queue_family_index] = num of queues to be allocated in queue family
     std::map<uint32_t, uint32_t> queue_counts;
     for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {

@@ -19,4 +19,4 @@ protected:
     ~Singleton() = default;
 };
 
-}
+} // namespace wg

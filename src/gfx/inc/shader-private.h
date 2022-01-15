@@ -38,4 +38,4 @@ struct Shader::Impl {
     return result;
 }
 
-}
+} // namespace wg

@@ -9,7 +9,7 @@ std::string ToString(Format format) {
     return vk::to_string(static_cast<vk::Format>(format));
 }
 
-}
+} // namespace gfx_formats
 
 namespace gfx_queues {
 
@@ -20,6 +20,6 @@ const char* const QUEUE_NAMES[NUM_QUEUES] = {
     "compute"
 };
 
-}
+} // namespace gfx_queues
 
 } // namespace wg

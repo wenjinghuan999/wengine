@@ -150,4 +150,4 @@ public:
     [[nodiscard]] iterator end() { return iterator(base_->resources_.end()); }
 };
 
-}
+} // namespace wg

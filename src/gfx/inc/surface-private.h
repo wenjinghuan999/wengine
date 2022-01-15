@@ -24,4 +24,4 @@ struct Surface::Impl {
     static std::map<GLFWwindow*, std::function<void(int, int)>> glfw_window_to_resized_func_map;
 };
 
-}
+} // namespace wg

@@ -26,4 +26,4 @@ protected:
     ICopyable() = default;
 };
 
-}
+} // namespace wg

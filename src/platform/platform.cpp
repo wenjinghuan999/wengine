@@ -10,7 +10,7 @@ auto& logger() {
     return *logger_;
 }
 
-}
+} // unnamed namespace
 
 namespace wg {
 
@@ -106,4 +106,4 @@ std::shared_ptr<Window> App::createWindow(
     return window;
 }
 
-}
+} // namespace wg

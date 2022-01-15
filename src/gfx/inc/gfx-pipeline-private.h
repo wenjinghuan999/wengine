@@ -26,4 +26,4 @@ struct GfxPipeline::Impl {
     OwnedResourceHandle <GfxPipelineResources> resources;
 };
 
-}
+} // namespace wg

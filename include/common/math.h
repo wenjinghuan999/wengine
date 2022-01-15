@@ -23,4 +23,4 @@ struct Transform {
     Transform() : transform(glm::identity<glm::mat4>()) {}
 };
 
-}
+} // namespace wg

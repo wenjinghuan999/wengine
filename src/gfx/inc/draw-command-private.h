@@ -31,4 +31,4 @@ struct SimpleDrawCommand::Impl : public DrawCommand::Impl {
     void draw(vk::CommandBuffer& command_buffer) override;
 };
 
-}
+} // namespace wg

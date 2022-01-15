@@ -25,4 +25,4 @@ protected:
     EngineConstants() : name_("WEngine"), version_(0, 0, 1) {}
 };
 
-}
+} // namespace wg

@@ -29,6 +29,6 @@ inline IndexType ToVkIndexType(vk::IndexType vk_index_type) {
     return vk_index_type == vk::IndexType::eUint16 ? index_16 : index_32;
 }
 
-}
+} // namespace index_types
 
-}
+} // namespace wg

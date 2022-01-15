@@ -26,9 +26,9 @@ const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL] = {
     "_debug_utils"
 };
 
-}
+} // namespace gfx_features
 
-}
+} // namespace wg
 
 namespace {
 

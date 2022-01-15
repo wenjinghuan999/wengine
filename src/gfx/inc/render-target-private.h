@@ -69,4 +69,4 @@ struct RenderTarget::Impl {
     OwnedResourceHandle<RenderTargetResources> resources;
 };
 
-}
+} // namespace wg

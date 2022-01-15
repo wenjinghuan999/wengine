@@ -97,4 +97,4 @@ struct LogicalDevice::Impl {
         : vk_device(std::move(vk_device)) {}
 };
 
-}
+} // namespace wg

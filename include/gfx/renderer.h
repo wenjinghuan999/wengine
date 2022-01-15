@@ -21,17 +21,20 @@ public:
     size_t getDrawCommandIndex(const std::shared_ptr<DrawCommand>& draw_command) const;
     void markUniformDirty(uniform_attributes::UniformAttribute attribute);
     void markUniformDirty(
-        const std::shared_ptr<DrawCommand>& draw_command, uniform_attributes::UniformAttribute attribute);
+        const std::shared_ptr<DrawCommand>& draw_command, uniform_attributes::UniformAttribute attribute
+    );
+
 protected:
-    friend class Gfx;
     // CPU data of framebuffer uniforms
     std::map<uniform_attributes::UniformAttribute,
         std::shared_ptr<UniformBufferBase>> uniform_buffers_;
-    std::map<uniform_attributes::UniformAttribute, 
+    std::map<uniform_attributes::UniformAttribute,
         int> dirty_framebuffer_uniforms_;
-    std::map<std::tuple<size_t, uniform_attributes::UniformAttribute>, 
+    std::map<std::tuple<size_t, uniform_attributes::UniformAttribute>,
         int> dirty_draw_command_uniforms_;
+
 protected:
+    friend class Gfx;
     Renderer() = default;
     ~Renderer() = default;
 };
@@ -41,6 +44,8 @@ public:
     [[nodiscard]] static std::shared_ptr<BasicRenderer> Create() {
         return std::shared_ptr<BasicRenderer>(new BasicRenderer());
     }
+    ~BasicRenderer() = default;
+    
     virtual std::shared_ptr<IRenderData> createRenderData() override {
         return DummyRenderData::Create();
     }
@@ -53,13 +58,14 @@ public:
     void clearDrawCommands() {
         draw_commands_.clear();
     }
-    ~BasicRenderer() = default;
+
 protected:
     std::vector<std::shared_ptr<DrawCommand>> draw_commands_;
+
 protected:
-    BasicRenderer() = default;
     friend class Gfx;
     friend class RenderTarget;
+    BasicRenderer() = default;
 };
 
 }

@@ -9,7 +9,7 @@
 #include "surface-private.h"
 
 namespace {
-    
+
 [[nodiscard]] auto& logger() {
     static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
@@ -19,12 +19,12 @@ namespace {
 
 namespace wg {
 
-std::map<GLFWwindow*, std::function<void()>> Surface::Impl::glfw_window_to_resized_func_map;
+std::map<GLFWwindow*, std::function<void(int, int)>> Surface::Impl::glfw_window_to_resized_func_map;
 
 void Surface::Impl::SetFrameBufferSizeCallback(GLFWwindow* window, int width, int height) {
     auto it = glfw_window_to_resized_func_map.find(window);
     if (it != glfw_window_to_resized_func_map.end()) {
-        it->second();
+        it->second(width, height);
     }
 }
 
@@ -42,14 +42,14 @@ Surface::~Surface() {
 }
 
 Extent2D Surface::extent() const {
-    if (auto* resources = impl_->resources.get()) {
+    if (auto* resources = impl_->resources.data()) {
         return Extent2D(resources->vk_extent.width, resources->vk_extent.height);
     }
     return {};
 }
 
 gfx_formats::Format Surface::format() const {
-    if (auto* resources = impl_->resources.get()) {
+    if (auto* resources = impl_->resources.data()) {
         return gfx_formats::FromVkFormat(resources->vk_format.format);
     }
     return {};
@@ -60,31 +60,32 @@ void Gfx::createWindowSurface(const std::shared_ptr<Window>& window) {
 
     auto& gfxFeaturesManager = GfxFeaturesManager::Get();
     if (!gfxFeaturesManager.enableFeature(gfx_features::window_surface)) {
-        spdlog::warn("Failed to enable feature {}. Surface creation may fail.", 
-            gfx_features::FEATURE_NAMES[gfx_features::window_surface]);
+        logger().warn(
+            "Failed to enable feature {}. Surface creation may fail.", gfx_features::FEATURE_NAMES[gfx_features::window_surface]
+        );
     }
 
     VkSurfaceKHR vk_surface;
     VkResult err = glfwCreateWindowSurface(*impl_->instance, window->impl_->glfw_window, nullptr, &vk_surface);
     if (err != VK_SUCCESS) {
-        spdlog::error("Failed to create surface for window \"{}\". Error code {}.", window->title(), err);
+        logger().error("Failed to create surface for window \"{}\". Error code {}.", window->title(), err);
         return;
     }
-    
+
     surface->impl_->vk_surface = vk::raii::SurfaceKHR(impl_->instance, vk_surface);
     auto window_surface = std::make_unique<WindowSurfaceResources>();
     window_surface->surface = surface;
     window->impl_->surface_handle = impl_->window_surfaces_.store(std::move(window_surface));
 
     glfwSetFramebufferSizeCallback(window->impl_->glfw_window, Surface::Impl::SetFrameBufferSizeCallback);
-    Surface::Impl::glfw_window_to_resized_func_map[window->impl_->glfw_window] = 
-        [weak_surface=std::weak_ptr<Surface>(surface)]() {
-        if (auto s = weak_surface.lock()) {
-            s->resized_ = true;
-        }
-    };
+    Surface::Impl::glfw_window_to_resized_func_map[window->impl_->glfw_window] =
+        [weak_surface = std::weak_ptr<Surface>(surface)](int, int) {
+            if (auto s = weak_surface.lock()) {
+                s->resized_ = true;
+            }
+        };
 
-    spdlog::info("Created surface for window \"{}\".", window->title(), err);
+    logger().info("Created surface for window \"{}\".", window->title(), err);
 }
 
 std::shared_ptr<Surface> Gfx::getWindowSurface(const std::shared_ptr<Window>& window) const {
@@ -101,14 +102,15 @@ namespace {
 
 [[nodiscard]] vk::raii::SwapchainKHR CreateSwapchainForSurface(
     const vk::raii::PhysicalDevice& physical_device, const vk::raii::Device& device, const vk::raii::SurfaceKHR& surface, const wg::Window& window,
-    uint32_t graphics_family_index, uint32_t present_family_index, vk::SwapchainKHR old_swapchain, vk::SurfaceFormatKHR& out_format, vk::Extent2D& out_extent
+    uint32_t graphics_family_index, uint32_t present_family_index, vk::SwapchainKHR old_swapchain, vk::SurfaceFormatKHR& out_format,
+    vk::Extent2D& out_extent
 ) {
     out_format = [&physical_device, &surface]() {
         auto available_formats = physical_device.getSurfaceFormatsKHR(*surface);
         for (auto&& available_format : available_formats) {
             if (available_format.format == vk::Format::eR8G8B8A8Srgb && available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
                 return available_format;
-            } 
+            }
         }
         return available_formats[0];
     }();
@@ -118,7 +120,7 @@ namespace {
             if (available_mode == vk::PresentModeKHR::eMailbox) {
                 return available_mode;
             }
-        }        
+        }
         for (auto&& available_mode : available_modes) {
             if (available_mode == vk::PresentModeKHR::eFifo) {
                 return available_mode;
@@ -131,7 +133,7 @@ namespace {
         if (capabilities.currentExtent.width != UINT32_MAX) {
             return capabilities.currentExtent;
         }
-        auto [width, height] = window.extent();
+        auto[width, height] = window.extent();
 
         vk::Extent2D extent = {
             .width  = static_cast<uint32_t>(width),
@@ -144,7 +146,7 @@ namespace {
     }();
 
     if (out_extent.width == 0 || out_extent.height == 0) {
-        return {nullptr};
+        return { nullptr };
     }
 
     uint32_t image_count = capabilities.minImageCount + 1;
@@ -219,20 +221,22 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
         logger().info("Skip creating resources for surface because window is no longer available.");
         return false;
     }
-    
-    if (logical_device_->impl_->queue_references[gfx_queues::graphics].empty() || 
+
+    if (logical_device_->impl_->queue_references[gfx_queues::graphics].empty() ||
         logical_device_->impl_->queue_references[gfx_queues::present].empty()) {
         logger().info("Skip creating resources for surface of window \"{}\" because no queues available.", window->title());
         return false;
     }
-        
+
     uint32_t graphics_family_index = logical_device_->impl_->queue_references[gfx_queues::graphics][0].queue_family_index;
     uint32_t present_family_index = logical_device_->impl_->queue_references[gfx_queues::present][0].queue_family_index;
-    logger().info(" - Creating swapchain: Graphics family: {}, present family: {}.",
-        graphics_family_index, present_family_index);
-    
+    logger().info(
+        " - Creating swapchain: Graphics family: {}, present family: {}.",
+        graphics_family_index, present_family_index
+    );
+
     vk::raii::SwapchainKHR old_swapchain = nullptr;
-    if (auto* old_resources = surface->impl_->resources.get()) {
+    if (auto* old_resources = surface->impl_->resources.data()) {
         old_swapchain = std::move(old_resources->vk_swapchain);
     }
 
@@ -262,8 +266,11 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
     logger().info(" - Creating image views: {}.", resources->vk_images.size());
     resources->vk_image_views.reserve(resources->vk_images.size());
     for (auto&& vk_image : resources->vk_images) {
-        resources->vk_image_views.emplace_back(CreateImageViewForSurface(
-            logical_device_->impl_->vk_device, vk_image, resources->vk_format.format));
+        resources->vk_image_views.emplace_back(
+            CreateImageViewForSurface(
+                logical_device_->impl_->vk_device, vk_image, resources->vk_format.format
+            )
+        );
     }
 
     surface->impl_->resources = logical_device_->impl_->surface_resources.store(std::move(resources));

@@ -49,51 +49,51 @@ TEST_CASE("allocate queues" * doctest::timeout(1)) {
 
         std::array<int, wg::gfx_queues::NUM_QUEUES> required =
             { 1, 1, 1, 1 };
-        std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap; 
+        std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap;
         impl.allocateQueues(required, {}, queue_index_remap);
 
         std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap_test = {
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } }, 
-        }; 
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } },
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } },
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } },
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } },
+        };
         CHECK_EQ(queue_index_remap, queue_index_remap_test);
     }
-    
+
     SUBCASE("rich") {
         impl.num_queues = { 16, 2, 4 };
         impl.queue_supports = { 0b1111, 0b0010, 0b0011 };
 
         std::array<int, wg::gfx_queues::NUM_QUEUES> required =
             { 1, 1, 1, 1 };
-        std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap; 
+        std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap;
         impl.allocateQueues(required, {}, queue_index_remap);
 
         std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap_test = {
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 1 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 2 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 3 } }, 
-        }; 
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } },
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 1 } },
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 2 } },
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 3 } },
+        };
         CHECK_EQ(queue_index_remap, queue_index_remap_test);
     }
 
-    SUBCASE("adequete") {
+    SUBCASE("adequate") {
         impl.num_queues = { 1, 1, 1, 1 };
         impl.queue_supports = { 0b1111, 0b1111, 0b1111, 0b1111 };
 
         std::array<int, wg::gfx_queues::NUM_QUEUES> required =
             { 1, 1, 1, 1 };
-        std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap; 
+        std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap;
         impl.allocateQueues(required, {}, queue_index_remap);
 
         std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap_test = {
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 1, 0 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 2, 0 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 3, 0 } }, 
-        }; 
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 } },
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 1, 0 } },
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 2, 0 } },
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 3, 0 } },
+        };
         CHECK_EQ(queue_index_remap, queue_index_remap_test);
     }
 
@@ -103,15 +103,31 @@ TEST_CASE("allocate queues" * doctest::timeout(1)) {
 
         std::array<int, wg::gfx_queues::NUM_QUEUES> required =
             { 16, 16, 4, 4 };
-        std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap; 
+        std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap;
         impl.allocateQueues(required, {}, queue_index_remap);
 
         std::array<std::vector<std::pair<uint32_t, uint32_t>>, wg::gfx_queues::NUM_QUEUES> queue_index_remap_test = {
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 0 }, { 0, 1 }, { 0, 2 }, { 0, 3 }, { 0, 4 }, { 0, 5 }, { 0, 6 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 7 }, { 0, 8 }, { 0, 9 }, { 0, 10 }, { 0, 11 }, { 0, 12 }, { 0, 13 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 14 } }, 
-            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 15 } }, 
-        }; 
+            std::vector<std::pair<uint32_t, uint32_t>>{
+                { 0, 0 },
+                { 0, 1 },
+                { 0, 2 },
+                { 0, 3 },
+                { 0, 4 },
+                { 0, 5 },
+                { 0, 6 }
+            },
+            std::vector<std::pair<uint32_t, uint32_t>>{
+                { 0, 7 },
+                { 0, 8 },
+                { 0, 9 },
+                { 0, 10 },
+                { 0, 11 },
+                { 0, 12 },
+                { 0, 13 }
+            },
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 14 } },
+            std::vector<std::pair<uint32_t, uint32_t>>{ { 0, 15 } },
+        };
         CHECK_EQ(queue_index_remap, queue_index_remap_test);
     }
 }

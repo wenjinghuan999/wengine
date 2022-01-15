@@ -23,7 +23,7 @@ find_package(Vulkan REQUIRED)
 FetchContent_Declare(
     fmtlib
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-    GIT_TAG        ac1b5f3da532fc9dca349c1bc06de65178f44eb3 # 8.0.1-master
+    GIT_TAG ac1b5f3da532fc9dca349c1bc06de65178f44eb3 # 8.0.1-master
 )
 FetchContent_MakeAvailable(fmtlib)
 
@@ -31,7 +31,7 @@ FetchContent_MakeAvailable(fmtlib)
 FetchContent_Declare(
     glm
     GIT_REPOSITORY https://github.com/g-truc/glm.git
-    GIT_TAG        0.9.9.8
+    GIT_TAG 0.9.9.8
 )
 FetchContent_MakeAvailable(glm)
 
@@ -39,7 +39,7 @@ FetchContent_MakeAvailable(glm)
 FetchContent_Declare(
     spdlog
     GIT_REPOSITORY https://github.com/gabime/spdlog.git
-    GIT_TAG        v1.9.2
+    GIT_TAG v1.9.2
 )
 set(SPDLOG_FMT_EXTERNAL ON)
 set(SPDLOG_NO_EXCEPTIONS ON)
@@ -49,17 +49,16 @@ FetchContent_MakeAvailable(spdlog)
 FetchContent_Declare(
     glfw
     GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG        3.3.5
+    GIT_TAG 3.3.5
 )
 set(GLFW_BUILD_EXAMPLES OFF)
 set(GLFW_BUILD_TESTS OFF)
 FetchContent_MakeAvailable(glfw)
 if (MSVC)
     target_compile_options(glfw PUBLIC /W3)
-else()
+else ()
     target_compile_options(glfw PUBLIC -w)
-endif()
-
+endif ()
 
 add_subdirectory(app)
 add_subdirectory(src)

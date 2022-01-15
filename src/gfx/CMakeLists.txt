@@ -24,22 +24,19 @@ add_library(wengine-gfx
     ${PROJECT_SOURCE_DIR}/include/gfx/renderer.h
     ${PROJECT_SOURCE_DIR}/include/gfx/shader.h
     ${PROJECT_SOURCE_DIR}/include/gfx/surface.h
-    ${PROJECT_SOURCE_DIR}/include/gfx/render-target.h
-)
+    ${PROJECT_SOURCE_DIR}/include/gfx/render-target.h)
 
 add_dependencies(wengine-gfx wengine-shader-static wengine-shader-dynamic)
 
 target_include_directories(wengine-gfx
     PUBLIC ${PROJECT_SOURCE_DIR}/include
     PUBLIC ${PROJECT_SOURCE_DIR}/src
-    PUBLIC ${PROJECT_SOURCE_DIR}/src/gfx/inc
-)
+    PUBLIC ${PROJECT_SOURCE_DIR}/src/gfx/inc)
 
 target_link_libraries(wengine-gfx
     PUBLIC wengine-common
     PUBLIC wengine-logger
     PUBLIC wengine-platform
-    
+
     PRIVATE Vulkan::Vulkan
-    PRIVATE glfw
-)
+    PRIVATE glfw)

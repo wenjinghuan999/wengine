@@ -20,7 +20,7 @@ TEST_CASE("glm") {
         5.f, 6.f, 7.f, 8.f,
         1.f, 2.f, 3.f, 4.f,
         5.f, 6.f, 7.f, 8.f
-        );
+    );
     glm::vec4 vec(1.f, 2.f, 3.f, 4.f);
     glm::vec4 result = matrix * vec;
     glm::vec4 answer(34.f, 44.f, 54.f, 64.f);

@@ -12,7 +12,7 @@
 #include <iterator>
 
 namespace {
-    
+
 [[nodiscard]] auto& logger() {
     static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
@@ -54,8 +54,9 @@ GfxPipeline::GfxPipeline()
 }
 
 void Gfx::createPipelineResources(
-    const std::shared_ptr<GfxPipeline>& pipeline) {
-    
+    const std::shared_ptr<GfxPipeline>& pipeline
+) {
+
     if (!logical_device_) {
         logger().error("Cannot create pipeline resources because logical device is not available.");
         return;
@@ -66,32 +67,36 @@ void Gfx::createPipelineResources(
 
     // Stages
     for (auto& shader : pipeline->shaders()) {
-        if (auto* shader_resources = shader->impl_->resources.get()) {
-            resources->shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
-                .stage  = GetShaderStageFlag(shader->stage()),
-                .module = *shader_resources->shader_module,
-                .pName  = shader->entry().c_str()
-            });
+        if (auto* shader_resources = shader->impl_->resources.data()) {
+            resources->shader_stages.emplace_back(
+                vk::PipelineShaderStageCreateInfo{
+                    .stage  = GetShaderStageFlag(shader->stage()),
+                    .module = *shader_resources->shader_module,
+                    .pName  = shader->entry().c_str()
+                }
+            );
         }
     }
 
     std::vector<vk::DescriptorSetLayout> set_layouts;
-    
+
     // Uniform layout
     if (!pipeline->uniform_layout_.descriptions_.empty()) {
         std::vector<vk::DescriptorSetLayoutBinding> uniform_bindings;
         uniform_bindings.reserve(pipeline->uniform_layout_.descriptions_.size());
         for (auto&& description : pipeline->uniform_layout_.descriptions_) {
-            uniform_bindings.emplace_back(vk::DescriptorSetLayoutBinding{
-                .binding         = description.binding,
-                .descriptorType  = vk::DescriptorType::eUniformBuffer,
-                .descriptorCount = 1,
-                .stageFlags      = GetShaderStageFlags(description.stages)
-            });
+            uniform_bindings.emplace_back(
+                vk::DescriptorSetLayoutBinding{
+                    .binding         = description.binding,
+                    .descriptorType  = vk::DescriptorType::eUniformBuffer,
+                    .descriptorCount = 1,
+                    .stageFlags      = GetShaderStageFlags(description.stages)
+                }
+            );
         }
         auto set_layout_create_info = vk::DescriptorSetLayoutCreateInfo{}
             .setBindings(uniform_bindings);
-        resources->uniform_layout = 
+        resources->uniform_layout =
             logical_device_->impl_->vk_device.createDescriptorSetLayout(set_layout_create_info);
         set_layouts.push_back(*resources->uniform_layout);
     }
@@ -100,7 +105,7 @@ void Gfx::createPipelineResources(
     auto pipeline_layout_create_info = vk::PipelineLayoutCreateInfo{}
         .setSetLayouts(set_layouts)
         .setPushConstantRanges(push_constant_ranges);
-    resources->pipeline_layout = 
+    resources->pipeline_layout =
         logical_device_->impl_->vk_device.createPipelineLayout(pipeline_layout_create_info);
 
     auto viewport = vk::Viewport{
@@ -164,9 +169,9 @@ void Gfx::createPipelineResources(
         .dstAlphaBlendFactor = vk::BlendFactor::eZero,
         .alphaBlendOp        = vk::BlendOp::eAdd,
         .colorWriteMask      = vk::ColorComponentFlagBits::eR |
-                               vk::ColorComponentFlagBits::eG |
-                               vk::ColorComponentFlagBits::eB |
-                               vk::ColorComponentFlagBits::eA,
+            vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB |
+            vk::ColorComponentFlagBits::eA,
     };
     resources->color_blend_attachments = { color_blend_attachment };
 
@@ -174,22 +179,25 @@ void Gfx::createPipelineResources(
         .logicOpEnable  = false,
         .logicOp        = vk::LogicOp::eCopy,
         .blendConstants = std::array{ 0.f, 0.f, 0.f, 0.f }
-    }   .setAttachments(resources->color_blend_attachments);
+    }
+        .setAttachments(resources->color_blend_attachments);
 
     resources->dynamic_states = {};
     resources->dynamic_state_create_info = vk::PipelineDynamicStateCreateInfo{}
         .setDynamicStates(resources->dynamic_states);
 
-    pipeline->impl_->resources = 
+    pipeline->impl_->resources =
         logical_device_->impl_->gfx_pipeline_resources.store(std::move(resources));
 }
 
 void Gfx::createDrawCommandResourcesForRenderTarget(
     const std::shared_ptr<RenderTarget>& render_target,
-    const std::shared_ptr<DrawCommand>& draw_command) {
-
-    logger().info("Creating resources of draw command \"{}\" for render target \"{}\".", 
-        draw_command->name(), render_target->name());
+    const std::shared_ptr<DrawCommand>& draw_command
+) {
+    logger().info(
+        "Creating resources of draw command \"{}\" for render target \"{}\".",
+        draw_command->name(), render_target->name()
+    );
     auto& pipeline = draw_command->pipeline_;
 
     if (!pipeline) {
@@ -203,13 +211,13 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     }
     waitDeviceIdle();
 
-    auto* resources = render_target->impl_->resources.get();
+    auto* resources = render_target->impl_->resources.data();
     if (!resources) {
         logger().error("Cannot create draw command resources for render target because render target resources are not available.");
         return;
     }
 
-    auto* pipeline_resources = pipeline->impl_->resources.get();
+    auto* pipeline_resources = pipeline->impl_->resources.data();
     if (!pipeline_resources) {
         logger().error("Cannot create draw command resources for render target because pipeline resources are not available.");
         return;
@@ -220,9 +228,9 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
         logger().error("Cannot create draw command resources for render target because draw command impl are not available.");
         return;
     }
-    
+
     // Pipeline state
-    auto [width, height] = render_target->extent();
+    auto[width, height] = render_target->extent();
     std::vector<vk::Viewport> viewports;
     viewports.reserve(pipeline_resources->viewports.size());
     for (auto&& viewport : pipeline_resources->viewports) {
@@ -232,20 +240,22 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
         viewports.back().width *= static_cast<float>(width);
         viewports.back().height *= static_cast<float>(height);
     }
-    
+
     std::vector<vk::Rect2D> scissors;
     scissors.reserve(pipeline_resources->scissors.size());
     for (auto&& scissor : pipeline_resources->scissors) {
-        scissors.emplace_back(vk::Rect2D{
-            .offset = { 
-                static_cast<int32_t>(scissor.x * width), 
-                static_cast<int32_t>(scissor.y * height)
-            },
-            .extent = {
-                static_cast<uint32_t>(scissor.width * width), 
-                static_cast<uint32_t>(scissor.height * height)
+        scissors.emplace_back(
+            vk::Rect2D{
+                .offset = {
+                    static_cast<int32_t>(scissor.x * width),
+                    static_cast<int32_t>(scissor.y * height)
+                },
+                .extent = {
+                    static_cast<uint32_t>(scissor.width * width),
+                    static_cast<uint32_t>(scissor.height * height)
+                }
             }
-        });
+        );
     }
 
     auto viewport_create_info = vk::PipelineViewportStateCreateInfo{}
@@ -267,60 +277,70 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
         .layout              = *pipeline_resources->pipeline_layout,
         .renderPass          = *resources->render_pass,
         .subpass             = 0,
-    }   .setStages(pipeline_resources->shader_stages);
-    
+    }
+        .setStages(pipeline_resources->shader_stages);
+
     render_target_pipeline_resources.pipeline =
         logical_device_->impl_->vk_device.createGraphicsPipeline({ nullptr }, pipeline_create_info);
 
     // Descriptor pool
     size_t image_count = resources->command_buffers.size();
     uint32_t uniform_descriptors_count = static_cast<uint32_t>(image_count);
-    auto descriptor_pool_sizes = std::array{ vk::DescriptorPoolSize{
-        .type = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = uniform_descriptors_count
-    }};
+    auto descriptor_pool_sizes = std::array{
+        vk::DescriptorPoolSize{
+            .type = vk::DescriptorType::eUniformBuffer,
+            .descriptorCount = uniform_descriptors_count
+        }
+    };
     auto descriptor_pool_create_info = vk::DescriptorPoolCreateInfo{
         .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
         .maxSets = uniform_descriptors_count
-    }   .setPoolSizes(descriptor_pool_sizes);
-    render_target_pipeline_resources.descriptor_pool = 
+    }
+        .setPoolSizes(descriptor_pool_sizes);
+
+    render_target_pipeline_resources.descriptor_pool =
         logical_device_->impl_->vk_device.createDescriptorPool(descriptor_pool_create_info);
 
     // Descriptor
     resources->draw_command_resources.emplace_back();
 
     std::vector<vk::DescriptorSetLayout> set_layouts(
-        image_count, *pipeline_resources->uniform_layout);
-    
+        image_count, *pipeline_resources->uniform_layout
+    );
+
     auto descriptor_pool_alloc_info = vk::DescriptorSetAllocateInfo{
         .descriptorPool = *render_target_pipeline_resources.descriptor_pool
-    }   .setSetLayouts(set_layouts);
-    render_target_pipeline_resources.descriptor_sets = 
+    }
+        .setSetLayouts(set_layouts);
+
+    render_target_pipeline_resources.descriptor_sets =
         logical_device_->impl_->vk_device.allocateDescriptorSets(descriptor_pool_alloc_info);
-        
+
     for (size_t i = 0; i < image_count; ++i) {
         std::vector<std::shared_ptr<UniformBufferBase>> gpu_uniforms;
-        for (auto&& [attribute, cpu_uniform] : draw_command->uniform_buffers_) {
+        for (auto&&[attribute, cpu_uniform] : draw_command->uniform_buffers_) {
             auto& gpu_uniform = gpu_uniforms.emplace_back(UniformBufferBase::Create(attribute));
             createUniformBufferResources(gpu_uniform);
             if (cpu_uniform->has_cpu_data()) {
                 commitReferenceBuffer(cpu_uniform, gpu_uniform);
             }
         }
-        resources->draw_command_resources.back().emplace_back(RenderTargetDrawCommandResources{
-            .pipeline        = *render_target_pipeline_resources.pipeline,
-            .pipeline_layout = *pipeline_resources->pipeline_layout,
-            .descriptor_set  = *render_target_pipeline_resources.descriptor_sets[i],
-            .uniforms        = std::move(gpu_uniforms)
-        });
+        resources->draw_command_resources.back().emplace_back(
+            RenderTargetDrawCommandResources{
+                .pipeline        = *render_target_pipeline_resources.pipeline,
+                .pipeline_layout = *pipeline_resources->pipeline_layout,
+                .descriptor_set  = *render_target_pipeline_resources.descriptor_sets[i],
+                .uniforms        = std::move(gpu_uniforms)
+            }
+        );
     }
-    
+
     for (size_t i = 0; i < image_count; ++i) {
         auto& framebuffer_resources = resources->framebuffer_resources[i];
         auto& draw_command_resources = resources->draw_command_resources.back()[i];
         for (auto&& description : pipeline->uniform_layout_.descriptions_) {
             // Find GPU uniform data
-            const auto* gpu_uniform = [description, &framebuffer_resources, &draw_command_resources]() 
+            const auto* gpu_uniform = [description, &framebuffer_resources, &draw_command_resources]()
                 -> const std::shared_ptr<UniformBufferBase>* {
                 for (auto&& uniform_buffer : framebuffer_resources.uniforms) {
                     if (description.attribute == uniform_buffer->description().attribute) {
@@ -334,14 +354,16 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 }
                 return nullptr;
             }();
-            
+
             std::vector<vk::DescriptorBufferInfo> buffer_info;
-            if (auto* buffer_resources = (*gpu_uniform)->impl_->resources.get()) {
-                buffer_info.emplace_back(vk::DescriptorBufferInfo{
-                    .buffer = *buffer_resources->buffer,
-                    .offset = 0,
-                    .range  = (*gpu_uniform)->data_size()
-                });
+            if (auto* buffer_resources = (*gpu_uniform)->impl_->resources.data()) {
+                buffer_info.emplace_back(
+                    vk::DescriptorBufferInfo{
+                        .buffer = *buffer_resources->buffer,
+                        .offset = 0,
+                        .range  = (*gpu_uniform)->data_size()
+                    }
+                );
             }
             auto write_description_set = vk::WriteDescriptorSet{
                 .dstSet          = *render_target_pipeline_resources.descriptor_sets[i],
@@ -349,7 +371,9 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 .dstArrayElement = 0,
                 .descriptorCount = 1,
                 .descriptorType  = vk::DescriptorType::eUniformBuffer
-            }   .setBufferInfo(buffer_info);
+            }
+                .setBufferInfo(buffer_info);
+
             logical_device_->impl_->vk_device.updateDescriptorSets({ write_description_set }, {});
         }
     }
@@ -358,7 +382,8 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
 void Gfx::commitDrawCommandUniformBuffers(
     const std::shared_ptr<RenderTarget>& render_target, const std::shared_ptr<DrawCommand>& draw_command,
     uniform_attributes::UniformAttribute specified_attribute,
-    int image_index) {
+    int image_index
+) {
 
     auto& renderer = render_target->renderer_;
 
@@ -379,8 +404,9 @@ void Gfx::commitDrawCommandUniformBuffers(
 void Gfx::commitDrawCommandUniformBuffers(
     const std::shared_ptr<RenderTarget>& render_target, size_t draw_command_index,
     uniform_attributes::UniformAttribute specified_attribute,
-    int image_index) {
-    
+    int image_index
+) {
+
     auto& renderer = render_target->renderer_;
 
     if (!renderer) {
@@ -393,23 +419,23 @@ void Gfx::commitDrawCommandUniformBuffers(
         return;
     }
 
-    auto* resources = render_target->impl_->resources.get();
+    auto* resources = render_target->impl_->resources.data();
     if (!resources) {
         logger().error("Cannot commit draw command uniform buffer because render target resources are not available.");
         return;
     }
 
     const auto& draw_command = renderer->getDrawCommands()[draw_command_index];
-    
+
     size_t image_count = resources->command_buffers.size();
     int start_index = image_index >= 0 ? image_index : 0;
     int end_index = image_index >= 0 ? image_index + 1U : static_cast<int>(image_count);
     for (int i = start_index; i < end_index; ++i) {
         auto& draw_command_resources = resources->draw_command_resources[draw_command_index][i];
-        for (auto&& [attribute, cpu_uniform] : draw_command->uniform_buffers_) {
+        for (auto&&[attribute, cpu_uniform] : draw_command->uniform_buffers_) {
             if (specified_attribute == uniform_attributes::none || specified_attribute == attribute) {
                 // Find GPU uniform data
-                const auto* gpu_uniform = [attribute, &draw_command_resources]() 
+                const auto* gpu_uniform = [attribute = attribute, &draw_command_resources]()
                     -> const std::shared_ptr<UniformBufferBase>* {
                     for (auto&& uniform_buffer : draw_command_resources.uniforms) {
                         if (attribute == uniform_buffer->description().attribute) {

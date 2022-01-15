@@ -21,7 +21,7 @@ Monitor Monitor::GetPrimary() {
 }
 
 Window::Window(
-    int width, int height, std::string title, 
+    int width, int height, std::string title,
     const std::optional<Monitor>& monitor, const std::shared_ptr<Window>& share
 ) : title_(std::move(title)), impl_(std::make_unique<Window::Impl>()) {
 
@@ -38,7 +38,7 @@ Window::~Window() {
     impl_->surface_handle.reset();
 
     GLFWwindow* glfw_window = impl_->glfw_window;
-    auto [width, height] = this->extent();
+    auto[width, height] = this->extent();
 
     glfwDestroyWindow(glfw_window);
 
@@ -51,7 +51,7 @@ Extent2D Window::extent() const {
     int width = 0, height = 0;
     glfwGetWindowSize(glfw_window, &width, &height);
 
-    return Extent2D(width, height);
+    return { width, height };
 }
 
 App::App(std::string name, std::tuple<int, int, int> version)
@@ -75,7 +75,7 @@ void App::loop(const std::function<void(float)>& func) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     while (!windows_.empty()) {
-        for (auto it = windows_.begin(); it != windows_.end(); ) {
+        for (auto it = windows_.begin(); it != windows_.end();) {
             GLFWwindow* glfw_window = (*it)->impl_->glfw_window;
             if (glfwWindowShouldClose(glfw_window)) {
                 it = windows_.erase(it);
@@ -93,15 +93,14 @@ void App::loop(const std::function<void(float)>& func) {
 
         glfwPollEvents();
     }
-    
+
     logger().info("Event loop end.");
 }
 
-
 std::shared_ptr<Window> App::createWindow(
-    int width, int height, const std::string& title, 
+    int width, int height, const std::string& title,
     const std::optional<Monitor>& monitor, const std::shared_ptr<Window>& share
-){
+) {
     std::shared_ptr<Window> window(new Window(width, height, title, monitor, share));
     windows_.push_back(window);
     return window;

@@ -6,7 +6,7 @@
 #include "draw-command-private.h"
 
 namespace {
-    
+
 [[nodiscard]] auto& logger() {
     static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
@@ -20,12 +20,6 @@ DrawCommand::DrawCommand(std::string name)
     : name_(std::move(name)) {}
 
 void DrawCommand::setPipeline(const std::shared_ptr<GfxPipeline>& pipeline) {
-    auto* resources = pipeline->impl_->resources.get();
-    if (!resources) {
-        logger().error("Cannot set pipeline for draw command because pipeline resources are not available.");
-        return;
-    }
-
     pipeline_ = pipeline;
 }
 
@@ -85,15 +79,17 @@ std::vector<VertexBufferCombinedDescription> DrawCommand::getVertexBufferCombine
             for (auto&& vertex_buffer_description : vertex_buffer->descriptions()) {
                 if (vertex_buffer_description.attribute == description.attribute &&
                     vertex_buffer_description.format == description.format) {
-                            
-                    combined_descriptions.emplace_back(VertexBufferCombinedDescription{
-                        .attribute           = description.attribute,
-                        .format              = description.format,
-                        .location            = description.location,
-                        .stride              = vertex_buffer_description.stride,
-                        .offset              = vertex_buffer_description.offset,
-                        .vertex_buffer_index = vertex_buffer_index,
-                    });
+
+                    combined_descriptions.emplace_back(
+                        VertexBufferCombinedDescription{
+                            .attribute           = description.attribute,
+                            .format              = description.format,
+                            .location            = description.location,
+                            .stride              = vertex_buffer_description.stride,
+                            .offset              = vertex_buffer_description.offset,
+                            .vertex_buffer_index = vertex_buffer_index,
+                        }
+                    );
                 }
             }
         }
@@ -123,10 +119,11 @@ bool DrawCommand::valid() const {
     }
     for (auto&& description : pipeline_->vertex_factory().descriptions()) {
         auto it = std::lower_bound(
-            vertex_buffer_descriptions.begin(), vertex_buffer_descriptions.end(), description, 
+            vertex_buffer_descriptions.begin(), vertex_buffer_descriptions.end(), description,
             [](const VertexBufferDescription& element, const VertexFactoryDescription& value) {
                 return element.attribute < value.attribute;
-            });
+            }
+        );
         if (it == vertex_buffer_descriptions.end() ||
             it->attribute != description.attribute ||
             it->format != description.format) {
@@ -158,38 +155,46 @@ void Gfx::finishDrawCommand(const std::shared_ptr<DrawCommand>& draw_command) {
             if (it == vb_index_to_binding.end()) {
                 uint32_t new_binding = static_cast<uint32_t>(impl->vertex_bindings.size());
                 vb_index_to_binding[description.vertex_buffer_index] = new_binding;
-                impl->vertex_bindings.emplace_back(vk::VertexInputBindingDescription{
-                    .binding = new_binding,
-                    .stride = description.stride,
-                    .inputRate = vk::VertexInputRate::eVertex
-                });
+                impl->vertex_bindings.emplace_back(
+                    vk::VertexInputBindingDescription{
+                        .binding = new_binding,
+                        .stride = description.stride,
+                        .inputRate = vk::VertexInputRate::eVertex
+                    }
+                );
                 return new_binding;
             } else {
                 if (impl->vertex_bindings[it->second].stride != description.stride) {
-                    logger().warn("Vertex binding and buffer stride not identical: {} != {}.", 
-                        impl->vertex_bindings[it->second].stride, description.stride);
+                    logger().warn(
+                        "Vertex binding and buffer stride not identical: {} != {}.",
+                        impl->vertex_bindings[it->second].stride, description.stride
+                    );
                 }
                 return it->second;
             }
         }();
 
-        impl->vertex_attributes.emplace_back(vk::VertexInputAttributeDescription{
-            .location = description.location,
-            .binding = binding,
-            .format = gfx_formats::ToVkFormat(description.format),
-            .offset = description.offset
-        });
+        impl->vertex_attributes
+            .emplace_back(
+                vk::VertexInputAttributeDescription{
+                    .location = description.location,
+                    .binding = binding,
+                    .format = gfx_formats::ToVkFormat(description.format),
+                    .offset = description.offset
+                }
+            );
 
         auto&& vertex_buffer = draw_command->vertex_buffers()[description.vertex_buffer_index];
-        if (auto vertex_buffer_resources = vertex_buffer->impl_->resources.get()) {
+        if (auto* vertex_buffer_resources = vertex_buffer->impl_->resources.data()) {
             impl->vertex_buffers.emplace_back(*vertex_buffer_resources->buffer);
-            impl->vertex_buffer_offsets.emplace_back(0);
+            impl->vertex_buffer_offsets
+                .emplace_back(0);
         }
     }
 
     impl->draw_indexed = draw_command->draw_indexed();
     if (impl->draw_indexed) {
-        if (auto index_buffer_resources = draw_command->index_buffer_->impl_->resources.get()) {
+        if (auto* index_buffer_resources = draw_command->index_buffer_->impl_->resources.data()) {
             impl->index_buffer = *index_buffer_resources->buffer;
         }
         impl->index_buffer_offset = 0;
@@ -214,8 +219,8 @@ std::shared_ptr<DrawCommand> SimpleDrawCommand::Create(
 }
 
 SimpleDrawCommand::SimpleDrawCommand(std::string name, const std::shared_ptr<GfxPipeline>& pipeline)
-    : DrawCommand(std::move(name)), impl_(std::make_unique<Impl>())  {
-    setPipeline(pipeline);
+    : DrawCommand(std::move(name)), impl_(std::make_unique<Impl>()) {
+    pipeline_ = pipeline;
 }
 
 DrawCommand::Impl* SimpleDrawCommand::getImpl() {
@@ -226,7 +231,8 @@ void SimpleDrawCommand::Impl::draw(vk::CommandBuffer& command_buffer) {
     command_buffer.bindVertexBuffers(0, vertex_buffers, vertex_buffer_offsets);
     if (draw_indexed) {
         command_buffer.bindIndexBuffer(
-            index_buffer, index_buffer_offset, index_type);
+            index_buffer, index_buffer_offset, index_type
+        );
     }
 
     if (draw_indexed) {
@@ -237,4 +243,3 @@ void SimpleDrawCommand::Impl::draw(vk::CommandBuffer& command_buffer) {
 }
 
 } // namespace wg
-

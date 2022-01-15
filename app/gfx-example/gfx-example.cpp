@@ -1,7 +1,6 @@
 #include "platform/platform.h"
 #include "gfx/gfx.h"
 #include "gfx/shader.h"
-#include "gfx/render-target.h"
 #include "gfx/gfx-pipeline.h"
 #include "gfx/draw-command.h"
 #include "gfx/renderer.h"
@@ -27,10 +26,12 @@ int main(int, char**) {
     gfx->createShaderResources(frag_shader);
 
     auto camera_uniform_buffer = wg::UniformBuffer<wg::CameraUniform>::Create();
-    camera_uniform_buffer->setUniformObject({
-        .view_mat = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-        .project_mat = glm::perspective(glm::radians(45.0f), 4.f / 3.f, 0.1f, 10.0f)
-    });
+    camera_uniform_buffer->setUniformObject(
+        {
+            .view_mat = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+            .project_mat = glm::perspective(glm::radians(45.0f), 4.f / 3.f, 0.1f, 10.0f)
+        }
+    );
     auto model_uniform_buffer = wg::UniformBuffer<wg::ModelUniform>::Create();
 
     auto uniform_layout = wg::GfxUniformLayout{}
@@ -39,13 +40,13 @@ int main(int, char**) {
 
     auto vertices = std::vector<wg::SimpleVertex>{
         { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f } },
-        { .position = {  0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f } },
-        { .position = {  0.5f,  0.5f, 0.f }, .color = { 0.f, 0.f, 1.f } },
-        { .position = { -0.5f,  0.5f, 0.f }, .color = { 1.f, 1.f, 0.f } },
+        { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f } },
+        { .position = { 0.5f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f } },
+        { .position = { -0.5f, 0.5f, 0.f }, .color = { 1.f, 1.f, 0.f } },
     };
     auto vertex_buffer = wg::VertexBuffer<wg::SimpleVertex>::CreateFromVertexArray(vertices);
     gfx->createVertexBufferResources(vertex_buffer);
-    
+
     auto indices = std::vector<uint32_t>{ 0, 1, 2, 2, 3, 0 };
     auto index_buffer = wg::IndexBuffer::CreateFromIndexArray(wg::index_types::index_16, indices);
     gfx->createIndexBufferResources(index_buffer);
@@ -71,8 +72,8 @@ int main(int, char**) {
 
     auto vertices2 = std::vector<wg::SimpleVertex>{
         { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f } },
-        { .position = {  0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f } },
-        { .position = {  0.0f,  0.5f, 0.f }, .color = { 0.f, 0.f, 1.f } },
+        { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f } },
+        { .position = { 0.0f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f } },
     };
     auto vertex_buffer2 = wg::VertexBuffer<wg::SimpleVertex>::CreateFromVertexArray(vertices2);
     gfx->createVertexBufferResources(vertex_buffer2);
@@ -98,15 +99,19 @@ int main(int, char**) {
     gfx->createRenderTargetResources(render_target);
     gfx->submitDrawCommands(render_target);
 
-    app.loop([&](float time) {
-        model_uniform_buffer->setUniformObject({
-            .model_mat = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f))
-        });
-        renderer->markUniformDirty(quad_draw_command, wg::uniform_attributes::model);
-        renderer->markUniformDirty(triangle_draw_command, wg::uniform_attributes::model);
+    app.loop(
+        [&](float time) {
+            model_uniform_buffer->setUniformObject(
+                {
+                    .model_mat = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f))
+                }
+            );
+            renderer->markUniformDirty(quad_draw_command, wg::uniform_attributes::model);
+            renderer->markUniformDirty(triangle_draw_command, wg::uniform_attributes::model);
 
-        gfx->render(render_target);
-    });
+            gfx->render(render_target);
+        }
+    );
 
     return 0;
 }

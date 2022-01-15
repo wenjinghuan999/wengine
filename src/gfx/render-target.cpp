@@ -11,7 +11,7 @@
 #include "platform/inc/window-private.h"
 
 namespace {
-    
+
 [[nodiscard]] auto& logger() {
     static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
@@ -26,24 +26,24 @@ RenderTarget::RenderTarget(std::string name) : name_(std::move(name)) {}
 std::shared_ptr<RenderTarget> Gfx::createRenderTarget(const std::shared_ptr<Window>& window) {
     auto surface = getWindowSurface(window);
     if (!surface) {
-        logger().error("Cannot create render target for window \"{}\" because no surface is created.",
-            window->title());
+        logger().error(
+            "Cannot create render target for window \"{}\" because no surface is created.",
+            window->title()
+        );
         return {};
     }
-    
+
     return std::shared_ptr<RenderTarget>(new RenderTargetSurface(window->title(), surface));
 }
 
 RenderTargetSurface::RenderTargetSurface(std::string name, const std::shared_ptr<Surface>& surface)
     : RenderTarget(std::move(name)), surface_(surface) {
-    
+
     impl_ = std::make_unique<Impl>();
-    impl_->get_image_views = [
-            weak_surface=std::weak_ptr<Surface>(surface_)
-        ]() {
+    impl_->get_image_views = [weak_surface = std::weak_ptr<Surface>(surface_)]() {
         std::vector<vk::ImageView> image_views;
         if (auto surface = weak_surface.lock()) {
-            if (auto* resources = surface->impl_->resources.get()) {
+            if (auto* resources = surface->impl_->resources.data()) {
                 image_views.reserve(resources->vk_image_views.size());
                 for (auto& vk_image_view : resources->vk_image_views) {
                     image_views.push_back(*vk_image_view);
@@ -67,18 +67,18 @@ bool RenderTargetSurface::preRendering(class Gfx& gfx) {
 }
 
 int RenderTargetSurface::acquireImage(Gfx& gfx) {
-    if (auto* surface_resources = surface_->impl_->resources.get()) {
-        if (auto* resources = impl_->resources.get()) {
+    if (auto* surface_resources = surface_->impl_->resources.data()) {
+        if (auto* resources = impl_->resources.data()) {
             // Use acquireNextImageKHR instead of acquireNextImage2KHR
             // before figuring out how to use device mask properly
-            auto [result, image_index] = (**resources->device).acquireNextImageKHR(
+            auto[result, image_index] = (**resources->device).acquireNextImageKHR(
                 *surface_resources->vk_swapchain,
                 UINT64_MAX,
                 *resources->image_available_semaphores[resources->current_frame_index]
             );
             if (result == vk::Result::eSuccess) {
                 return static_cast<int>(image_index);
-            } else if (result == vk::Result::eErrorOutOfDateKHR || 
+            } else if (result == vk::Result::eErrorOutOfDateKHR ||
                 result == vk::Result::eSuboptimalKHR) {
                 logger().info("Skip acquire image: result = {}.", vk::to_string(result));
                 recreateSurfaceResources(gfx);
@@ -107,12 +107,12 @@ void RenderTargetSurface::recreateSurfaceResources(Gfx& gfx) {
 }
 
 void RenderTargetSurface::finishImage(Gfx& gfx, int image_index) {
-    if (auto* surfaces_resources = surface_->impl_->resources.get()) {
+    if (auto* surfaces_resources = surface_->impl_->resources.data()) {
         if (image_index < 0 || image_index > static_cast<int>(surfaces_resources->vk_image_views.size())) {
             logger().error("Cannot finish image because image index is invalid.");
             return;
         }
-        if (auto* resources = impl_->resources.get()) {
+        if (auto* resources = impl_->resources.data()) {
             auto wait_semaphores = std::array{ *resources->render_finished_semaphores[resources->current_frame_index] };
             auto swapchains = std::array{ *surfaces_resources->vk_swapchain };
             auto image_indices = std::array{ static_cast<uint32_t>(image_index) };
@@ -120,20 +120,20 @@ void RenderTargetSurface::finishImage(Gfx& gfx, int image_index) {
                 .setWaitSemaphores(wait_semaphores)
                 .setSwapchains(swapchains)
                 .setImageIndices(image_indices);
-            
+
             auto& present_queue = resources->queues[1];
             // Do not use VulkanHpp for present because it throws when result == VK_ERROR_OUT_OF_DATE_KHR
             // See https://github.com/KhronosGroup/Vulkan-Hpp/issues/274
-            auto result = 
+            auto result =
                 static_cast<vk::Result>(present_queue.vk_device->getDispatcher()->vkQueuePresentKHR(
-                    static_cast<VkQueue>(present_queue.vk_queue), reinterpret_cast<const VkPresentInfoKHR*>(&present_info)));
-            
+                    static_cast<VkQueue>(present_queue.vk_queue), reinterpret_cast<const VkPresentInfoKHR*>(&present_info)
+                ));
+
             if (result == vk::Result::eSuboptimalKHR || result == vk::Result::eErrorOutOfDateKHR) {
                 logger().info("Skip present: result = {}.", vk::to_string(result));
                 recreateSurfaceResources(gfx);
                 return;
-            }
-            else if (result != vk::Result::eSuccess) {
+            } else if (result != vk::Result::eSuccess) {
                 logger().error("Present error: {}.", vk::to_string(result));
                 return;
             }
@@ -159,13 +159,13 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     }
     waitDeviceIdle();
 
-    auto [width, height] = render_target->extent();
+    auto[width, height] = render_target->extent();
     auto image_views = render_target->impl_->get_image_views();
     auto image_count = image_views.size();
 
     auto resources = std::make_unique<RenderTargetResources>();
     resources->device = &logical_device_->impl_->vk_device;
-    
+
     // Render pass
     auto color_attachment = vk::AttachmentDescription{
         .format         = gfx_formats::ToVkFormat(render_target->format()),
@@ -187,8 +187,9 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 
     auto subpass_description = vk::SubpassDescription{
         .pipelineBindPoint = vk::PipelineBindPoint::eGraphics
-    }   .setColorAttachments(color_attachments);
-    auto subpasses = std::array{subpass_description};
+    }
+        .setColorAttachments(color_attachments);
+    auto subpasses = std::array{ subpass_description };
     auto dependencies = std::array{
         vk::SubpassDependency{
             .srcSubpass    = VK_SUBPASS_EXTERNAL,
@@ -204,10 +205,10 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
         .setAttachments(attachments)
         .setSubpasses(subpasses)
         .setDependencies(dependencies);
-    
-    resources->render_pass = 
+
+    resources->render_pass =
         logical_device_->impl_->vk_device.createRenderPass(render_pass_create_info);
-    
+
     // Queues
     for (auto queue_id : render_target->queues()) {
         auto& queue_info_array = logical_device_->impl_->queue_references[queue_id];
@@ -218,8 +219,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
                 resources->graphics_queue_index = static_cast<int>(resources->queues.size()) - 1;
             }
         } else {
-            logger().error("Cannot get queue \"{}\" from device.", 
-                gfx_queues::QUEUE_NAMES[queue_id]);
+            logger().error("Cannot get queue \"{}\" from device.", gfx_queues::QUEUE_NAMES[queue_id]);
         }
     }
 
@@ -230,9 +230,9 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     for (int i = 0; i < resources->max_frames_in_flight; ++i) {
         resources->image_available_semaphores.emplace_back(logical_device_->impl_->vk_device.createSemaphore({}));
         resources->render_finished_semaphores.emplace_back(logical_device_->impl_->vk_device.createSemaphore({}));
-        resources->in_flight_fences.emplace_back(logical_device_->impl_->vk_device.createFence({
-            .flags = vk::FenceCreateFlagBits::eSignaled
-        }));
+        resources->in_flight_fences.emplace_back(
+            logical_device_->impl_->vk_device.createFence({ .flags = vk::FenceCreateFlagBits::eSignaled })
+        );
     }
 
     // Framebuffers
@@ -244,10 +244,14 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
             .width      = static_cast<uint32_t>(width),
             .height     = static_cast<uint32_t>(height),
             .layers     = 1
-        }   .setAttachments(render_target_attachments);
-        resources->framebuffer_resources.emplace_back(RenderTargetFramebufferResources{
-            .framebuffer = logical_device_->impl_->vk_device.createFramebuffer(framebuffer_create_info)
-        });
+        }
+            .setAttachments(render_target_attachments);
+
+        resources->framebuffer_resources.emplace_back(
+            RenderTargetFramebufferResources{
+                .framebuffer = logical_device_->impl_->vk_device.createFramebuffer(framebuffer_create_info)
+            }
+        );
     }
 
     // Command buffers
@@ -259,9 +263,9 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
         };
         // Do not use vk::raii::CommandBuffer because there might be compile errors on MSVC
         // Since we are allocating from the pool, we can destruct command buffers together.
-        resources->command_buffers = 
+        resources->command_buffers =
             (*logical_device_->impl_->vk_device).allocateCommandBuffers(command_buffer_allocate_info);
-        
+
         for (size_t i = 0; i < image_count; ++i) {
             resources->framebuffer_resources[i].command_buffer = resources->command_buffers[i];
         }
@@ -271,7 +275,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 
     // Framebuffer uniform buffers
     for (size_t i = 0; i < image_count; ++i) {
-        for (auto&& [attribute, cpu_uniform] : renderer->uniform_buffers_) {
+        for (auto&&[attribute, cpu_uniform] : renderer->uniform_buffers_) {
             auto& gpu_uniform = resources->framebuffer_resources[i].uniforms.emplace_back(
                 UniformBufferBase::Create(attribute)
             );
@@ -282,7 +286,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
         }
     }
 
-    render_target->impl_->resources = 
+    render_target->impl_->resources =
         logical_device_->impl_->render_target_resources.store(std::move(resources));
 }
 
@@ -298,14 +302,15 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
         return;
     }
 
-    auto* resources = render_target->impl_->resources.get();
+    auto* resources = render_target->impl_->resources.data();
     if (!resources) {
         logger().error("Cannot render because render target resources is not valid!");
         return;
     }
-    
+
     auto result = logical_device_->impl_->vk_device.waitForFences(
-        { *resources->in_flight_fences[resources->current_frame_index] }, true, UINT64_MAX);
+        { *resources->in_flight_fences[resources->current_frame_index] }, true, UINT64_MAX
+    );
     if (result != vk::Result::eSuccess) {
         logger().error("Wait for fence error: {}", vk::to_string(result));
     }
@@ -322,8 +327,8 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
 
     // Update uniforms
     for (auto it = renderer->dirty_framebuffer_uniforms_.begin();
-        it != renderer->dirty_framebuffer_uniforms_.end(); ++it) {
-        auto&& [attribute, mask] = *it;
+         it != renderer->dirty_framebuffer_uniforms_.end(); ++it) {
+        auto&&[attribute, mask] = *it;
         commitFramebufferUniformBuffers(render_target, attribute, image_index);
         mask |= (1 << image_index);
         if (mask == (1 << image_count) - 1) {
@@ -331,9 +336,9 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
         }
     }
     for (auto it = renderer->dirty_draw_command_uniforms_.begin();
-        it != renderer->dirty_draw_command_uniforms_.end(); ++it) {
-        auto&& [key, mask] = *it;
-        auto&& [draw_command_index, attribute] = key;
+         it != renderer->dirty_draw_command_uniforms_.end(); ++it) {
+        auto&&[key, mask] = *it;
+        auto&&[draw_command_index, attribute] = key;
         commitDrawCommandUniformBuffers(render_target, draw_command_index, attribute, image_index);
         mask |= (1 << image_index);
         if (mask == (1 << image_count) - 1) {
@@ -343,8 +348,9 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
 
     // Wait for image in flight
     if (resources->images_in_flight[image_index]) {
-        auto result = logical_device_->impl_->vk_device.waitForFences(
-            { resources->images_in_flight[image_index] }, true, UINT64_MAX);
+        result = logical_device_->impl_->vk_device.waitForFences(
+            { resources->images_in_flight[image_index] }, true, UINT64_MAX
+        );
         if (result != vk::Result::eSuccess) {
             logger().error("Wait for fence error: {}", vk::to_string(result));
         }
@@ -363,11 +369,12 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
     logical_device_->impl_->vk_device.resetFences({ fence });
 
     auto submit_info = vk::SubmitInfo{
-    }   .setWaitSemaphores(wait_semaphores)
+    }
+        .setWaitSemaphores(wait_semaphores)
         .setWaitDstStageMask(wait_stages)
         .setCommandBuffers(command_buffers)
         .setSignalSemaphores(signal_semaphores);
-    
+
     if (resources->graphics_queue_index >= 0) {
         resources->queues[resources->graphics_queue_index].vk_queue.submit({ submit_info }, fence);
     } else {

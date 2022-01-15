@@ -23,20 +23,20 @@ struct RenderTargetDrawCommandResources {
 };
 
 struct RenderTargetPipelineResources {
-    vk::raii::Pipeline pipeline{nullptr};
-    vk::raii::DescriptorPool descriptor_pool{nullptr};
+    vk::raii::Pipeline pipeline{ nullptr };
+    vk::raii::DescriptorPool descriptor_pool{ nullptr };
     std::vector<vk::raii::DescriptorSet> descriptor_sets;
 };
 
 struct RenderTargetFramebufferResources {
-    vk::raii::Framebuffer framebuffer{nullptr};
-    vk::CommandBuffer command_buffer{nullptr};
+    vk::raii::Framebuffer framebuffer{ nullptr };
+    vk::CommandBuffer command_buffer{ nullptr };
     // Uniforms that has gpu data only
     std::vector<std::shared_ptr<UniformBufferBase>> uniforms;
 };
 
 struct RenderTargetResources {
-    vk::raii::RenderPass render_pass{nullptr};
+    vk::raii::RenderPass render_pass{ nullptr };
     std::vector<vk::raii::Semaphore> image_available_semaphores;
     std::vector<vk::raii::Semaphore> render_finished_semaphores;
     std::vector<vk::raii::Fence> in_flight_fences;
@@ -44,15 +44,15 @@ struct RenderTargetResources {
     std::vector<RenderTargetFramebufferResources> framebuffer_resources;
     std::vector<RenderTargetPipelineResources> pipeline_resources;
 
-    vk::raii::Device* device{nullptr};
+    vk::raii::Device* device{ nullptr };
     std::vector<QueueInfoRef> queues; // queues needed for render target
-    int graphics_queue_index{-1};
+    int graphics_queue_index{ -1 };
     // draw_command_resources[...][image_index]
     std::vector<std::vector<RenderTargetDrawCommandResources>> draw_command_resources;
 
     std::vector<vk::Fence> images_in_flight;
-    int max_frames_in_flight{0};
-    int current_frame_index{0};
+    int max_frames_in_flight{ 0 };
+    int current_frame_index{ 0 };
 
     ~RenderTargetResources() {
         // handle manually for better performance

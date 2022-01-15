@@ -7,7 +7,7 @@
 #include "shader-private.h"
 
 namespace {
-    
+
 [[nodiscard]] auto& logger() {
     static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
@@ -18,7 +18,8 @@ namespace {
 namespace wg {
 
 std::shared_ptr<Shader> Shader::Load(
-    const std::string& filename, shader_stages::ShaderStage stage, const std::string& entry) {
+    const std::string& filename, shader_stages::ShaderStage stage, const std::string& entry
+) {
     return std::shared_ptr<Shader>(new Shader(filename, stage, entry));
 }
 
@@ -38,7 +39,7 @@ bool Shader::valid() const {
 } // namespace wg
 
 namespace {
-    
+
 bool LoadStaticShaderFile(const std::string& filename, std::vector<uint32_t>& out_data) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
@@ -80,7 +81,7 @@ bool Shader::loadStatic(const std::string& filename, const std::string& entry) {
 }
 
 void Gfx::createShaderResources(const std::shared_ptr<Shader>& shader) {
-    
+
     shader->impl_->resources.reset();
 
     if (!logical_device_) {
@@ -89,8 +90,7 @@ void Gfx::createShaderResources(const std::shared_ptr<Shader>& shader) {
     waitDeviceIdle();
 
     if (!shader->loaded()) {
-        logger().warn("Skip creating shader resources because shader \"{}\" is not loaded.",
-            shader->filename());
+        logger().warn("Skip creating shader resources because shader \"{}\" is not loaded.", shader->filename());
     }
     logger().info("Creating resources for shader \"{}\".", shader->filename());
 

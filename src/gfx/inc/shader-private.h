@@ -12,13 +12,12 @@ struct ShaderResources {
 
 struct Shader::Impl {
     std::vector<uint32_t> raw_data;
-    OwnedResourceHandle<ShaderResources> resources;
+    OwnedResourceHandle <ShaderResources> resources;
     vk::PipelineShaderStageCreateInfo shader_stage_create_info{};
 };
 
 [[nodiscard]] inline vk::ShaderStageFlagBits GetShaderStageFlag(shader_stages::ShaderStage stage) {
-    switch (stage)
-    {
+    switch (stage) {
     case shader_stages::vert:
         return vk::ShaderStageFlagBits::eVertex;
     case shader_stages::frag:

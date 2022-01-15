@@ -8,6 +8,7 @@
 #include <cinttypes>
 #include <initializer_list>
 #include <memory>
+#include <utility>
 
 namespace wg {
 
@@ -21,11 +22,14 @@ class GfxVertexFactory {
 public:
     GfxVertexFactory() = default;
     GfxVertexFactory(std::initializer_list<VertexFactoryDescription> initializer_list);
+    
     void addDescription(VertexFactoryDescription description);
     void clearDescriptions();
-    const std::vector<VertexFactoryDescription>& descriptions() const { return descriptions_; }
+    [[nodiscard]] const std::vector<VertexFactoryDescription>& descriptions() const { return descriptions_; }
+
 protected:
     std::vector<VertexFactoryDescription> descriptions_;
+
 protected:
     friend class Gfx;
 };
@@ -44,10 +48,13 @@ class GfxUniformLayout {
 public:
     GfxUniformLayout& addDescription(UniformDescription description);
     void clearDescriptions();
-    const std::vector<UniformDescription>& descriptions() const { return descriptions_; }
+    [[nodiscard]] const std::vector<UniformDescription>& descriptions() const { return descriptions_; }
+
+protected:
+    std::vector<UniformDescription> descriptions_;
+
 protected:
     friend class Gfx;
-    std::vector<UniformDescription> descriptions_;
 };
 
 class GfxPipeline : public std::enable_shared_from_this<GfxPipeline> {
@@ -61,21 +68,22 @@ public:
     [[nodiscard]] const GfxUniformLayout& uniform_layout() const { return uniform_layout_; }
     [[nodiscard]] const std::vector<std::shared_ptr<Shader>>& shaders() const { return shaders_; }
 
-    void setVertexFactory(GfxVertexFactory vertex_factory) { vertex_factory_ = vertex_factory; }
+    void setVertexFactory(GfxVertexFactory vertex_factory) { vertex_factory_ = std::move(vertex_factory); }
     void setPipelineState(GfxPipelineState pipeline_state) { pipeline_state_ = pipeline_state; }
-    void setUniformLayout(GfxUniformLayout uniform_layout) { uniform_layout_ = uniform_layout; }
+    void setUniformLayout(GfxUniformLayout uniform_layout) { uniform_layout_ = std::move(uniform_layout); }
     void addShader(const std::shared_ptr<Shader>& shader) { shaders_.push_back(shader); }
-    void setShaders(std::vector<std::shared_ptr<Shader>> shaders) { shaders_ = std::move(shaders); }
     void clearShaders() { shaders_.clear(); }
+
 protected:
     GfxVertexFactory vertex_factory_;
     GfxPipelineState pipeline_state_;
     GfxUniformLayout uniform_layout_;
     std::vector<std::shared_ptr<Shader>> shaders_;
+   
 protected:
-    GfxPipeline();
     friend class Gfx;
     friend class DrawCommand;
+    GfxPipeline();
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

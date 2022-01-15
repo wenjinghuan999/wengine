@@ -24,6 +24,7 @@ class Gfx : public std::enable_shared_from_this<Gfx> {
 public:
     static std::shared_ptr<Gfx> Create(const App& app);
     ~Gfx();
+
     [[nodiscard]] bool valid() const;
 
     // Surface
@@ -51,26 +52,32 @@ public:
 
     // GfxPipeline
     void createPipelineResources(
-        const std::shared_ptr<GfxPipeline>& pipeline);
+        const std::shared_ptr<GfxPipeline>& pipeline
+    );
 
     // DrawCommand
     void finishDrawCommand(const std::shared_ptr<DrawCommand>& draw_command);
     void createDrawCommandResourcesForRenderTarget(
         const std::shared_ptr<RenderTarget>& render_target,
-        const std::shared_ptr<DrawCommand>& draw_command);
+        const std::shared_ptr<DrawCommand>& draw_command
+    );
     void commitDrawCommandUniformBuffers(
         const std::shared_ptr<RenderTarget>& render_target, const std::shared_ptr<DrawCommand>& draw_command,
         uniform_attributes::UniformAttribute specified_attribute = uniform_attributes::none,
-        int image_index = -1);
+        int image_index = -1
+    );
     void commitDrawCommandUniformBuffers(
         const std::shared_ptr<RenderTarget>& render_target, size_t draw_command_index,
         uniform_attributes::UniformAttribute specified_attribute = uniform_attributes::none,
-        int image_index = -1);
+        int image_index = -1
+    );
 
     // Renderer
-    void commitFramebufferUniformBuffers(const std::shared_ptr<RenderTarget>& render_target,
+    void commitFramebufferUniformBuffers(
+        const std::shared_ptr<RenderTarget>& render_target,
         uniform_attributes::UniformAttribute specified_attribute = uniform_attributes::none,
-        int image_index = -1);
+        int image_index = -1
+    );
 
     // RenderTarget
     std::shared_ptr<RenderTarget> createRenderTarget(const std::shared_ptr<Window>& window);
@@ -83,11 +90,11 @@ public:
     void createIndexBufferResources(const std::shared_ptr<IndexBuffer>& index_buffer);
     void createUniformBufferResources(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
     void commitBuffer(const std::shared_ptr<GfxBufferBase>& gfx_buffer, bool hint_use_stage_buffer = false);
-    void commitReferenceBuffer(const std::shared_ptr<GfxBufferBase>& cpu_buffer, 
-        const std::shared_ptr<GfxBufferBase>& gpu_buffer, bool hint_use_stage_buffer = false);
+    void commitReferenceBuffer(
+        const std::shared_ptr<GfxBufferBase>& cpu_buffer,
+        const std::shared_ptr<GfxBufferBase>& gpu_buffer, bool hint_use_stage_buffer = false
+    );
 
-protected:
-    explicit Gfx(const App& app);
 protected:
     struct Impl;
     friend struct Impl;
@@ -95,6 +102,9 @@ protected:
     std::vector<std::unique_ptr<PhysicalDevice>> physical_devices_;
     int current_physical_device_index_{ -1 };
     std::unique_ptr<LogicalDevice> logical_device_;
+
+protected:
+    explicit Gfx(const App& app);
 };
 
 class PhysicalDevice : public IMovable {
@@ -102,8 +112,10 @@ public:
     explicit PhysicalDevice(std::string name);
     ~PhysicalDevice() override = default;
     [[nodiscard]] const std::string& name() const { return name_; };
+
 protected:
     std::string name_;
+
 protected:
     friend class Gfx;
     struct Impl;
@@ -114,6 +126,7 @@ class LogicalDevice : public IMovable {
 public:
     LogicalDevice();
     ~LogicalDevice() override = default;
+
 protected:
     friend class Gfx;
     struct Impl;
@@ -121,22 +134,22 @@ protected:
 };
 
 namespace gfx_features {
-    enum FeatureId {
-        // User controlled features
-        window_surface,
-        separate_transfer,
-        // Engine controlled features
-        _must_enable_if_valid, NUM_FEATURES = _must_enable_if_valid,
-        _debug_utils,
-        NUM_FEATURES_TOTAL
-    };
-    extern const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL];
+
+enum FeatureId {
+    // User controlled features
+    window_surface,
+    separate_transfer,
+    // Engine controlled features
+    _must_enable_if_valid, NUM_FEATURES = _must_enable_if_valid,
+    _debug_utils,
+    NUM_FEATURES_TOTAL
+};
+
+extern const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL];
+
 }
 
 class GfxFeaturesManager : public Singleton<GfxFeaturesManager> {
-    friend class Singleton<GfxFeaturesManager>;
-    friend class Gfx;
-    friend class LogicalDevice;
 public:
     // Enable device feature
     bool enableFeature(gfx_features::FeatureId feature);
@@ -152,15 +165,7 @@ public:
     [[nodiscard]] std::array<int, gfx_queues::NUM_QUEUES> queues_required() const;
     // Queues enabled
     [[nodiscard]] std::array<int, gfx_queues::NUM_QUEUES> queues_enabled() const;
-protected:
-    static void AddFeatureImpl(gfx_features::FeatureId feature, 
-        std::vector<gfx_features::FeatureId>& features);
-    static void RemoveFeatureImpl(gfx_features::FeatureId feature, 
-        std::vector<gfx_features::FeatureId>& features);
-    static bool ContainsImpl(gfx_features::FeatureId feature, 
-        const std::vector<gfx_features::FeatureId>& features);
-    static void GetQueuesImpl(std::array<int, gfx_queues::NUM_QUEUES>& queues,
-        const std::vector<gfx_features::FeatureId>& features);
+
 protected:
     // Features required by engine (initialized by Gfx)
     std::vector<gfx_features::FeatureId> required_;
@@ -176,6 +181,28 @@ protected:
     std::vector<gfx_features::FeatureId> features_enabled_;
     // Queues currently enabled (initialized by device)
     std::vector<gfx_queues::QueueId> queues_enabled_;
+
+protected:
+    friend class Singleton<GfxFeaturesManager>;
+    friend class Gfx;
+    friend class LogicalDevice;
+
+    static void AddFeatureImpl(
+        gfx_features::FeatureId feature,
+        std::vector<gfx_features::FeatureId>& features
+    );
+    static void RemoveFeatureImpl(
+        gfx_features::FeatureId feature,
+        std::vector<gfx_features::FeatureId>& features
+    );
+    static bool ContainsImpl(
+        gfx_features::FeatureId feature,
+        const std::vector<gfx_features::FeatureId>& features
+    );
+    static void GetQueuesImpl(
+        std::array<int, gfx_queues::NUM_QUEUES>& queues,
+        const std::vector<gfx_features::FeatureId>& features
+    );
 };
 
 }

@@ -18,8 +18,7 @@ namespace gfx_formats {
 } // namespace gfx_formats
 
 [[nodiscard]] inline vk::QueueFlags GetRequiredQueueFlags(wg::gfx_queues::QueueId queue_id) {
-    switch (queue_id)
-    {
+    switch (queue_id) {
     case wg::gfx_queues::graphics:
     case wg::gfx_queues::present:
         return vk::QueueFlagBits::eGraphics;
@@ -35,16 +34,16 @@ namespace gfx_formats {
 struct QueueInfo {
     uint32_t queue_family_index{};
     uint32_t queue_index_in_family{};
-    vk::raii::Queue vk_queue{nullptr};
-    vk::raii::CommandPool vk_command_pool{nullptr};
+    vk::raii::Queue vk_queue{ nullptr };
+    vk::raii::CommandPool vk_command_pool{ nullptr };
 };
 
 struct QueueInfoRef {
     uint32_t queue_family_index{};
     uint32_t queue_index_in_family{};
-    vk::raii::Device* vk_device{nullptr};
-    vk::Queue vk_queue{nullptr};
-    vk::CommandPool vk_command_pool{nullptr};
+    vk::raii::Device* vk_device{ nullptr };
+    vk::Queue vk_queue{ nullptr };
+    vk::CommandPool vk_command_pool{ nullptr };
 };
 
 } // namespace wg

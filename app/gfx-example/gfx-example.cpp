@@ -33,7 +33,6 @@ int main(int, char**) {
     });
     auto model_uniform_buffer = wg::UniformBuffer<wg::ModelUniform>::Create();
 
-    gfx->createUniformBufferResources(model_uniform_buffer);
     auto uniform_layout = wg::GfxUniformLayout{}
         .addDescription({ .attribute = wg::uniform_attributes::camera, .binding = 0, .stages = wg::shader_stages::vert | wg::shader_stages::frag })
         .addDescription({ .attribute = wg::uniform_attributes::model, .binding = 1, .stages = wg::shader_stages::vert | wg::shader_stages::frag });
@@ -56,14 +55,14 @@ int main(int, char**) {
         { .attribute = wg::vertex_attributes::color, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 1 },
     };
 
-    auto quad_pipeline = wg::GfxPipeline::Create();
-    quad_pipeline->addShader(vert_shader);
-    quad_pipeline->addShader(frag_shader);
-    quad_pipeline->setVertexFactory(std::move(vertex_factory));
-    quad_pipeline->setUniformLayout(uniform_layout);
-    gfx->createPipelineResources(quad_pipeline);
+    auto pipeline = wg::GfxPipeline::Create();
+    pipeline->addShader(vert_shader);
+    pipeline->addShader(frag_shader);
+    pipeline->setVertexFactory(std::move(vertex_factory));
+    pipeline->setUniformLayout(uniform_layout);
+    gfx->createPipelineResources(pipeline);
 
-    auto quad_draw_command = wg::SimpleDrawCommand::Create("quad", quad_pipeline);
+    auto quad_draw_command = wg::SimpleDrawCommand::Create("quad", pipeline);
     quad_draw_command->addVertexBuffer(vertex_buffer);
     quad_draw_command->setIndexBuffer(index_buffer);
     quad_draw_command->addUniformBuffer(model_uniform_buffer);
@@ -82,14 +81,7 @@ int main(int, char**) {
         { .attribute = wg::vertex_attributes::color, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 1 },
     };
 
-    auto triangle_pipeline = wg::GfxPipeline::Create();
-    triangle_pipeline->addShader(vert_shader);
-    triangle_pipeline->addShader(frag_shader);
-    triangle_pipeline->setVertexFactory(std::move(triangle_vertex_factory));
-    triangle_pipeline->setUniformLayout(uniform_layout);
-    gfx->createPipelineResources(triangle_pipeline);
-
-    auto triangle_draw_command = wg::SimpleDrawCommand::Create("triangle", triangle_pipeline);
+    auto triangle_draw_command = wg::SimpleDrawCommand::Create("triangle", pipeline);
     triangle_draw_command->addVertexBuffer(vertex_buffer2);
     triangle_draw_command->addUniformBuffer(model_uniform_buffer);
     assert(triangle_draw_command->valid());

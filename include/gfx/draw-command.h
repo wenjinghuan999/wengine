@@ -2,6 +2,7 @@
 
 #include "common/common.h"
 #include "gfx/gfx-pipeline.h"
+#include "gfx/image.h"
 
 #include <memory>
 
@@ -43,6 +44,9 @@ public:
 
     DrawCommand& addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
     void clearUniformBuffers();
+    
+    DrawCommand& addImage(uint32_t binding, const std::shared_ptr<Image>& image);
+    void clearImages();
 
 protected:
     std::string name_;
@@ -53,6 +57,8 @@ protected:
     // CPU data of draw command uniforms
     std::map<uniform_attributes::UniformAttribute,
         std::shared_ptr<UniformBufferBase>> uniform_buffers_;
+    // binding => image
+    std::map<uint32_t, std::shared_ptr<Image>> images_;
 
 protected:
     friend class Gfx;

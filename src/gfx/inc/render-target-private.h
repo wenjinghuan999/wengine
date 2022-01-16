@@ -20,8 +20,8 @@ struct RenderTargetDrawCommandResources {
     vk::DescriptorSet descriptor_set;
     // Uniforms that has gpu data only
     std::vector<std::shared_ptr<UniformBufferBase>> uniforms;
-    // Images
-    std::vector<std::shared_ptr<Image>> images;
+    // <binding> => image 
+    std::map<uint32_t, std::shared_ptr<Image>> images;
 };
 
 struct RenderTargetPipelineResources {

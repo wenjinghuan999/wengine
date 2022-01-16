@@ -347,6 +347,7 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
             logical_device_->impl_->vk_device.allocateDescriptorSets(descriptor_pool_alloc_info);
     }
 
+    // Create draw command resources
     for (size_t i = 0; i < image_count; ++i) {
         std::vector<std::shared_ptr<UniformBufferBase>> gpu_uniforms;
         for (auto&&[attribute, cpu_uniform] : draw_command->uniform_buffers_) {
@@ -356,12 +357,22 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 commitReferenceBuffer(cpu_uniform, gpu_uniform);
             }
         }
+        std::map<uint32_t, std::shared_ptr<Image>> images;
+        for (auto&& description : pipeline->sampler_layout_.descriptions_) {
+            auto it = draw_command->images_.find(description.binding);
+            if (it == draw_command->images_.end()) {
+                logger().error("Cannot find image for binding {} in draw command {}", description.binding, draw_command->name());
+            } else {
+                images[description.binding] = it->second;       
+            }
+        }
         resources->draw_command_resources.back().emplace_back(
             RenderTargetDrawCommandResources{
                 .pipeline        = *render_target_pipeline_resources.pipeline,
                 .pipeline_layout = *pipeline_resources->pipeline_layout,
                 .descriptor_set  = *render_target_pipeline_resources.descriptor_sets[i],
-                .uniforms        = std::move(gpu_uniforms)
+                .uniforms        = std::move(gpu_uniforms),
+                .images          = std::move(images)
             }
         );
     }
@@ -418,9 +429,13 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
 
         for (size_t j = 0; j < pipeline->sampler_layout_.descriptions_.size(); ++j) {
             auto& description = pipeline->sampler_layout_.descriptions_[j];
-            auto& image = draw_command_resources.images[j];
-
             std::vector<vk::DescriptorImageInfo> image_info;
+            if (draw_command_resources.images.find(description.binding) == draw_command_resources.images.end()) {
+                image_infos.emplace_back(std::move(image_info));
+                continue;
+            }
+            
+            auto&& image = draw_command_resources.images[description.binding];
             if (auto* image_resources = image->impl_->resources.data()) {
                 image_info.emplace_back(
                     vk::DescriptorImageInfo{
@@ -435,6 +450,9 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
 
         for (size_t j = 0; j < pipeline->sampler_layout_.descriptions_.size(); ++j) {
             auto& description = pipeline->sampler_layout_.descriptions_[j];
+            if (image_infos[j].empty()) {
+                continue;
+            }
             auto write_description_set = vk::WriteDescriptorSet{
                 .dstSet          = *render_target_pipeline_resources.descriptor_sets[i],
                 .dstBinding      = description.binding,

@@ -16,6 +16,7 @@ enum VertexAttribute {
     none = 0,
     position = 1,
     color = 2,
+    tex_coord = 3,
 };
 
 }
@@ -54,7 +55,7 @@ struct VertexBufferDescription {
 };
 
 template <typename DescriptionType>
-void AddDescriptionImplTemplate(std::vector<DescriptionType>& descriptions, DescriptionType description) {
+void AddDescriptionByAttributeImplTemplate(std::vector<DescriptionType>& descriptions, DescriptionType description) {
     auto it = std::lower_bound(
         descriptions.begin(), descriptions.end(), description,
         [](const DescriptionType& element, const DescriptionType& value) {
@@ -68,19 +69,39 @@ void AddDescriptionImplTemplate(std::vector<DescriptionType>& descriptions, Desc
     }
 }
 
+template <typename DescriptionType>
+void AddDescriptionByBindingImplTemplate(std::vector<DescriptionType>& descriptions, DescriptionType description) {
+    auto it = std::lower_bound(
+        descriptions.begin(), descriptions.end(), description,
+        [](const DescriptionType& element, const DescriptionType& value) {
+            return element.binding < value.binding;
+        }
+    );
+    if (it == descriptions.end() || it->binding != description.binding) {
+        descriptions.emplace(it, description);
+    } else {
+        *it = description;
+    }
+}
+
 struct SimpleVertex {
     glm::vec3 position;
     glm::vec3 color;
+    glm::vec2 tex_coord;
 
     static std::vector<VertexBufferDescription> Descriptions() {
         return {
             {
-                vertex_attributes::position, gfx_formats::R32G32B32Sfloat,
+                vertex_attributes::position,  gfx_formats::R32G32B32Sfloat,
                 sizeof(SimpleVertex), static_cast<uint32_t>(offsetof(SimpleVertex, position))
             },
             {
-                vertex_attributes::color,    gfx_formats::R32G32B32Sfloat,
+                vertex_attributes::color,     gfx_formats::R32G32B32Sfloat,
                 sizeof(SimpleVertex), static_cast<uint32_t>(offsetof(SimpleVertex, color))
+            },
+            {
+                vertex_attributes::tex_coord, gfx_formats::R32G32Sfloat,
+                sizeof(SimpleVertex), static_cast<uint32_t>(offsetof(SimpleVertex, tex_coord))
             },
         };
     }

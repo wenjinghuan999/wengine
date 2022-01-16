@@ -1,4 +1,5 @@
-﻿#include "stb_image.h"
+﻿#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #include "gfx/gfx.h"
 #include "gfx/image.h"
@@ -47,6 +48,7 @@ bool Image::load(const std::string& filename, gfx_formats::Format image_format, 
 
     filename_ = filename;
     file_format_ = file_format;
+    image_format_ = image_format;
     width_ = width;
     height_ = height;
 
@@ -108,7 +110,6 @@ void Gfx::Impl::transitionImageLayout(const std::shared_ptr<Image>& image, vk::I
     } else if (resources->image_layout == vk::ImageLayout::eTransferDstOptimal && layout == vk::ImageLayout::eShaderReadOnlyOptimal) {
         barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
         barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-
         src_stage = vk::PipelineStageFlagBits::eTransfer;
         dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
     } else {
@@ -122,6 +123,33 @@ void Gfx::Impl::transitionImageLayout(const std::shared_ptr<Image>& image, vk::I
                 src_stage, dst_stage, {},
                 {}, {}, { barrier }
             );
+        }
+    );
+    
+    resources->image_layout = layout;
+    resources->queue_family_index = queue_family_index;
+}
+
+void Gfx::Impl::copyBufferToImage(
+    const QueueInfoRef& transfer_queue_info,
+    vk::Buffer src, vk::Image dst, uint32_t width, uint32_t height, vk::ImageLayout image_layout
+) {
+    auto buffer_image_copy = vk::BufferImageCopy{
+        .bufferOffset       = 0,
+        .bufferRowLength    = 0,
+        .bufferImageHeight  = 0,
+        .imageSubresource   = {
+            .aspectMask     = vk::ImageAspectFlagBits::eColor,
+            .mipLevel       = 0,
+            .baseArrayLayer = 0,
+            .layerCount     = 1,
+        },
+        .imageOffset        = { 0, 0, 0 },
+        .imageExtent        = { width, height, 1 }
+    };
+    singleTimeCommand(
+        [&src, &dst, &image_layout, &buffer_image_copy](vk::CommandBuffer& command_buffer) {
+            command_buffer.copyBufferToImage(src, dst, image_layout, { buffer_image_copy });
         }
     );
 }
@@ -147,6 +175,7 @@ void Gfx::Impl::createReferenceImageResources(
 
     if (!cpu_image->has_cpu_data()) {
         logger().warn("Skip creating image resources because image \"{}\" is not loaded.", cpu_image->filename());
+        return;
     }
     logger().info("Creating resources for image \"{}\".", cpu_image->filename());
 
@@ -157,7 +186,7 @@ void Gfx::Impl::createReferenceImageResources(
     auto memory_resources = std::make_unique<GfxMemoryResources>();
 
     auto graphics_queue_info = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0];
-    
+
     resources->width = static_cast<uint32_t>(cpu_image->width_);
     resources->height = static_cast<uint32_t>(cpu_image->height_);
     resources->image_layout = vk::ImageLayout::eUndefined;
@@ -167,7 +196,7 @@ void Gfx::Impl::createReferenceImageResources(
     auto image_create_info = vk::ImageCreateInfo{
         .flags         = {},
         .imageType     = vk::ImageType::e2D,
-        .format        = gfx_formats::ToVkFormat(gfx_formats::R8G8B8A8Srgb),
+        .format        = gfx_formats::ToVkFormat(cpu_image->image_format()),
         .extent        = {
             .width     = resources->width,
             .height    = resources->height,
@@ -185,6 +214,15 @@ void Gfx::Impl::createReferenceImageResources(
 
     resources->image = gfx->logical_device_->impl_->vk_device.createImage(image_create_info);
     
+    if (!createGfxMemory(
+        resources->image.getMemoryRequirements(),
+        vk::MemoryPropertyFlagBits::eDeviceLocal, *memory_resources
+    )) {
+        return;
+    }
+
+    resources->image.bindMemory(*memory_resources->memory, 0);
+
     auto image_view_create_info = vk::ImageViewCreateInfo{
         .image              = *resources->image,
         .viewType           = vk::ImageViewType::e2D,
@@ -198,9 +236,9 @@ void Gfx::Impl::createReferenceImageResources(
         }
     };
     resources->image_view = gfx->logical_device_->impl_->vk_device.createImageView(image_view_create_info);
-    
+
     auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
-    
+
     auto sampler_create_info = vk::SamplerCreateInfo{
         .magFilter = vk::Filter::eLinear,
         .minFilter = vk::Filter::eLinear,
@@ -209,7 +247,7 @@ void Gfx::Impl::createReferenceImageResources(
         .addressModeV = vk::SamplerAddressMode::eRepeat,
         .addressModeW = vk::SamplerAddressMode::eRepeat,
         .mipLodBias = 0,
-        .anisotropyEnable = true,
+        .anisotropyEnable = false,
         .maxAnisotropy = device_properties.limits.maxSamplerAnisotropy,
         .compareEnable = false,
         .compareOp = vk::CompareOp::eAlways,
@@ -219,15 +257,6 @@ void Gfx::Impl::createReferenceImageResources(
         .unnormalizedCoordinates = false
     };
     resources->sampler = gfx->logical_device_->impl_->vk_device.createSampler(sampler_create_info);
-
-    if (!createGfxMemory(
-        resources->image.getMemoryRequirements(),
-        vk::MemoryPropertyFlagBits::eDeviceLocal, *memory_resources
-    )) {
-        return;
-    }
-
-    resources->image.bindMemory(*memory_resources->memory, 0);
 
     gpu_image->impl_->memory_resources = gfx->logical_device_->impl_->memory_resources.store(std::move(memory_resources));
     gpu_image->impl_->resources = gfx->logical_device_->impl_->image_resources.store(std::move(resources));
@@ -291,7 +320,7 @@ void Gfx::commitReferenceImage(
     // Copy content.
     uint32_t graphics_queue_family_index = resources->queue_family_index;
     impl_->transitionImageLayout(gpu_image, vk::ImageLayout::eTransferDstOptimal, transfer_queue_info.queue_family_index);
-    impl_->copyBufferToImage(transfer_queue_info, *staging_resources.buffer, *resources->image, data_size);
+    impl_->copyBufferToImage(transfer_queue_info, *staging_resources.buffer, *resources->image, resources->width, resources->height, resources->image_layout);
     impl_->transitionImageLayout(gpu_image, vk::ImageLayout::eShaderReadOnlyOptimal, graphics_queue_family_index);
 
     gpu_image->has_gpu_data_ = true;

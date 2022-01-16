@@ -46,11 +46,8 @@ protected:
     image_file_formats::ImageFileFormat file_format_;
     int width_{ 0 };
     int height_{ 0 };
-    gfx_formats::Format image_format_;
+    gfx_formats::Format image_format_{ gfx_formats::none };
     std::vector<uint8_t> raw_data_;
-    bool keep_cpu_data_{ false };
-    bool has_cpu_data_{ false };
-    bool has_gpu_data_{ false };
 
 protected:
     friend class Gfx;

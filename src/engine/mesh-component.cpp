@@ -15,6 +15,10 @@ namespace wg {
 
 void MeshComponentRenderData::createGfxResources(Gfx& gfx) {
     for (auto&& draw_command : draw_commands) {
+        if (!draw_command->valid()) {
+            logger().error("Skip create resources for mesh component because draw command is invalid.");
+            continue;
+        }
         gfx.finishDrawCommand(draw_command);
     }
 }

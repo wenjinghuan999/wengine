@@ -69,7 +69,7 @@ std::vector<VertexBufferCombinedDescription> DrawCommand::getVertexBufferCombine
     std::vector<VertexBufferDescription> vertex_buffer_descriptions;
     for (auto&& vertex_buffer : vertex_buffers_) {
         for (auto&& description : vertex_buffer->descriptions()) {
-            AddDescriptionImplTemplate(vertex_buffer_descriptions, description);
+            AddDescriptionByAttributeImplTemplate(vertex_buffer_descriptions, description);
         }
     }
     std::vector<VertexBufferCombinedDescription> combined_descriptions;
@@ -123,7 +123,7 @@ bool DrawCommand::valid() const {
     std::vector<VertexBufferDescription> vertex_buffer_descriptions;
     for (auto&& vertex_buffer : vertex_buffers_) {
         for (auto&& description : vertex_buffer->descriptions()) {
-            AddDescriptionImplTemplate(vertex_buffer_descriptions, description);
+            AddDescriptionByAttributeImplTemplate(vertex_buffer_descriptions, description);
         }
     }
     for (auto&& description : pipeline_->vertex_factory().descriptions()) {

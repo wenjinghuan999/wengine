@@ -23,12 +23,12 @@ namespace wg {
 
 GfxVertexFactory::GfxVertexFactory(std::initializer_list<VertexFactoryDescription> initializer_list) {
     for (auto&& description : initializer_list) {
-        AddDescriptionImplTemplate(descriptions_, description);
+        AddDescriptionByAttributeImplTemplate(descriptions_, description);
     }
 }
 
 void GfxVertexFactory::addDescription(VertexFactoryDescription description) {
-    AddDescriptionImplTemplate(descriptions_, description);
+    AddDescriptionByAttributeImplTemplate(descriptions_, description);
 }
 
 void GfxVertexFactory::clearDescriptions() {
@@ -36,11 +36,20 @@ void GfxVertexFactory::clearDescriptions() {
 }
 
 GfxUniformLayout& GfxUniformLayout::addDescription(UniformDescription description) {
-    AddDescriptionImplTemplate(descriptions_, description);
+    AddDescriptionByAttributeImplTemplate(descriptions_, description);
     return *this;
 }
 
 void GfxUniformLayout::clearDescriptions() {
+    descriptions_.clear();
+}
+
+GfxSamplerLayout& GfxSamplerLayout::addDescription(SamplerDescription description) {
+    AddDescriptionByBindingImplTemplate(descriptions_, description);
+    return *this;
+}
+
+void GfxSamplerLayout::clearDescriptions() {
     descriptions_.clear();
 }
 
@@ -69,14 +78,12 @@ void Gfx::createPipelineResources(
         resources->shader_stages.emplace_back(shader->impl_->shader_stage_create_info);
     }
 
-    std::vector<vk::DescriptorSetLayout> set_layouts;
+    std::vector<vk::DescriptorSetLayoutBinding> layout_bindings;
 
     // Uniform layout
     if (!pipeline->uniform_layout_.descriptions_.empty()) {
-        std::vector<vk::DescriptorSetLayoutBinding> uniform_bindings;
-        uniform_bindings.reserve(pipeline->uniform_layout_.descriptions_.size());
         for (auto&& description : pipeline->uniform_layout_.descriptions_) {
-            uniform_bindings.emplace_back(
+            layout_bindings.emplace_back(
                 vk::DescriptorSetLayoutBinding{
                     .binding            = description.binding,
                     .descriptorType     = vk::DescriptorType::eUniformBuffer,
@@ -86,19 +93,12 @@ void Gfx::createPipelineResources(
                 }
             );
         }
-        auto set_layout_create_info = vk::DescriptorSetLayoutCreateInfo{}
-            .setBindings(uniform_bindings);
-        resources->uniform_layout =
-            logical_device_->impl_->vk_device.createDescriptorSetLayout(set_layout_create_info);
-        set_layouts.push_back(*resources->uniform_layout);
     }
     
     // Sampler layout
     if (!pipeline->sampler_layout_.descriptions_.empty()) {
-        std::vector<vk::DescriptorSetLayoutBinding> sampler_bindings;
-        sampler_bindings.reserve(pipeline->sampler_layout_.descriptions_.size());
         for (auto&& description : pipeline->sampler_layout_.descriptions_) {
-            sampler_bindings.emplace_back(
+            layout_bindings.emplace_back(
                 vk::DescriptorSetLayoutBinding{
                     .binding            = description.binding,
                     .descriptorType     = vk::DescriptorType::eCombinedImageSampler,
@@ -108,11 +108,15 @@ void Gfx::createPipelineResources(
                 }
             );
         }
+    }
+    
+    std::vector<vk::DescriptorSetLayout> set_layouts;
+    if (!layout_bindings.empty()){
         auto set_layout_create_info = vk::DescriptorSetLayoutCreateInfo{}
-            .setBindings(sampler_bindings);
-        resources->sampler_layout =
+            .setBindings(layout_bindings);
+        resources->set_layout =
             logical_device_->impl_->vk_device.createDescriptorSetLayout(set_layout_create_info);
-        set_layouts.push_back(*resources->sampler_layout);
+        set_layouts.push_back(*resources->set_layout);
     }
 
     auto push_constant_ranges = std::array<vk::PushConstantRange, 0>{};
@@ -300,18 +304,16 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     // Descriptor pool
     size_t image_count = resources->framebuffer_resources.size();
     std::vector<vk::DescriptorPoolSize> descriptor_pool_sizes;
-    if (*pipeline_resources->uniform_layout) {
-        uint32_t uniform_descriptors_count = static_cast<uint32_t>(image_count);
+    if (*pipeline_resources->set_layout) {
+        uint32_t descriptors_count = static_cast<uint32_t>(image_count);
+        
         descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eUniformBuffer,
-            .descriptorCount = uniform_descriptors_count
+            .descriptorCount = descriptors_count
         });
-    }
-    if (*pipeline_resources->sampler_layout) {
-        uint32_t sampler_descriptors_count = *pipeline_resources->sampler_layout ? static_cast<uint32_t>(image_count) : 0;
         descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eCombinedImageSampler,
-            .descriptorCount = sampler_descriptors_count
+            .descriptorCount = descriptors_count
         });
     }
     
@@ -329,11 +331,8 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
 
     std::vector<vk::DescriptorSetLayout> set_layouts;
     for (int i = 0; i < image_count; ++i) {
-        if (*pipeline_resources->uniform_layout) {
-            set_layouts.push_back(*pipeline_resources->uniform_layout);
-        }
-        if (*pipeline_resources->sampler_layout) {
-            set_layouts.push_back(*pipeline_resources->sampler_layout);
+        if (*pipeline_resources->set_layout) {
+            set_layouts.push_back(*pipeline_resources->set_layout);
         }
     }
 
@@ -366,11 +365,16 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 images[description.binding] = it->second;       
             }
         }
+        vk::DescriptorSet descriptor_set = nullptr;
+        if (!render_target_pipeline_resources.descriptor_sets.empty()){
+            descriptor_set = *render_target_pipeline_resources.descriptor_sets[i];
+        }
+        
         resources->draw_command_resources.back().emplace_back(
             RenderTargetDrawCommandResources{
                 .pipeline        = *render_target_pipeline_resources.pipeline,
                 .pipeline_layout = *pipeline_resources->pipeline_layout,
-                .descriptor_set  = *render_target_pipeline_resources.descriptor_sets[i],
+                .descriptor_set  = descriptor_set,
                 .uniforms        = std::move(gpu_uniforms),
                 .images          = std::move(images)
             }
@@ -410,6 +414,8 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                         .range  = (*gpu_uniform)->data_size()
                     }
                 );
+            } else {
+                logger().error("Uniform buffer resources not available.");
             }
             buffer_infos.emplace_back(std::move(buffer_info));
         }
@@ -445,6 +451,8 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                     }
                 );
                 image_infos.emplace_back(std::move(image_info));
+            } else {
+                logger().error("Image resources not available.");
             }
         }
 

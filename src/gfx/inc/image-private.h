@@ -5,8 +5,6 @@
 #include "common/owned-resources.h"
 #include "gfx-buffer-private.h"
 
-#include "stb_image.h"
-
 namespace wg {
 
 struct ImageResources {

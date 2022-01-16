@@ -38,11 +38,17 @@ int main(int, char**) {
         .addDescription({ .attribute = wg::uniform_attributes::camera, .binding = 0, .stages = wg::shader_stages::vert | wg::shader_stages::frag })
         .addDescription({ .attribute = wg::uniform_attributes::model, .binding = 1, .stages = wg::shader_stages::vert | wg::shader_stages::frag });
 
+    auto image = wg::Image::Load("resources/img/statue.png");
+    gfx->createImageResources(image);
+    
+    auto sampler_layout = wg::GfxSamplerLayout{}
+        .addDescription({ .binding = 2, .stages = wg::shader_stages::frag });
+    
     auto vertices = std::vector<wg::SimpleVertex>{
-        { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f } },
-        { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f } },
-        { .position = { 0.5f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f } },
-        { .position = { -0.5f, 0.5f, 0.f }, .color = { 1.f, 1.f, 0.f } },
+        { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 0.f } },
+        { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 1.f, 0.f } },
+        { .position = { 0.5f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 1.f, 1.f } },
+        { .position = { -0.5f, 0.5f, 0.f }, .color = { 1.f, 1.f, 0.f }, .tex_coord = { 0.f, 1.f } },
     };
     auto vertex_buffer = wg::VertexBuffer<wg::SimpleVertex>::CreateFromVertexArray(vertices);
     gfx->createVertexBufferResources(vertex_buffer);
@@ -54,6 +60,7 @@ int main(int, char**) {
     auto vertex_factory = wg::GfxVertexFactory{
         { .attribute = wg::vertex_attributes::position, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 0 },
         { .attribute = wg::vertex_attributes::color, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 1 },
+        { .attribute = wg::vertex_attributes::tex_coord, .format = wg::gfx_formats::R32G32Sfloat, .location = 2 },
     };
 
     auto pipeline = wg::GfxPipeline::Create();
@@ -61,30 +68,29 @@ int main(int, char**) {
     pipeline->addShader(frag_shader);
     pipeline->setVertexFactory(std::move(vertex_factory));
     pipeline->setUniformLayout(uniform_layout);
+    pipeline->setSamplerLayout(sampler_layout);
     gfx->createPipelineResources(pipeline);
 
     auto quad_draw_command = wg::SimpleDrawCommand::Create("quad", pipeline);
     quad_draw_command->addVertexBuffer(vertex_buffer);
     quad_draw_command->setIndexBuffer(index_buffer);
     quad_draw_command->addUniformBuffer(model_uniform_buffer);
+    quad_draw_command->addImage(2, image);
     assert(quad_draw_command->valid());
     gfx->finishDrawCommand(quad_draw_command);
 
     auto vertices2 = std::vector<wg::SimpleVertex>{
-        { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f } },
-        { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f } },
-        { .position = { 0.0f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f } },
+        { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 0.f } },
+        { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 1.f, 0.f } },
+        { .position = { 0.0f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 0.5f, 1.f } },
     };
     auto vertex_buffer2 = wg::VertexBuffer<wg::SimpleVertex>::CreateFromVertexArray(vertices2);
     gfx->createVertexBufferResources(vertex_buffer2);
-    auto triangle_vertex_factory = wg::GfxVertexFactory{
-        { .attribute = wg::vertex_attributes::position, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 0 },
-        { .attribute = wg::vertex_attributes::color, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 1 },
-    };
 
     auto triangle_draw_command = wg::SimpleDrawCommand::Create("triangle", pipeline);
     triangle_draw_command->addVertexBuffer(vertex_buffer2);
     triangle_draw_command->addUniformBuffer(model_uniform_buffer);
+    triangle_draw_command->addImage(2, image);
     assert(triangle_draw_command->valid());
     gfx->finishDrawCommand(triangle_draw_command);
 

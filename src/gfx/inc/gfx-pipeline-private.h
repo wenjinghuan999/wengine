@@ -7,8 +7,7 @@
 namespace wg {
 
 struct GfxPipelineResources {
-    vk::raii::DescriptorSetLayout uniform_layout{ nullptr };
-    vk::raii::DescriptorSetLayout sampler_layout{ nullptr };
+    vk::raii::DescriptorSetLayout set_layout{ nullptr };
     vk::raii::PipelineLayout pipeline_layout{ nullptr };
     std::vector<vk::Viewport> viewports;
     std::vector<vk::Viewport> scissors; // use Viewport struct for float point scissors

@@ -56,7 +56,10 @@ struct Gfx::Impl {
     );
 
     void transitionImageLayout(const std::shared_ptr<Image>& image, vk::ImageLayout layout, uint32_t queue_family_index);
-    void copyBufferToImage(const QueueInfoRef& transfer_queue_info, vk::Buffer src, vk::Image dst, vk::DeviceSize size);
+    void copyBufferToImage(
+        const QueueInfoRef& transfer_queue_info,
+        vk::Buffer src, vk::Image dst, uint32_t width, uint32_t height, vk::ImageLayout image_layout
+    );
     void createImageResources(const std::shared_ptr<Image>& image);
     void createReferenceImageResources(
         const std::shared_ptr<Image>& cpu_image,

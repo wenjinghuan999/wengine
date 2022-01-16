@@ -269,6 +269,7 @@ enum Format {
 };
 
 [[nodiscard]] std::string ToString(Format format);
+[[nodiscard]] int GetChannels(Format format);
 
 }
 

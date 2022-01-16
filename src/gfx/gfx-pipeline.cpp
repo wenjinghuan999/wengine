@@ -78,10 +78,11 @@ void Gfx::createPipelineResources(
         for (auto&& description : pipeline->uniform_layout_.descriptions_) {
             uniform_bindings.emplace_back(
                 vk::DescriptorSetLayoutBinding{
-                    .binding         = description.binding,
-                    .descriptorType  = vk::DescriptorType::eUniformBuffer,
-                    .descriptorCount = 1,
-                    .stageFlags      = GetShaderStageFlags(description.stages)
+                    .binding            = description.binding,
+                    .descriptorType     = vk::DescriptorType::eUniformBuffer,
+                    .descriptorCount    = 1,
+                    .stageFlags         = GetShaderStageFlags(description.stages),
+                    .pImmutableSamplers = nullptr
                 }
             );
         }
@@ -90,6 +91,28 @@ void Gfx::createPipelineResources(
         resources->uniform_layout =
             logical_device_->impl_->vk_device.createDescriptorSetLayout(set_layout_create_info);
         set_layouts.push_back(*resources->uniform_layout);
+    }
+    
+    // Sampler layout
+    if (!pipeline->sampler_layout_.descriptions_.empty()) {
+        std::vector<vk::DescriptorSetLayoutBinding> sampler_bindings;
+        sampler_bindings.reserve(pipeline->sampler_layout_.descriptions_.size());
+        for (auto&& description : pipeline->sampler_layout_.descriptions_) {
+            sampler_bindings.emplace_back(
+                vk::DescriptorSetLayoutBinding{
+                    .binding            = description.binding,
+                    .descriptorType     = vk::DescriptorType::eCombinedImageSampler,
+                    .descriptorCount    = 1,
+                    .stageFlags         = GetShaderStageFlags(description.stages),
+                    .pImmutableSamplers = nullptr
+                }
+            );
+        }
+        auto set_layout_create_info = vk::DescriptorSetLayoutCreateInfo{}
+            .setBindings(sampler_bindings);
+        resources->sampler_layout =
+            logical_device_->impl_->vk_device.createDescriptorSetLayout(set_layout_create_info);
+        set_layouts.push_back(*resources->sampler_layout);
     }
 
     auto push_constant_ranges = std::array<vk::PushConstantRange, 0>{};
@@ -276,16 +299,25 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
 
     // Descriptor pool
     size_t image_count = resources->framebuffer_resources.size();
-    uint32_t uniform_descriptors_count = static_cast<uint32_t>(image_count);
-    auto descriptor_pool_sizes = std::array{
-        vk::DescriptorPoolSize{
+    std::vector<vk::DescriptorPoolSize> descriptor_pool_sizes;
+    if (*pipeline_resources->uniform_layout) {
+        uint32_t uniform_descriptors_count = static_cast<uint32_t>(image_count);
+        descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eUniformBuffer,
             .descriptorCount = uniform_descriptors_count
-        }
-    };
+        });
+    }
+    if (*pipeline_resources->sampler_layout) {
+        uint32_t sampler_descriptors_count = *pipeline_resources->sampler_layout ? static_cast<uint32_t>(image_count) : 0;
+        descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
+            .type = vk::DescriptorType::eCombinedImageSampler,
+            .descriptorCount = sampler_descriptors_count
+        });
+    }
+    
     auto descriptor_pool_create_info = vk::DescriptorPoolCreateInfo{
         .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-        .maxSets = uniform_descriptors_count
+        .maxSets = static_cast<uint32_t>(image_count)
     }
         .setPoolSizes(descriptor_pool_sizes);
 
@@ -295,17 +327,25 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     // Descriptor
     resources->draw_command_resources.emplace_back();
 
-    std::vector<vk::DescriptorSetLayout> set_layouts(
-        image_count, *pipeline_resources->uniform_layout
-    );
-
-    auto descriptor_pool_alloc_info = vk::DescriptorSetAllocateInfo{
-        .descriptorPool = *render_target_pipeline_resources.descriptor_pool
+    std::vector<vk::DescriptorSetLayout> set_layouts;
+    for (int i = 0; i < image_count; ++i) {
+        if (*pipeline_resources->uniform_layout) {
+            set_layouts.push_back(*pipeline_resources->uniform_layout);
+        }
+        if (*pipeline_resources->sampler_layout) {
+            set_layouts.push_back(*pipeline_resources->sampler_layout);
+        }
     }
-        .setSetLayouts(set_layouts);
 
-    render_target_pipeline_resources.descriptor_sets =
-        logical_device_->impl_->vk_device.allocateDescriptorSets(descriptor_pool_alloc_info);
+    if (!set_layouts.empty()) {
+        auto descriptor_pool_alloc_info = vk::DescriptorSetAllocateInfo{
+            .descriptorPool = *render_target_pipeline_resources.descriptor_pool
+        }
+            .setSetLayouts(set_layouts);
+
+        render_target_pipeline_resources.descriptor_sets =
+            logical_device_->impl_->vk_device.allocateDescriptorSets(descriptor_pool_alloc_info);
+    }
 
     for (size_t i = 0; i < image_count; ++i) {
         std::vector<std::shared_ptr<UniformBufferBase>> gpu_uniforms;
@@ -329,6 +369,10 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     for (size_t i = 0; i < image_count; ++i) {
         auto& framebuffer_resources = resources->framebuffer_resources[i];
         auto& draw_command_resources = resources->draw_command_resources.back()[i];
+        std::vector<vk::WriteDescriptorSet> write_descriptor_sets;
+        std::vector<std::vector<vk::DescriptorBufferInfo>> buffer_infos;
+        std::vector<std::vector<vk::DescriptorImageInfo>> image_infos;
+
         for (auto&& description : pipeline->uniform_layout_.descriptions_) {
             // Find GPU uniform data
             const auto* gpu_uniform = [description, &framebuffer_resources, &draw_command_resources]()
@@ -356,6 +400,11 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                     }
                 );
             }
+            buffer_infos.emplace_back(std::move(buffer_info));
+        }
+        
+        for (size_t j = 0; j < pipeline->uniform_layout_.descriptions_.size(); ++j) {
+            auto& description = pipeline->uniform_layout_.descriptions_[j];
             auto write_description_set = vk::WriteDescriptorSet{
                 .dstSet          = *render_target_pipeline_resources.descriptor_sets[i],
                 .dstBinding      = description.binding,
@@ -363,10 +412,41 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 .descriptorCount = 1,
                 .descriptorType  = vk::DescriptorType::eUniformBuffer
             }
-                .setBufferInfo(buffer_info);
-
-            logical_device_->impl_->vk_device.updateDescriptorSets({ write_description_set }, {});
+                .setBufferInfo(buffer_infos[j]);
+            write_descriptor_sets.emplace_back(std::move(write_description_set));
         }
+
+        for (size_t j = 0; j < pipeline->sampler_layout_.descriptions_.size(); ++j) {
+            auto& description = pipeline->sampler_layout_.descriptions_[j];
+            auto& image = draw_command_resources.images[j];
+
+            std::vector<vk::DescriptorImageInfo> image_info;
+            if (auto* image_resources = image->impl_->resources.data()) {
+                image_info.emplace_back(
+                    vk::DescriptorImageInfo{
+                        .sampler     = *image_resources->sampler,
+                        .imageView   = *image_resources->image_view,
+                        .imageLayout = image_resources->image_layout
+                    }
+                );
+                image_infos.emplace_back(std::move(image_info));
+            }
+        }
+
+        for (size_t j = 0; j < pipeline->sampler_layout_.descriptions_.size(); ++j) {
+            auto& description = pipeline->sampler_layout_.descriptions_[j];
+            auto write_description_set = vk::WriteDescriptorSet{
+                .dstSet          = *render_target_pipeline_resources.descriptor_sets[i],
+                .dstBinding      = description.binding,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType  = vk::DescriptorType::eCombinedImageSampler,
+            }
+                .setImageInfo(image_infos[j]);
+            write_descriptor_sets.emplace_back(std::move(write_description_set));
+        }
+        
+        logical_device_->impl_->vk_device.updateDescriptorSets(write_descriptor_sets, {});
     }
 }
 

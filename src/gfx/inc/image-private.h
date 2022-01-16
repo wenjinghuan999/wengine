@@ -11,6 +11,8 @@ namespace wg {
 
 struct ImageResources {
     vk::raii::Image image{ nullptr };
+    vk::raii::ImageView image_view{ nullptr };
+    vk::raii::Sampler sampler{ nullptr };
     
     uint32_t width{ 0 };
     uint32_t height{ 0 };

@@ -18,22 +18,24 @@ namespace {
 namespace wg {
 
 std::shared_ptr<Image> Image::Load(
-    const std::string& filename, bool keep_cpu_data, image_file_formats::ImageFileFormat file_format
+    const std::string& filename, gfx_formats::Format image_format,
+    bool keep_cpu_data, image_file_formats::ImageFileFormat file_format
 ) {
-    return std::shared_ptr<Image>(new Image(filename, keep_cpu_data, file_format));
+    return std::shared_ptr<Image>(new Image(filename, image_format, keep_cpu_data, file_format));
 }
 
-Image::Image(const std::string& filename, bool keep_cpu_data, image_file_formats::ImageFileFormat file_format)
+Image::Image(const std::string& filename, gfx_formats::Format image_format, bool keep_cpu_data, image_file_formats::ImageFileFormat file_format)
     : GfxMemoryBase(keep_cpu_data), filename_(filename), impl_(std::make_unique<Image::Impl>()) {
-    load(filename, file_format);
+    load(filename, image_format, file_format);
 }
 
-bool Image::load(const std::string& filename, image_file_formats::ImageFileFormat file_format) {
+bool Image::load(const std::string& filename, gfx_formats::Format image_format, image_file_formats::ImageFileFormat file_format) {
     logger().info("Loading image: {}", filename);
 
+    int desired_channels = gfx_formats::GetChannels(image_format);
     int width = 0, height = 0, channels = 0;
-    stbi_uc* pixels = stbi_load(filename.c_str(), &width, &height, &channels, STBI_rgb_alpha);
-    size_t data_size = static_cast<size_t>(width * height) * static_cast<size_t>(STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(filename.c_str(), &width, &height, &channels, desired_channels);
+    size_t data_size = static_cast<size_t>(width * height * desired_channels);
 
     if (!pixels) {
         logger().error("Unable to load image {}", filename);
@@ -182,6 +184,41 @@ void Gfx::Impl::createReferenceImageResources(
         .setQueueFamilyIndices(queue_family_indices);
 
     resources->image = gfx->logical_device_->impl_->vk_device.createImage(image_create_info);
+    
+    auto image_view_create_info = vk::ImageViewCreateInfo{
+        .image              = *resources->image,
+        .viewType           = vk::ImageViewType::e2D,
+        .format             = gfx_formats::ToVkFormat(cpu_image->image_format()),
+        .subresourceRange   = {
+            .aspectMask     = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 1
+        }
+    };
+    resources->image_view = gfx->logical_device_->impl_->vk_device.createImageView(image_view_create_info);
+    
+    auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
+    
+    auto sampler_create_info = vk::SamplerCreateInfo{
+        .magFilter = vk::Filter::eLinear,
+        .minFilter = vk::Filter::eLinear,
+        .mipmapMode = vk::SamplerMipmapMode::eLinear,
+        .addressModeU = vk::SamplerAddressMode::eRepeat,
+        .addressModeV = vk::SamplerAddressMode::eRepeat,
+        .addressModeW = vk::SamplerAddressMode::eRepeat,
+        .mipLodBias = 0,
+        .anisotropyEnable = true,
+        .maxAnisotropy = device_properties.limits.maxSamplerAnisotropy,
+        .compareEnable = false,
+        .compareOp = vk::CompareOp::eAlways,
+        .minLod = 0,
+        .maxLod = 0,
+        .borderColor = vk::BorderColor::eIntOpaqueBlack,
+        .unnormalizedCoordinates = false
+    };
+    resources->sampler = gfx->logical_device_->impl_->vk_device.createSampler(sampler_create_info);
 
     if (!createGfxMemory(
         resources->image.getMemoryRequirements(),
@@ -197,7 +234,7 @@ void Gfx::Impl::createReferenceImageResources(
 }
 
 void Gfx::commitImage(const std::shared_ptr<Image>& image) {
-
+    commitReferenceImage(image, image);
 }
 
 void Gfx::commitReferenceImage(

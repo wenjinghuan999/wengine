@@ -122,10 +122,12 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
             const auto& draw_command = draw_commands_[j];
             const auto& draw_command_resources = resources->draw_command_resources[j][i];
 
-            command_buffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                draw_command_resources.pipeline_layout, 0, { draw_command_resources.descriptor_set }, {}
-            );
+            if (draw_command_resources.descriptor_set) {
+                command_buffer.bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics,
+                    draw_command_resources.pipeline_layout, 0, { draw_command_resources.descriptor_set }, {}
+                );
+            }
             command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, draw_command_resources.pipeline);
             draw_command->getImpl()->draw(command_buffer);
         }

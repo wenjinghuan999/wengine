@@ -14,12 +14,14 @@ namespace {
 namespace wg {
 
 void SceneRendererRenderData::createGfxResources(Gfx& gfx) {
+    auto render_target = weak_render_target.lock();
     gfx.createRenderTargetResources(render_target);
     gfx.submitDrawCommands(render_target);
 }
 
 std::shared_ptr<IRenderData> SceneRenderer::createRenderData() {
-    render_target_->setRenderer(shared_from_this());
+    auto render_target = weak_render_target_.lock();
+    render_target->setRenderer(shared_from_this());
     for (auto&& component : components_) {
         if (component->render_data()) {
             auto& draw_commands = component->render_data()->draw_commands;
@@ -28,7 +30,7 @@ std::shared_ptr<IRenderData> SceneRenderer::createRenderData() {
     }
     
     render_data_ = std::shared_ptr<SceneRendererRenderData>(new SceneRendererRenderData());
-    render_data_->render_target = render_target_;
+    render_data_->weak_render_target = weak_render_target_;
     render_data_->camera_uniform_buffer = UniformBuffer<CameraUniform>::Create();
     render_data_->camera_uniform_buffer->setUniformObject(createUniformObject());
     addUniformBuffer(render_data_->camera_uniform_buffer);

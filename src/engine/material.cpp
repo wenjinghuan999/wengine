@@ -41,6 +41,7 @@ std::shared_ptr<IRenderData> Material::createRenderData() {
     render_data_->pipeline = GfxPipeline::Create();
     render_data_->pipeline->setVertexFactory(createVertexFactory());
     render_data_->pipeline->setUniformLayout(createUniformLayout());
+    render_data_->pipeline->setSamplerLayout(createSamplerLayout());
     render_data_->pipeline->addShader(vert_shader);
     render_data_->pipeline->addShader(frag_shader);
 
@@ -51,13 +52,19 @@ GfxVertexFactory Material::createVertexFactory() const {
     return {
         { .attribute = wg::vertex_attributes::position, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 0 },
         { .attribute = wg::vertex_attributes::color, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 1 },
+        { .attribute = wg::vertex_attributes::tex_coord, .format = wg::gfx_formats::R32G32Sfloat, .location = 2 },
     };
 }
 
 GfxUniformLayout Material::createUniformLayout() const {
-    return wg::GfxUniformLayout{}
+    return GfxUniformLayout{}
         .addDescription({ .attribute = wg::uniform_attributes::camera, .binding = 0, .stages = wg::shader_stages::vert | wg::shader_stages::frag })
         .addDescription({ .attribute = wg::uniform_attributes::model, .binding = 1, .stages = wg::shader_stages::vert | wg::shader_stages::frag });
+}
+
+GfxSamplerLayout Material::createSamplerLayout() const {
+    return GfxSamplerLayout{}
+        .addDescription({ .binding = 2, .stages = wg::shader_stages::frag });
 }
 
 } // namespace wg

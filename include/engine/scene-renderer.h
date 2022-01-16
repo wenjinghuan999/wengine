@@ -15,7 +15,7 @@ public:
     void createGfxResources(class Gfx& gfx) override;
 
 public:
-    std::shared_ptr<RenderTarget> render_target;
+    std::weak_ptr<RenderTarget> weak_render_target;
     std::shared_ptr<UniformBuffer<wg::CameraUniform>> camera_uniform_buffer;
 
 protected:
@@ -36,8 +36,7 @@ public:
         return std::shared_ptr<SceneRenderer>(new SceneRenderer());
     }
     
-    void setRenderTarget(const std::shared_ptr<RenderTarget>& render_target) { render_target_ = render_target; }
-    const std::shared_ptr<RenderTarget>& render_target() const { return render_target_; }
+    void setRenderTarget(const std::shared_ptr<RenderTarget>& render_target) { weak_render_target_ = render_target; }
 
     void addComponent(const std::shared_ptr<MeshComponent>& component) {
         components_.push_back(component);
@@ -62,7 +61,7 @@ public:
 
 protected:
     Camera camera_;
-    std::shared_ptr<RenderTarget> render_target_;
+    std::weak_ptr<RenderTarget> weak_render_target_;
     std::vector<std::shared_ptr<MeshComponent>> components_;
     std::shared_ptr<SceneRendererRenderData> render_data_;
 

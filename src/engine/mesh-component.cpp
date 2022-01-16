@@ -35,6 +35,13 @@ std::shared_ptr<IRenderData> MeshComponent::createRenderData() {
             draw_command->setIndexBuffer(mesh_->render_data()->index_buffer);
         }
         draw_command->addUniformBuffer(render_data_->model_uniform_buffer);
+        for (size_t i = 0; i < material_render_data_->pipeline->sampler_layout().descriptions().size(); ++i) {
+            if (i < material_->textures().size()){
+                auto&& description = material_render_data_->pipeline->sampler_layout().descriptions()[i];
+                auto&& texture = material_->textures()[i];
+                draw_command->addImage(description.binding, texture->render_data()->image);
+            }
+        }
     }
     return render_data_;
 }

@@ -45,7 +45,7 @@ Window::~Window() {
     logger().info("Window destroyed: \"{}\"({}x{}).", title_, width, height);
 }
 
-Extent2D Window::extent() const {
+Size2D Window::extent() const {
     GLFWwindow* glfw_window = impl_->glfw_window;
 
     int width = 0, height = 0;

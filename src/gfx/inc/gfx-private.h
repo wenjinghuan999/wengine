@@ -14,6 +14,7 @@
 #include "gfx/inc/gfx-pipeline-private.h"
 #include "gfx/inc/render-target-private.h"
 #include "gfx/inc/gfx-buffer-private.h"
+#include "gfx/inc/image-private.h"
 
 namespace wg {
 
@@ -30,10 +31,17 @@ struct Gfx::Impl {
     OwnedResources<WindowSurfaceResources> window_surfaces_;
     Gfx* gfx;
 
-    bool createBuffer(
+    void singleTimeCommand(std::function<void(vk::CommandBuffer&)> func);
+
+    bool createGfxMemory(
+        vk::MemoryRequirements memory_requirements, vk::MemoryPropertyFlags memory_properties,
+        GfxMemoryResources& out_resources
+    );
+
+    void createBuffer(
         vk::DeviceSize data_size,
-        vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties, vk::SharingMode sharing_mode,
-        BufferResources& out_resources
+        vk::BufferUsageFlags usage, vk::SharingMode sharing_mode,
+        GfxBufferResources& out_resources
     );
     void copyBuffer(const QueueInfoRef& transfer_queue_info, vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
     vk::SharingMode getTransferQueueInfo(QueueInfoRef& out_transfer_queue_info) const;
@@ -45,6 +53,14 @@ struct Gfx::Impl {
         const std::shared_ptr<GfxBufferBase>& cpu_buffer,
         const std::shared_ptr<GfxBufferBase>& gpu_buffer,
         vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties
+    );
+
+    void transitionImageLayout(const std::shared_ptr<Image>& image, vk::ImageLayout layout, uint32_t queue_family_index);
+    void copyBufferToImage(const QueueInfoRef& transfer_queue_info, vk::Buffer src, vk::Image dst, vk::DeviceSize size);
+    void createImageResources(const std::shared_ptr<Image>& image);
+    void createReferenceImageResources(
+        const std::shared_ptr<Image>& cpu_image,
+        const std::shared_ptr<Image>& gpu_image
     );
 };
 
@@ -58,7 +74,7 @@ struct PhysicalDevice::Impl {
     std::vector<std::bitset<gfx_queues::NUM_QUEUES>> queue_supports{};
 
     explicit Impl(vk::raii::PhysicalDevice vk_physical_device);
-   
+
     int findMemoryTypeIndex(vk::MemoryRequirements requirements, vk::MemoryPropertyFlags property_flags);
     bool allocateQueues(
         std::array<int, gfx_queues::NUM_QUEUES> required_queues,
@@ -91,7 +107,9 @@ struct LogicalDevice::Impl {
     OwnedResources<ShaderResources> shader_resources;
     OwnedResources<GfxPipelineResources> gfx_pipeline_resources;
     OwnedResources<RenderTargetResources> render_target_resources;
-    OwnedResources<BufferResources> buffer_resources;
+    OwnedResources<GfxMemoryResources> memory_resources;
+    OwnedResources<GfxBufferResources> buffer_resources;
+    OwnedResources<ImageResources> image_resources;
 
     explicit Impl(vk::raii::Device vk_device)
         : vk_device(std::move(vk_device)) {}

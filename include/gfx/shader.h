@@ -16,7 +16,7 @@ enum ShaderStage {
 
 typedef uint32_t ShaderStages;
 
-}
+} // namespace shader_stages
 
 class Shader : public std::enable_shared_from_this<Shader> {
 public:

@@ -62,6 +62,8 @@ endif ()
 
 add_subdirectory(app)
 add_subdirectory(src)
+add_subdirectory(third-party)
+add_subdirectory(resources)
 
 include(CTest)
 enable_testing()

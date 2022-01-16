@@ -27,7 +27,7 @@ public:
     ~Window();
 
     [[nodiscard]] const std::string& title() const { return title_; }
-    [[nodiscard]] Extent2D extent() const;
+    [[nodiscard]] Size2D extent() const;
 
 protected:
     std::string title_;

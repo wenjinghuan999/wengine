@@ -29,6 +29,6 @@ foreach (File ${WG_DYNAMIC_SHADER_FILES})
     list(APPEND WG_DYNAMIC_SHADER_OUTPUTS ${WG_DYNAMIC_SHADER_DIR}/${Filename})
 endforeach ()
 
-add_custom_target(wengine-shader-dynamic DEPENDS
+add_custom_target(wengine-shader-dynamic
     DEPENDS ${WG_DYNAMIC_SHADER_FILES} ${WG_DYNAMIC_SHADER_OUTPUTS}
     SOURCES ${WG_DYNAMIC_SHADER_FILES})

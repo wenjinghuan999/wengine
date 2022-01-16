@@ -41,9 +41,9 @@ Surface::~Surface() {
     }
 }
 
-Extent2D Surface::extent() const {
+Size2D Surface::extent() const {
     if (auto* resources = impl_->resources.data()) {
-        return Extent2D(resources->vk_extent.width, resources->vk_extent.height);
+        return Size2D(resources->vk_extent.width, resources->vk_extent.height);
     }
     return {};
 }

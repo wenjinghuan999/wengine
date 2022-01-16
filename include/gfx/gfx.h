@@ -9,6 +9,7 @@
 #include "gfx/gfx-pipeline.h"
 #include "gfx/renderer.h"
 #include "gfx/gfx-buffer.h"
+#include "gfx/image.h"
 
 #include <map>
 #include <memory>
@@ -93,6 +94,14 @@ public:
     void commitReferenceBuffer(
         const std::shared_ptr<GfxBufferBase>& cpu_buffer,
         const std::shared_ptr<GfxBufferBase>& gpu_buffer, bool hint_use_stage_buffer = false
+    );
+    
+    // Image
+    void createImageResources(const std::shared_ptr<Image>& image);
+    void commitImage(const std::shared_ptr<Image>& image);
+    void commitReferenceImage(
+        const std::shared_ptr<Image>& cpu_image,
+        const std::shared_ptr<Image>& gpu_image
     );
 
 protected:

@@ -15,9 +15,17 @@ namespace {
 
 namespace wg {
 
+GfxMemoryBase::GfxMemoryBase(bool keep_cpu_data)
+    : keep_cpu_data_(keep_cpu_data) {}
+GfxMemoryBase::~GfxMemoryBase() = default;
+
 GfxBufferBase::GfxBufferBase(bool keep_cpu_data)
-    : keep_cpu_data_(keep_cpu_data), impl_(std::make_unique<GfxBufferBase::Impl>()) {}
+    : GfxMemoryBase(keep_cpu_data), impl_(std::make_unique<Impl>()) {}
 GfxBufferBase::~GfxBufferBase() = default;
+
+GfxMemoryBase::Impl* GfxBufferBase::getImpl() {
+    return impl_.get();
+}
 
 VertexBufferBase::VertexBufferBase(bool keep_cpu_data) : GfxBufferBase(keep_cpu_data) {}
 VertexBufferBase::~VertexBufferBase() = default;
@@ -44,25 +52,45 @@ std::shared_ptr<UniformBufferBase> UniformBufferBase::Create(uniform_attributes:
     }
 }
 
-bool Gfx::Impl::createBuffer(
-    vk::DeviceSize data_size,
-    vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties, vk::SharingMode sharing_mode,
-    BufferResources& out_resources
-) {
-    auto buffer_create_info = vk::BufferCreateInfo{
-        .size = data_size,
-        .usage = usage,
-        .sharingMode = sharing_mode
+void Gfx::Impl::singleTimeCommand(std::function<void(vk::CommandBuffer&)> func) {
+    auto& graphics_queue_ref = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0];
+    auto command_buffer_allocate_info = vk::CommandBufferAllocateInfo{
+        .commandPool = graphics_queue_ref.vk_command_pool,
+        .level = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1
     };
 
-    out_resources.buffer = gfx->logical_device_->impl_->vk_device.createBuffer(buffer_create_info);
-    auto memory_requirements = out_resources.buffer.getMemoryRequirements();
+    // Do not use vk::raii::CommandBuffer because there might be compiling errors on MSVC
+    // Since we are allocating from the pool, we can destruct command buffers together.
+    auto command_buffers =
+        (*gfx->logical_device_->impl_->vk_device).allocateCommandBuffers(command_buffer_allocate_info);
+    auto& command_buffer = command_buffers[0];
+    command_buffer.begin(
+        vk::CommandBufferBeginInfo{
+            .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
+        }
+    );
 
+    func(command_buffer);
+
+    command_buffer.end();
+
+    auto submit_info = vk::SubmitInfo{}
+        .setCommandBuffers(command_buffers);
+    graphics_queue_ref.vk_queue.submit({ submit_info });
+    graphics_queue_ref.vk_queue.waitIdle();
+
+    (*gfx->logical_device_->impl_->vk_device).freeCommandBuffers(graphics_queue_ref.vk_command_pool, command_buffers);
+}
+
+bool Gfx::Impl::createGfxMemory(
+    vk::MemoryRequirements memory_requirements, vk::MemoryPropertyFlags memory_properties,
+    GfxMemoryResources& out_resources
+) {
     int memory_type_index = gfx->physical_device().impl_->findMemoryTypeIndex(memory_requirements, memory_properties);
 
     if (memory_type_index < 0) {
-        logger().error("Cannot create buffer resources because device cannot satisfy memory requirements.");
-        out_resources.buffer = nullptr;
+        logger().error("Cannot create memory resources because device cannot satisfy memory requirements.");
         return false;
     }
 
@@ -72,40 +100,30 @@ bool Gfx::Impl::createBuffer(
     };
 
     out_resources.memory = gfx->logical_device_->impl_->vk_device.allocateMemory(memory_allocate_info);
-    out_resources.buffer.bindMemory(*out_resources.memory, 0);
-
     out_resources.memory_properties = memory_properties;
-    out_resources.sharing_mode = sharing_mode;
     return true;
 }
 
-void Gfx::Impl::copyBuffer(const QueueInfoRef& transfer_queue_info, vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
-    auto command_buffer_allocate_info = vk::CommandBufferAllocateInfo{
-        .commandPool = transfer_queue_info.vk_command_pool,
-        .level = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = 1U
+void Gfx::Impl::createBuffer(
+    vk::DeviceSize data_size,
+    vk::BufferUsageFlags usage, vk::SharingMode sharing_mode,
+    GfxBufferResources& out_resources
+) {
+    auto buffer_create_info = vk::BufferCreateInfo{
+        .size = data_size,
+        .usage = usage,
+        .sharingMode = sharing_mode
     };
+    out_resources.buffer = gfx->logical_device_->impl_->vk_device.createBuffer(buffer_create_info);
+    out_resources.sharing_mode = sharing_mode;
+}
 
-    // Do not use vk::raii::CommandBuffer because there might be compiling errors on MSVC
-    // Since we are allocating from the pool, we can destruct command buffers together.
-    auto command_buffers =
-        (*gfx->logical_device_->impl_->vk_device).allocateCommandBuffers(command_buffer_allocate_info);
-    auto& command_buffer = command_buffers[0];
-
-    command_buffer.begin(
-        vk::CommandBufferBeginInfo{
-            .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
+void Gfx::Impl::copyBuffer(const QueueInfoRef& transfer_queue_info, vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
+    singleTimeCommand(
+        [&src, &dst, size](vk::CommandBuffer& command_buffer) {
+            command_buffer.copyBuffer(src, dst, { { .srcOffset = 0, .dstOffset = 0, .size = size } });
         }
     );
-    command_buffer.copyBuffer(src, dst, { { .srcOffset = 0, .dstOffset = 0, .size = size } });
-    command_buffer.end();
-
-    auto submit_info = vk::SubmitInfo{}
-        .setCommandBuffers(command_buffers);
-    transfer_queue_info.vk_queue.submit({ submit_info });
-    transfer_queue_info.vk_queue.waitIdle();
-
-    (*gfx->logical_device_->impl_->vk_device).freeCommandBuffers(transfer_queue_info.vk_command_pool, command_buffers);
 }
 
 vk::SharingMode Gfx::Impl::getTransferQueueInfo(QueueInfoRef& out_transfer_queue_info) const {
@@ -136,7 +154,9 @@ void Gfx::Impl::createReferenceBufferResources(
     const std::shared_ptr<GfxBufferBase>& gpu_buffer,
     vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties
 ) {
+    gpu_buffer->impl_->memory_resources.reset();
     gpu_buffer->impl_->resources.reset();
+    gpu_buffer->has_gpu_data_ = false;
 
     if (!gfx->logical_device_) {
         logger().error("Cannot create buffer resources because logical device is not available.");
@@ -144,19 +164,25 @@ void Gfx::Impl::createReferenceBufferResources(
     }
     gfx->waitDeviceIdle();
 
-    auto resources = std::make_unique<BufferResources>();
-    resources->data_size = cpu_buffer->data_size();
-
+    auto resources = std::make_unique<GfxBufferResources>();
+    
     QueueInfoRef transfer_queue_info;
-    vk::SharingMode sharing_mode = getTransferQueueInfo(transfer_queue_info);
+    resources->cpu_data_size = cpu_buffer->data_size();
+    resources->sharing_mode = getTransferQueueInfo(transfer_queue_info);
 
-    // Create buffer.
     createBuffer(
-        resources->data_size,
+        resources->cpu_data_size,
         vk::BufferUsageFlagBits::eTransferDst | usage,
-        memory_properties, sharing_mode, *resources
+        resources->sharing_mode, *resources
     );
 
+    auto memory_resources = std::make_unique<GfxMemoryResources>();
+    if (!createGfxMemory(resources->buffer.getMemoryRequirements(), memory_properties, *memory_resources)) {
+        return;
+    }
+
+    resources->buffer.bindMemory(*memory_resources->memory, 0);
+    gpu_buffer->impl_->memory_resources = gfx->logical_device_->impl_->memory_resources.store(std::move(memory_resources));
     gpu_buffer->impl_->resources = gfx->logical_device_->impl_->buffer_resources.store(std::move(resources));
 }
 
@@ -174,13 +200,14 @@ void Gfx::commitReferenceBuffer(
     }
     waitDeviceIdle();
 
+    auto* memory_resources = gpu_buffer->impl_->memory_resources.data();
     auto* resources = gpu_buffer->impl_->resources.data();
-    if (!resources) {
-        logger().error("Cannot commit buffer because buffer resources are not available.");
+    if (!memory_resources || !resources) {
+        logger().error("Cannot commit buffer because resources are not available.");
         return;
     }
 
-    if (cpu_buffer->data_size() != resources->data_size) {
+    if (cpu_buffer->data_size() != resources->cpu_data_size) {
         logger().error("Cannot commit buffer because cpu data size differs from gpu resources.");
         return;
     }
@@ -189,22 +216,31 @@ void Gfx::commitReferenceBuffer(
     vk::SharingMode sharing_mode = impl_->getTransferQueueInfo(transfer_queue_info);
 
     const size_t data_size = cpu_buffer->data_size();
-    bool use_stage_buffer = !(resources->memory_properties & vk::MemoryPropertyFlagBits::eHostVisible);
+    bool use_stage_buffer = !(memory_resources->memory_properties & vk::MemoryPropertyFlagBits::eHostVisible);
     if (hint_use_stage_buffer) {
         use_stage_buffer = true;
     }
 
-    BufferResources staging_resources;
-    vk::raii::DeviceMemory* memory = &resources->memory;
+    GfxMemoryResources staging_memory_resources;
+    GfxBufferResources staging_resources;
+    vk::raii::DeviceMemory* memory = &memory_resources->memory;
     if (use_stage_buffer) {
         // Allocate stage buffer.
         impl_->createBuffer(
             data_size,
             vk::BufferUsageFlagBits::eTransferSrc,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-            sharing_mode, staging_resources
+            sharing_mode,
+            staging_resources
         );
-        memory = &staging_resources.memory;
+        if (!impl_->createGfxMemory(
+            staging_resources.buffer.getMemoryRequirements(),
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+            staging_memory_resources
+        )) {
+            return;
+        }
+        staging_resources.buffer.bindMemory(*staging_memory_resources.memory, 0);
+        memory = &staging_memory_resources.memory;
     }
 
     // Copy data to target buffer or stage buffer.

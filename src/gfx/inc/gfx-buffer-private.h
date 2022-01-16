@@ -6,17 +6,25 @@
 
 namespace wg {
 
-struct BufferResources {
-    vk::raii::Buffer buffer{ nullptr };
+struct GfxMemoryResources {
     vk::raii::DeviceMemory memory{ nullptr };
 
-    vk::DeviceSize data_size{ 0 };
     vk::MemoryPropertyFlags memory_properties;
+};
+
+struct GfxMemoryBase::Impl {
+    OwnedResourceHandle<GfxMemoryResources> memory_resources;
+};
+
+struct GfxBufferResources {
+    vk::raii::Buffer buffer{ nullptr };
+
+    vk::DeviceSize cpu_data_size{ 0 };
     vk::SharingMode sharing_mode;
 };
 
-struct GfxBufferBase::Impl {
-    OwnedResourceHandle <BufferResources> resources;
+struct GfxBufferBase::Impl : public GfxMemoryBase::Impl {
+    OwnedResourceHandle<GfxBufferResources> resources;
 };
 
 namespace index_types {

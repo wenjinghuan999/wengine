@@ -104,9 +104,9 @@ public:
 template <typename T>
 inline constexpr bool is_vertex_v = is_vertex<T>::value;
 
-class GfxBufferBase {
+class GfxMemoryBase {
 public:
-    virtual ~GfxBufferBase();
+    virtual ~GfxMemoryBase();
     [[nodiscard]] bool has_cpu_data() const { return has_cpu_data_; }
     [[nodiscard]] bool has_gpu_data() const { return has_gpu_data_; }
     [[nodiscard]] virtual size_t data_size() const = 0;
@@ -119,10 +119,22 @@ protected:
 
 protected:
     friend class Gfx;
-    explicit GfxBufferBase(bool keep_cpu_data);
+    explicit GfxMemoryBase(bool keep_cpu_data);
     virtual void clearCpuData() = 0;
     struct Impl;
+    virtual Impl* getImpl() = 0;
+};
+
+class GfxBufferBase : public GfxMemoryBase {
+public:
+    ~GfxBufferBase() override;
+
+protected:
+    friend class Gfx;
+    explicit GfxBufferBase(bool keep_cpu_data);
+    struct Impl;
     std::unique_ptr<Impl> impl_;
+    GfxMemoryBase::Impl* getImpl() override;
 };
 
 class VertexBufferBase : public GfxBufferBase {

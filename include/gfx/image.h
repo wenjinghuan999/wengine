@@ -35,7 +35,6 @@ public:
     [[nodiscard]] Size2D size() const { return { width_, height_ }; }
     [[nodiscard]] gfx_formats::Format image_format() const { return image_format_; }
 
-    [[nodiscard]] bool loaded() const;
     bool load(
         const std::string& filename, gfx_formats::Format image_format = gfx_formats::R8G8B8A8Srgb,
         image_file_formats::ImageFileFormat file_format = image_file_formats::none

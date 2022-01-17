@@ -61,6 +61,7 @@ else ()
 endif ()
 
 add_subdirectory(app)
+add_subdirectory(config)
 add_subdirectory(src)
 add_subdirectory(third-party)
 add_subdirectory(resources)

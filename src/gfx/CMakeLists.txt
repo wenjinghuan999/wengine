@@ -43,4 +43,4 @@ target_link_libraries(wengine-gfx
 
     PRIVATE Vulkan::Vulkan
     PRIVATE glfw
-    PRIVATE stb)
+    PRIVATE third-party-stb)

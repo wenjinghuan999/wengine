@@ -4,6 +4,7 @@
 #include "gfx/image.h"
 #include "common/owned-resources.h"
 #include "gfx-buffer-private.h"
+#include "gfx-constants-private.h"
 
 namespace wg {
 
@@ -15,7 +16,7 @@ struct ImageResources {
     uint32_t width{ 0 };
     uint32_t height{ 0 };
     vk::ImageLayout image_layout{};
-    uint32_t queue_family_index{ 0 };
+    QueueInfoRef queue;
 };
 
 struct Image::Impl : public GfxMemoryBase::Impl {

@@ -75,7 +75,7 @@ void Gfx::createImageResources(const std::shared_ptr<Image>& image) {
     }
 }
 
-void Gfx::Impl::transitionImageLayout(const std::shared_ptr<Image>& image, vk::ImageLayout layout, uint32_t queue_family_index) {
+void Gfx::Impl::transitionImageLayout(const std::shared_ptr<Image>& image, vk::ImageLayout layout, const QueueInfoRef& queue) {
     auto* resources = image->impl_->resources.data();
     if (!resources) {
         logger().error("Cannot transition image layout because image resources are not available.");
@@ -88,8 +88,8 @@ void Gfx::Impl::transitionImageLayout(const std::shared_ptr<Image>& image, vk::I
     auto barrier = vk::ImageMemoryBarrier{
         .oldLayout           = resources->image_layout,
         .newLayout           = layout,
-        .srcQueueFamilyIndex = resources->queue_family_index,
-        .dstQueueFamilyIndex = queue_family_index,
+        .srcQueueFamilyIndex = resources->queue.queue_family_index,
+        .dstQueueFamilyIndex = queue.queue_family_index,
         .image               = *resources->image,
         .subresourceRange    = {
             .aspectMask      = vk::ImageAspectFlagBits::eColor,
@@ -118,6 +118,7 @@ void Gfx::Impl::transitionImageLayout(const std::shared_ptr<Image>& image, vk::I
     }
 
     singleTimeCommand(
+        resources->queue,
         [&barrier, src_stage, dst_stage](vk::CommandBuffer& command_buffer) {
             command_buffer.pipelineBarrier(
                 src_stage, dst_stage, {},
@@ -125,13 +126,25 @@ void Gfx::Impl::transitionImageLayout(const std::shared_ptr<Image>& image, vk::I
             );
         }
     );
+    if (resources->queue.queue_family_index != queue.queue_family_index) {
+        // Need a barrier on target queue, too.
+        singleTimeCommand(
+            queue,
+            [&barrier, src_stage, dst_stage](vk::CommandBuffer& command_buffer) {
+                command_buffer.pipelineBarrier(
+                    src_stage, dst_stage, {},
+                    {}, {}, { barrier }
+                );
+            }
+        );
+    }
     
     resources->image_layout = layout;
-    resources->queue_family_index = queue_family_index;
+    resources->queue = queue;
 }
 
 void Gfx::Impl::copyBufferToImage(
-    const QueueInfoRef& transfer_queue_info,
+    const QueueInfoRef& transfer_queue,
     vk::Buffer src, vk::Image dst, uint32_t width, uint32_t height, vk::ImageLayout image_layout
 ) {
     auto buffer_image_copy = vk::BufferImageCopy{
@@ -148,6 +161,7 @@ void Gfx::Impl::copyBufferToImage(
         .imageExtent        = { width, height, 1 }
     };
     singleTimeCommand(
+        transfer_queue,
         [&src, &dst, &image_layout, &buffer_image_copy](vk::CommandBuffer& command_buffer) {
             command_buffer.copyBufferToImage(src, dst, image_layout, { buffer_image_copy });
         }
@@ -185,13 +199,13 @@ void Gfx::Impl::createReferenceImageResources(
     auto resources = std::make_unique<ImageResources>();
     auto memory_resources = std::make_unique<GfxMemoryResources>();
 
-    auto graphics_queue_info = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0];
+    auto graphics_queue = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0];
 
     resources->width = static_cast<uint32_t>(cpu_image->width_);
     resources->height = static_cast<uint32_t>(cpu_image->height_);
     resources->image_layout = vk::ImageLayout::eUndefined;
-    resources->queue_family_index = graphics_queue_info.queue_family_index;
-    auto queue_family_indices = std::array{ graphics_queue_info.queue_family_index };
+    resources->queue = graphics_queue;
+    auto queue_family_indices = std::array{ graphics_queue.queue_family_index };
 
     auto image_create_info = vk::ImageCreateInfo{
         .flags         = {},
@@ -288,8 +302,8 @@ void Gfx::commitReferenceImage(
         return;
     }
 
-    QueueInfoRef transfer_queue_info;
-    vk::SharingMode sharing_mode = impl_->getTransferQueueInfo(transfer_queue_info);
+    QueueInfoRef transfer_queue;
+    impl_->getTransferQueue(transfer_queue);
 
     const size_t data_size = cpu_image->data_size();
 
@@ -298,9 +312,8 @@ void Gfx::commitReferenceImage(
 
     // Allocate stage buffer.
     impl_->createBuffer(
-        data_size,
-        vk::BufferUsageFlagBits::eTransferSrc,
-        sharing_mode,
+        data_size, vk::BufferUsageFlagBits::eTransferSrc,
+        vk::SharingMode::eExclusive, { transfer_queue.queue_family_index },
         staging_resources
     );
     if (!impl_->createGfxMemory(
@@ -318,10 +331,10 @@ void Gfx::commitReferenceImage(
     staging_memory_resources.memory.unmapMemory();
 
     // Copy content.
-    uint32_t graphics_queue_family_index = resources->queue_family_index;
-    impl_->transitionImageLayout(gpu_image, vk::ImageLayout::eTransferDstOptimal, transfer_queue_info.queue_family_index);
-    impl_->copyBufferToImage(transfer_queue_info, *staging_resources.buffer, *resources->image, resources->width, resources->height, resources->image_layout);
-    impl_->transitionImageLayout(gpu_image, vk::ImageLayout::eShaderReadOnlyOptimal, graphics_queue_family_index);
+    auto graphics_queue = resources->queue;
+    impl_->transitionImageLayout(gpu_image, vk::ImageLayout::eTransferDstOptimal, transfer_queue);
+    impl_->copyBufferToImage(transfer_queue, *staging_resources.buffer, *resources->image, resources->width, resources->height, resources->image_layout);
+    impl_->transitionImageLayout(gpu_image, vk::ImageLayout::eShaderReadOnlyOptimal, graphics_queue);
 
     gpu_image->has_gpu_data_ = true;
     if (!cpu_image->keep_cpu_data_) {

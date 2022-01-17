@@ -32,6 +32,7 @@ namespace gfx_formats {
 }
 
 struct QueueInfo {
+    gfx_queues::QueueId queue_id{};
     uint32_t queue_family_index{};
     uint32_t queue_index_in_family{};
     vk::raii::Queue vk_queue{ nullptr };
@@ -39,6 +40,7 @@ struct QueueInfo {
 };
 
 struct QueueInfoRef {
+    gfx_queues::QueueId queue_id{};
     uint32_t queue_family_index{};
     uint32_t queue_index_in_family{};
     vk::raii::Device* vk_device{ nullptr };

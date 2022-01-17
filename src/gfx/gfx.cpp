@@ -1013,6 +1013,7 @@ void Gfx::createLogicalDevice() {
                     ->allocated_queues[queue_family_index][queue_index_in_family].get();
 
             auto queue_info_ref = QueueInfoRef{
+                .queue_id = queue_id,
                 .queue_family_index = queue_family_index,
                 .queue_index_in_family = queue_index_in_family,
                 .vk_device = &logical_device_->impl_

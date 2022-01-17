@@ -214,10 +214,10 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 
     // Queues
     for (auto queue_id : render_target->queues()) {
-        auto& queue_info_array = logical_device_->impl_->queue_references[queue_id];
-        if (!queue_info_array.empty()) {
-            auto& queue_info_ref = queue_info_array[0]; // Choose first for now
-            resources->queues.push_back(queue_info_ref);
+        auto& queues = logical_device_->impl_->queue_references[queue_id];
+        if (!queues.empty()) {
+            auto& queue = queues[0]; // Choose first for now
+            resources->queues.push_back(queue);
             if (queue_id == gfx_queues::graphics && resources->graphics_queue_index < 0) {
                 resources->graphics_queue_index = static_cast<int>(resources->queues.size()) - 1;
             }

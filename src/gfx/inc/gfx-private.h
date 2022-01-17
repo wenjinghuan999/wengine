@@ -31,7 +31,7 @@ struct Gfx::Impl {
     OwnedResources<WindowSurfaceResources> window_surfaces_;
     Gfx* gfx;
 
-    void singleTimeCommand(std::function<void(vk::CommandBuffer&)> func);
+    void singleTimeCommand(const QueueInfoRef& queue, std::function<void(vk::CommandBuffer&)> func);
 
     bool createGfxMemory(
         vk::MemoryRequirements memory_requirements, vk::MemoryPropertyFlags memory_properties,
@@ -39,12 +39,12 @@ struct Gfx::Impl {
     );
 
     void createBuffer(
-        vk::DeviceSize data_size,
-        vk::BufferUsageFlags usage, vk::SharingMode sharing_mode,
+        vk::DeviceSize data_size, vk::BufferUsageFlags usage,
+        vk::SharingMode sharing_mode, const std::vector<uint32_t>& queue_family_indices,
         GfxBufferResources& out_resources
     );
-    void copyBuffer(const QueueInfoRef& transfer_queue_info, vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
-    vk::SharingMode getTransferQueueInfo(QueueInfoRef& out_transfer_queue_info) const;
+    void copyBuffer(const QueueInfoRef& transfer_queue, vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
+    vk::SharingMode getTransferQueue(QueueInfoRef& out_transfer_queue) const;
     void createBufferResources(
         const std::shared_ptr<GfxBufferBase>& gfx_buffer,
         vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties
@@ -55,9 +55,9 @@ struct Gfx::Impl {
         vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties
     );
 
-    void transitionImageLayout(const std::shared_ptr<Image>& image, vk::ImageLayout layout, uint32_t queue_family_index);
+    void transitionImageLayout(const std::shared_ptr<Image>& image, vk::ImageLayout layout, const QueueInfoRef& queue);
     void copyBufferToImage(
-        const QueueInfoRef& transfer_queue_info,
+        const QueueInfoRef& transfer_queue,
         vk::Buffer src, vk::Image dst, uint32_t width, uint32_t height, vk::ImageLayout image_layout
     );
     void createImageResources(const std::shared_ptr<Image>& image);

@@ -52,10 +52,9 @@ std::shared_ptr<UniformBufferBase> UniformBufferBase::Create(uniform_attributes:
     }
 }
 
-void Gfx::Impl::singleTimeCommand(std::function<void(vk::CommandBuffer&)> func) {
-    auto& graphics_queue_ref = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0];
+void Gfx::Impl::singleTimeCommand(const QueueInfoRef& queue, std::function<void(vk::CommandBuffer&)> func) {
     auto command_buffer_allocate_info = vk::CommandBufferAllocateInfo{
-        .commandPool = graphics_queue_ref.vk_command_pool,
+        .commandPool = queue.vk_command_pool,
         .level = vk::CommandBufferLevel::ePrimary,
         .commandBufferCount = 1
     };
@@ -77,10 +76,10 @@ void Gfx::Impl::singleTimeCommand(std::function<void(vk::CommandBuffer&)> func) 
 
     auto submit_info = vk::SubmitInfo{}
         .setCommandBuffers(command_buffers);
-    graphics_queue_ref.vk_queue.submit({ submit_info });
-    graphics_queue_ref.vk_queue.waitIdle();
+    queue.vk_queue.submit({ submit_info });
+    queue.vk_queue.waitIdle();
 
-    (*gfx->logical_device_->impl_->vk_device).freeCommandBuffers(graphics_queue_ref.vk_command_pool, command_buffers);
+    (*gfx->logical_device_->impl_->vk_device).freeCommandBuffers(queue.vk_command_pool, command_buffers);
 }
 
 bool Gfx::Impl::createGfxMemory(
@@ -105,38 +104,41 @@ bool Gfx::Impl::createGfxMemory(
 }
 
 void Gfx::Impl::createBuffer(
-    vk::DeviceSize data_size,
-    vk::BufferUsageFlags usage, vk::SharingMode sharing_mode,
+    vk::DeviceSize data_size, vk::BufferUsageFlags usage,
+    vk::SharingMode sharing_mode, const std::vector<uint32_t>& queue_family_indices,
     GfxBufferResources& out_resources
 ) {
     auto buffer_create_info = vk::BufferCreateInfo{
         .size = data_size,
         .usage = usage,
-        .sharingMode = sharing_mode
-    };
+        .sharingMode = sharing_mode,
+    }
+        .setQueueFamilyIndices(queue_family_indices);
+
     out_resources.buffer = gfx->logical_device_->impl_->vk_device.createBuffer(buffer_create_info);
     out_resources.sharing_mode = sharing_mode;
 }
 
-void Gfx::Impl::copyBuffer(const QueueInfoRef& transfer_queue_info, vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
+void Gfx::Impl::copyBuffer(const QueueInfoRef& transfer_queue, vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
     singleTimeCommand(
+        transfer_queue,
         [&src, &dst, size](vk::CommandBuffer& command_buffer) {
             command_buffer.copyBuffer(src, dst, { { .srcOffset = 0, .dstOffset = 0, .size = size } });
         }
     );
 }
 
-vk::SharingMode Gfx::Impl::getTransferQueueInfo(QueueInfoRef& out_transfer_queue_info) const {
+vk::SharingMode Gfx::Impl::getTransferQueue(QueueInfoRef& out_transfer_queue) const {
     bool transfer_queue_different_family = false;
     auto& gfx_features_manager = GfxFeaturesManager::Get();
     if (gfx_features_manager.feature_enabled(gfx_features::separate_transfer)) {
         // Use 0 for now
-        out_transfer_queue_info = gfx->logical_device_->impl_->queue_references[gfx_queues::transfer][0];
+        out_transfer_queue = gfx->logical_device_->impl_->queue_references[gfx_queues::transfer][0];
         uint32_t graphics_family_index = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0].queue_family_index;
-        transfer_queue_different_family = out_transfer_queue_info.queue_family_index != graphics_family_index;
+        transfer_queue_different_family = out_transfer_queue.queue_family_index != graphics_family_index;
     } else {
         // Use 0 for now
-        out_transfer_queue_info = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0];
+        out_transfer_queue = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0];
     }
 
     return transfer_queue_different_family ? vk::SharingMode::eConcurrent : vk::SharingMode::eExclusive;
@@ -166,14 +168,21 @@ void Gfx::Impl::createReferenceBufferResources(
 
     auto resources = std::make_unique<GfxBufferResources>();
     
-    QueueInfoRef transfer_queue_info;
+    QueueInfoRef transfer_queue;
     resources->cpu_data_size = cpu_buffer->data_size();
-    resources->sharing_mode = getTransferQueueInfo(transfer_queue_info);
+    resources->sharing_mode = getTransferQueue(transfer_queue);
+    
+    uint32_t graphics_family_index = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0].queue_family_index;
+    std::vector<uint32_t> queue_family_indices = { graphics_family_index };
+    if (graphics_family_index != transfer_queue.queue_family_index) {
+        queue_family_indices.push_back(transfer_queue.queue_family_index);
+    }
 
     createBuffer(
         resources->cpu_data_size,
         vk::BufferUsageFlagBits::eTransferDst | usage,
-        resources->sharing_mode, *resources
+        resources->sharing_mode, queue_family_indices,
+        *resources
     );
 
     auto memory_resources = std::make_unique<GfxMemoryResources>();
@@ -212,8 +221,8 @@ void Gfx::commitReferenceBuffer(
         return;
     }
 
-    QueueInfoRef transfer_queue_info;
-    vk::SharingMode sharing_mode = impl_->getTransferQueueInfo(transfer_queue_info);
+    QueueInfoRef transfer_queue;
+    impl_->getTransferQueue(transfer_queue);
 
     const size_t data_size = cpu_buffer->data_size();
     bool use_stage_buffer = !(memory_resources->memory_properties & vk::MemoryPropertyFlagBits::eHostVisible);
@@ -227,9 +236,8 @@ void Gfx::commitReferenceBuffer(
     if (use_stage_buffer) {
         // Allocate stage buffer.
         impl_->createBuffer(
-            data_size,
-            vk::BufferUsageFlagBits::eTransferSrc,
-            sharing_mode,
+            data_size, vk::BufferUsageFlagBits::eTransferSrc,
+            vk::SharingMode::eExclusive, { transfer_queue.queue_family_index },
             staging_resources
         );
         if (!impl_->createGfxMemory(
@@ -250,7 +258,7 @@ void Gfx::commitReferenceBuffer(
 
     if (use_stage_buffer) {
         // Copy content.
-        impl_->copyBuffer(transfer_queue_info, *staging_resources.buffer, *resources->buffer, data_size);
+        impl_->copyBuffer(transfer_queue, *staging_resources.buffer, *resources->buffer, data_size);
     }
 
     gpu_buffer->has_gpu_data_ = true;

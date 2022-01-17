@@ -305,15 +305,17 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     size_t image_count = resources->framebuffer_resources.size();
     std::vector<vk::DescriptorPoolSize> descriptor_pool_sizes;
     if (*pipeline_resources->set_layout) {
-        uint32_t descriptors_count = static_cast<uint32_t>(image_count);
-        
+        uint32_t uniform_descriptors_count = 
+            static_cast<uint32_t>(pipeline->uniform_layout().descriptions().size() * image_count);
         descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eUniformBuffer,
-            .descriptorCount = descriptors_count
+            .descriptorCount = uniform_descriptors_count
         });
+        uint32_t sampler_descriptors_count = 
+            static_cast<uint32_t>(pipeline->sampler_layout().descriptions().size() * image_count);
         descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eCombinedImageSampler,
-            .descriptorCount = descriptors_count
+            .descriptorCount = sampler_descriptors_count
         });
     }
     

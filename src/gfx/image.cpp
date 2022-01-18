@@ -1,6 +1,7 @@
 ﻿#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#include "common/config.h"
 #include "gfx/gfx.h"
 #include "gfx/image.h"
 #include "common/logger.h"
@@ -252,6 +253,11 @@ void Gfx::Impl::createReferenceImageResources(
     resources->image_view = gfx->logical_device_->impl_->vk_device.createImageView(image_view_create_info);
 
     auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
+    float max_sampler_anisotropy = 0.f;
+    if (GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_anisotropy)) {
+        max_sampler_anisotropy = Config::Get().get<float>("gfx-max-sampler-anisotropy");
+        max_sampler_anisotropy = std::min<float>(max_sampler_anisotropy, device_properties.limits.maxSamplerAnisotropy);
+    }
 
     auto sampler_create_info = vk::SamplerCreateInfo{
         .magFilter = vk::Filter::eLinear,
@@ -261,8 +267,8 @@ void Gfx::Impl::createReferenceImageResources(
         .addressModeV = vk::SamplerAddressMode::eRepeat,
         .addressModeW = vk::SamplerAddressMode::eRepeat,
         .mipLodBias = 0,
-        .anisotropyEnable = false,
-        .maxAnisotropy = device_properties.limits.maxSamplerAnisotropy,
+        .anisotropyEnable = max_sampler_anisotropy > 0.f,
+        .maxAnisotropy = max_sampler_anisotropy,
         .compareEnable = false,
         .compareOp = vk::CompareOp::eAlways,
         .minLod = 0,

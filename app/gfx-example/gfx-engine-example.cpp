@@ -12,10 +12,6 @@ int main(int, char**) {
 
     auto gfx = wg::Gfx::Create(app);
 
-    // Enable "separate_transfer" to use a separate transfer queue
-    auto& gfx_features_manager = wg::GfxFeaturesManager::Get();
-    gfx_features_manager.enableFeature(wg::gfx_features::separate_transfer);
-
     gfx->createWindowSurface(window);
     gfx->selectBestPhysicalDevice();
     gfx->createLogicalDevice();

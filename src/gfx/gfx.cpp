@@ -14,6 +14,7 @@
 #include "platform/platform.h"
 #include "platform/inc/window-private.h"
 #include "gfx-private.h"
+#include "common/config.h"
 
 namespace wg {
 
@@ -22,6 +23,7 @@ namespace gfx_features {
 const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL] = {
     "window_surface",
     "separate_transfer",
+    "sampler_anisotropy",
     "_must_enable_if_valid",
     "_debug_utils"
 };
@@ -198,6 +200,20 @@ private:
             vk_features.device_queues[wg::gfx_queues::transfer] = 1;
             return vk_features;
         }();
+    case wg::gfx_features::sampler_anisotropy:
+        return {
+            .device_features = {
+                .samplerAnisotropy = true
+            },
+            .check_properties_and_features_func = [](
+                const vk::PhysicalDeviceProperties& device_properties, const vk::PhysicalDeviceFeatures& device_features
+            ) -> bool {
+                return device_features.samplerAnisotropy;
+            },
+            .set_feature_func = [](vk::PhysicalDeviceFeatures& device_features) {
+                device_features.samplerAnisotropy = true;
+            }
+        };
     case wg::gfx_features::_must_enable_if_valid:
         // VUID-VkDeviceCreateInfo-pProperties-04451
         // https://vulkan.lunarg.com/doc/view/1.2.198.1/mac/1.2-extensions/vkspec.html#VUID-VkDeviceCreateInfo-pProperties-04451
@@ -875,6 +891,7 @@ void Gfx::createLogicalDevice() {
 
     VulkanFeatures enabled_features;
     GfxFeaturesManager& gfx_features_manager = GfxFeaturesManager::Get();
+    gfx_features_manager.enableFeaturesByConfig(physical_device());
 
     for (auto feature_id : gfx_features_manager.instance_enabled_) {
         VulkanFeatures feature = GetVulkanFeatures(feature_id);
@@ -1090,6 +1107,29 @@ bool GfxFeaturesManager::feature_required(gfx_features::FeatureId feature_id) co
 
 std::vector<gfx_features::FeatureId> GfxFeaturesManager::features_enabled() const {
     return features_enabled_;
+}
+
+void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_device) {
+    Config& config = Config::Get();
+    config.load();
+
+    if (config.get<bool>("gfx-separate-transfer")) {
+        enableFeature(gfx_features::separate_transfer);
+    }
+
+    auto device_properties = physical_device.impl_->vk_physical_device.getProperties();
+    float max_sampler_anisotropy = config.get<float>("gfx-max-sampler-anisotropy");
+    if (max_sampler_anisotropy > 0.f) {
+        enableFeature(gfx_features::sampler_anisotropy);
+        if (max_sampler_anisotropy > device_properties.limits.maxSamplerAnisotropy) {
+            max_sampler_anisotropy = device_properties.limits.maxSamplerAnisotropy;
+            config.set("gfx-max-sampler-anisotropy", max_sampler_anisotropy);
+        }
+    }
+
+    if (config.dirty()) {
+        config.save();
+    }
 }
 
 bool GfxFeaturesManager::feature_enabled(gfx_features::FeatureId feature_id) const {

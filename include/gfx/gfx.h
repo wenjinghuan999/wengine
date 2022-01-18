@@ -127,6 +127,7 @@ protected:
 
 protected:
     friend class Gfx;
+    friend class GfxFeaturesManager;
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };
@@ -148,6 +149,7 @@ enum FeatureId {
     // User controlled features
     window_surface,
     separate_transfer,
+    sampler_anisotropy,
     // Engine controlled features
     _must_enable_if_valid, NUM_FEATURES = _must_enable_if_valid,
     _debug_utils,
@@ -174,6 +176,8 @@ public:
     [[nodiscard]] std::array<int, gfx_queues::NUM_QUEUES> queues_required() const;
     // Queues enabled
     [[nodiscard]] std::array<int, gfx_queues::NUM_QUEUES> queues_enabled() const;
+    // Enable features configured by config file
+    void enableFeaturesByConfig(const PhysicalDevice& physical_device);
 
 protected:
     // Features required by engine (initialized by Gfx)

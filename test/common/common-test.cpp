@@ -27,6 +27,24 @@ TEST_CASE("config") {
         CHECK_EQ(str, "test-value-2-c");
         str = config.get<std::string>("test-string-property2-cref");
         CHECK_EQ(str, "test-value-2-c");
+        
+        char str_arr[] = "test-value-3";
+        str = config.get<std::string>("test-string-property3");
+        CHECK_EQ(str, "test-value-3");
+        str = config.get<std::string>("test-string-property3-p-ref");
+        CHECK_EQ(str, "test-value-3");
+        str = config.get<std::string>("test-string-property3-p-c");
+        CHECK_EQ(str, "test-value-3");
+        str = config.get<std::string>("test-string-property3-p-cref");
+        CHECK_EQ(str, "test-value-3");
+        str = config.get<std::string>("test-string-property3-pc");
+        CHECK_EQ(str, "test-value-3-c");
+        str = config.get<std::string>("test-string-property3-pc-ref");
+        CHECK_EQ(str, "test-value-3-c");
+        str = config.get<std::string>("test-string-property3-pc-c");
+        CHECK_EQ(str, "test-value-3-c");
+        str = config.get<std::string>("test-string-property3-pc-cref");
+        CHECK_EQ(str, "test-value-3-c");
 
         auto boolean = config.get<bool>("test-bool-property0");
         CHECK_EQ(boolean, false);
@@ -91,6 +109,23 @@ TEST_CASE("config") {
         config.set("test-string-property2-c", str_c);
         const std::string& str_cref = str_c;
         config.set("test-string-property2-cref", str_cref);
+        char str_arr[] = "test-value-3";
+        char* p_str = str_arr;
+        config.set("test-string-property3", p_str);
+        char*& p_str_ref = p_str;
+        config.set("test-string-property3-p-ref", p_str_ref);
+        char* const p_str_c = p_str;
+        config.set("test-string-property3-p-c", p_str_c);
+        char* const& p_str_cref = p_str;
+        config.set("test-string-property3-p-cref", p_str_cref);
+        const char* pc_str = "test-value-3-c";
+        config.set("test-string-property3-pc", pc_str);
+        const char*& pc_str_ref = pc_str;
+        config.set("test-string-property3-pc-ref", pc_str_ref);
+        const char* const pc_str_c = pc_str;
+        config.set("test-string-property3-pc-c", pc_str_c);
+        const char* const& pc_str_cref = pc_str;
+        config.set("test-string-property3-pc-cref", pc_str_cref);
         
         config.set("test-bool-property0", false);
         config.set("test-bool-property1", true);

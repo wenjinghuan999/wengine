@@ -15,11 +15,13 @@ Config::~Config() = default;
 void Config::save() {
     std::ofstream out(filename_);
     out << std::setw(4) << impl_->json << std::endl;
+    dirty_ = false;
 }
 
 void Config::load() {
     std::ifstream in(filename_);
     in >> impl_->json;
+    dirty_ = false;
 }
 
 template <>

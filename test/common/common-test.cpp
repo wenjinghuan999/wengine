@@ -69,6 +69,10 @@ TEST_CASE("config") {
         CHECK_EQ(integer, 3);
         integer = config.get<int>("test-int-property4");
         CHECK_EQ(integer, 4);
+        integer = config.get<int>("test-int-property5");
+        CHECK_EQ(integer, 5);
+        integer = config.get<int>("test-int-property6");
+        CHECK_EQ(integer, 6);
 
         auto float_point = config.get<float>("test-float-property0");
         CHECK_EQ(float_point, 0.f);
@@ -76,6 +80,12 @@ TEST_CASE("config") {
         CHECK_EQ(float_point, 0.1f);
         float_point = config.get<float>("test-float-property2");
         CHECK_EQ(float_point, 2.0f);
+        float_point = config.get<float>("test-float-property3");
+        CHECK_EQ(float_point, 3.0f);
+        float_point = config.get<float>("test-float-property3-ref");
+        CHECK_EQ(float_point, 3.0f);
+        float_point = config.get<float>("test-float-property4");
+        CHECK_EQ(float_point, 4.0f);
         
         // Failed conversions
         integer = config.get<int>("test-string-property0");
@@ -159,16 +169,24 @@ TEST_CASE("config") {
         config.set("test-float-property4", g);
         
         do_test(config);
+        CHECK(config.dirty());
         config.save();
         
         do_test(config);
+        CHECK(!config.dirty());
     }
 
     SUBCASE("load")
     {
         Config_Test config;
         config.load();
+        CHECK(!config.dirty());
         
         do_test(config);
+        CHECK(!config.dirty());
+        
+        config.set("test-string-property1", "modified");
+        CHECK(config.dirty());
+        CHECK_EQ(config.get<std::string>("test-string-property1"), "modified");
     }
 }

@@ -125,11 +125,11 @@ protected:
     };
 };
 
-class EngineConfig : public Config, public Singleton<EngineConfig> {
+class EngineConfig : public Config, public ISingleton<EngineConfig> {
 protected:
     EngineConfig();
     ~EngineConfig();
-    friend class Singleton<EngineConfig>;
+    friend class ISingleton<EngineConfig>;
 };
 
 } // namespace wg

@@ -160,7 +160,7 @@ extern const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL];
 
 }
 
-class GfxFeaturesManager : public Singleton<GfxFeaturesManager> {
+class GfxFeaturesManager : public ISingleton<GfxFeaturesManager> {
 public:
     // Enable device feature
     bool enableFeature(gfx_features::FeatureId feature);
@@ -196,7 +196,7 @@ protected:
     std::vector<gfx_queues::QueueId> queues_enabled_;
 
 protected:
-    friend class Singleton<GfxFeaturesManager>;
+    friend class ISingleton<GfxFeaturesManager>;
     friend class Gfx;
     friend class LogicalDevice;
 

@@ -3,7 +3,7 @@
 namespace wg {
 
 template <typename T>
-class Singleton {
+class ISingleton {
 public:
     [[nodiscard]] static T& Get() {
         static T instance;
@@ -11,12 +11,12 @@ public:
     }
 
 public:
-    Singleton(const Singleton&) = delete;
-    Singleton& operator=(const Singleton&) = delete;
+    ISingleton(const ISingleton&) = delete;
+    ISingleton& operator=(const ISingleton&) = delete;
 
 protected:
-    Singleton() = default;
-    ~Singleton() = default;
+    ISingleton() = default;
+    ~ISingleton() = default;
 };
 
 } // namespace wg

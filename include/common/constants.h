@@ -6,7 +6,7 @@
 
 namespace wg {
 
-class EngineConstants : public Singleton<EngineConstants> {
+class EngineConstants : public ISingleton<EngineConstants> {
 public:
     [[nodiscard]] const std::string& name() const { return name_; }
     [[nodiscard]] int major_version() const { return std::get<0>(version_); }
@@ -21,7 +21,7 @@ protected:
     std::tuple<int, int, int> version_;
 
 protected:
-    friend class Singleton<EngineConstants>;
+    friend class ISingleton<EngineConstants>;
     EngineConstants() : name_("WEngine"), version_(0, 0, 1) {}
 };
 

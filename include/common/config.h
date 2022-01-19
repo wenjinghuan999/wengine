@@ -9,13 +9,16 @@
 
 namespace wg {
 
-class Config : public Singleton<Config> {
+class Config {
 protected:
     template <typename T>
     struct ConfigHelper;
 public:
-    void save();
-    void load();
+    explicit Config(std::string filename);
+    ~Config();
+
+    Config& save();
+    Config& load();
     [[nodiscard]] bool dirty() const { return dirty_; }
 
     template <typename T>
@@ -109,13 +112,10 @@ public:
     }
 
 protected:
-    std::string filename_{ "config/config.json" };
+    std::string filename_;
     bool dirty_{ false };
 
 protected:
-    Config();
-    ~Config();
-    friend class Singleton<Config>;
     struct Impl;
     std::unique_ptr<Impl> impl_;
     template <typename T>
@@ -123,6 +123,13 @@ protected:
         T get(struct Config::Impl* impl, const std::string& key);
         void set(struct Config::Impl* impl, const std::string& key, const T& value);
     };
+};
+
+class EngineConfig : public Config, public Singleton<EngineConfig> {
+protected:
+    EngineConfig();
+    ~EngineConfig();
+    friend class Singleton<EngineConfig>;
 };
 
 } // namespace wg

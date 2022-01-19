@@ -255,7 +255,7 @@ void Gfx::Impl::createReferenceImageResources(
     auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
     float max_sampler_anisotropy = 0.f;
     if (GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_anisotropy)) {
-        max_sampler_anisotropy = Config::Get().get<float>("gfx-max-sampler-anisotropy");
+        max_sampler_anisotropy = EngineConfig::Get().load().get<float>("gfx-max-sampler-anisotropy");
         max_sampler_anisotropy = std::min<float>(max_sampler_anisotropy, device_properties.limits.maxSamplerAnisotropy);
     }
 

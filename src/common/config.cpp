@@ -9,19 +9,24 @@ struct Config::Impl {
     nlohmann::json json;
 };
 
-Config::Config() : impl_(std::make_unique<Impl>()) {}
+Config::Config(std::string filename) : filename_(std::move(filename)), impl_(std::make_unique<Impl>()) {}
 Config::~Config() = default;
 
-void Config::save() {
+EngineConfig::EngineConfig() : Config("config/engine.json") {}
+EngineConfig::~EngineConfig() = default;
+
+Config& Config::save() {
     std::ofstream out(filename_);
     out << std::setw(4) << impl_->json << std::endl;
     dirty_ = false;
+    return *this;
 }
 
-void Config::load() {
+Config& Config::load() {
     std::ifstream in(filename_);
     in >> impl_->json;
     dirty_ = false;
+    return *this;
 }
 
 template <>

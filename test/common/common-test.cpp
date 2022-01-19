@@ -5,13 +5,6 @@
 
 #include "common/config.h"
 
-class Config_Test : public wg::Config {
-public:
-    Config_Test() {
-        filename_ = "config.json";
-    }
-};
-
 TEST_CASE("config") {
 
     auto do_test = [](wg::Config& config) {
@@ -108,7 +101,7 @@ TEST_CASE("config") {
     
     SUBCASE("save")
     {
-        Config_Test config;
+        wg::Config config("config.json");
         config.set("test-string-property0", "");
         config.set("test-string-property1", "test-value");
         std::string str = "test-value-2";
@@ -178,7 +171,7 @@ TEST_CASE("config") {
 
     SUBCASE("load")
     {
-        Config_Test config;
+        wg::Config config("config.json");
         config.load();
         CHECK(!config.dirty());
         

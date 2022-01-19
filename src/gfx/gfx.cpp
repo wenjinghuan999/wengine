@@ -1110,7 +1110,7 @@ std::vector<gfx_features::FeatureId> GfxFeaturesManager::features_enabled() cons
 }
 
 void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_device) {
-    Config& config = Config::Get();
+    EngineConfig& config = EngineConfig::Get();
     config.load();
 
     if (config.get<bool>("gfx-separate-transfer")) {

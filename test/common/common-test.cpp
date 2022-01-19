@@ -2,6 +2,7 @@
 #include "doctest/doctest.h"
 
 #include <fmt/format.h>
+#include <filesystem>
 
 #include "common/config.h"
 
@@ -182,4 +183,18 @@ TEST_CASE("config") {
         CHECK(config.dirty());
         CHECK_EQ(config.get<std::string>("test-string-property1"), "modified");
     }
+}
+
+TEST_CASE("engine config") {
+    {
+        std::filesystem::create_directories("config");
+        std::ofstream out("config/engine.json");
+        out << "{\"gfx-separate-transfer\": true, \"gfx-max-sampler-anisotropy\": 8.0}";
+    }
+    
+    auto& config = wg::EngineConfig::Get();
+    config.load();
+
+    CHECK_EQ(config.get<bool>("gfx-separate-transfer"), true);
+    CHECK_EQ(config.get<float>("gfx-max-sampler-anisotropy"), 8.0);
 }

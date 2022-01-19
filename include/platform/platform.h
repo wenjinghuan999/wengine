@@ -50,6 +50,7 @@ public:
     ~App() override;
 
     void loop(const std::function<void(float)>& func);
+    void wait();
 
     [[nodiscard]] const std::string& name() const { return name_; }
     [[nodiscard]] int major_version() const { return std::get<0>(version_); }

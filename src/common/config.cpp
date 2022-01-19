@@ -17,14 +17,20 @@ EngineConfig::~EngineConfig() = default;
 
 Config& Config::save() {
     std::ofstream out(filename_);
-    out << std::setw(4) << impl_->json << std::endl;
-    dirty_ = false;
+    if (out) {
+        out << std::setw(4) << impl_->json << std::endl;
+        dirty_ = false;
+    }
     return *this;
 }
 
 Config& Config::load() {
     std::ifstream in(filename_);
-    in >> impl_->json;
+    if (in) {
+        in >> impl_->json;
+    } else {
+        impl_->json.clear();
+    }
     dirty_ = false;
     return *this;
 }

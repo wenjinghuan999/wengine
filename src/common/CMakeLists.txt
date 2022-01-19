@@ -1,10 +1,12 @@
-﻿add_library(wengine-logger INTERFACE)
+﻿add_library(wengine-logger
+    logger.cpp
+    ${PROJECT_SOURCE_DIR}/include/common/logger.h)
 
-target_sources(wengine-logger
-    INTERFACE ${PROJECT_SOURCE_DIR}/include/common/logger.h)
+target_include_directories(wengine-logger
+    PUBLIC ${PROJECT_SOURCE_DIR}/include)
 
 target_link_libraries(wengine-logger
-    INTERFACE spdlog::spdlog)
+    PUBLIC spdlog::spdlog)
 
 add_library(wengine-common
     config.cpp
@@ -17,10 +19,11 @@ add_library(wengine-common
 
 add_dependencies(wengine-common wengine-config)
 
-target_link_libraries(wengine-common
-    INTERFACE glm::glm
-    INTERFACE fmt::fmt 
-    PRIVATE third-party-json)
-
 target_include_directories(wengine-common
     PUBLIC ${PROJECT_SOURCE_DIR}/include)
+
+target_link_libraries(wengine-common
+    PUBLIC wengine-logger
+    PUBLIC glm::glm
+    PUBLIC fmt::fmt 
+    PRIVATE third-party-json)

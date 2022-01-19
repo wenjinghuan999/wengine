@@ -90,11 +90,15 @@ void App::loop(const std::function<void(float)>& func) {
         auto currentTime = std::chrono::high_resolution_clock::now();
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
         func(time);
-
-        glfwPollEvents();
+        
+        wait();
     }
 
     logger().info("Event loop end.");
+}
+
+void App::wait() {
+    glfwPollEvents();
 }
 
 std::shared_ptr<Window> App::createWindow(

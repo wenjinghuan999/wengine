@@ -9,6 +9,7 @@
 #include "common/config.h"
 
 #include <filesystem>
+#include <fstream>
 #include <sstream>
 
 namespace {
@@ -302,11 +303,11 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
 
 // Packed data
 std::vector<uint8_t> LocalPacked::vert_shader = {
-#include "vert.inc" 
+#include "../resources/vert.inc" 
 };
 std::vector<uint8_t> LocalPacked::frag_shader = {
-#include "frag.inc"
+#include "../resources/frag.inc"
 };
 std::vector<uint8_t> LocalPacked::image = {
-#include "image.inc"
+#include "../resources/image.inc"
 };

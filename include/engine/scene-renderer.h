@@ -58,6 +58,7 @@ public:
     }
 
     std::shared_ptr<IRenderData> createRenderData() override;
+    const std::shared_ptr<SceneRendererRenderData>& render_data() const { return render_data_; }
 
 protected:
     Camera camera_;

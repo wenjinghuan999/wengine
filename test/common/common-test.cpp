@@ -22,7 +22,6 @@ TEST_CASE("config") {
         str = config.get<std::string>("test-string-property2-cref");
         CHECK_EQ(str, "test-value-2-c");
         
-        char str_arr[] = "test-value-3";
         str = config.get<std::string>("test-string-property3");
         CHECK_EQ(str, "test-value-3");
         str = config.get<std::string>("test-string-property3-p-ref");
@@ -189,7 +188,7 @@ TEST_CASE("engine config") {
     {
         std::filesystem::create_directories("config");
         std::ofstream out("config/engine.json");
-        out << "{\"gfx-separate-transfer\": true, \"gfx-max-sampler-anisotropy\": 8.0}";
+        out << R"({"gfx-separate-transfer": true, "gfx-max-sampler-anisotropy": 8.0})";
     }
     
     auto& config = wg::EngineConfig::Get();

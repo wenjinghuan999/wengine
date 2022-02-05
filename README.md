@@ -104,3 +104,14 @@ make -j8
 ```
 
 Binaries should be showing up in `binaries` folder.
+
+### Xcode (macOS)
+
+Run following commands in project folder:
+```bash
+mkdir build
+cd build
+cmake -G Xcode ..
+```
+
+Xcode project `wengine.xcodeproj` should have been generated in `build` folder.

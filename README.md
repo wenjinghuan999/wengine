@@ -6,7 +6,7 @@ A toy game engine based on Vulkan.
 
 ### Dependencies
 
-- [Vulkan SDK 1.2.189.0](https://vulkan.lunarg.com/)
+- [Vulkan SDK 1.2.189.0](https://vulkan.lunarg.com/) or above
 - Other open source libraries on GitHub (configured by `FetchContent`)
 
 ### Setting up CMake
@@ -67,7 +67,7 @@ We use a quite new version of CMake (3.21), so you probably need to install it.
 Installing CMake by source:
 ```bash
 sudo apt install build-essential libssl-dev
-curl https://github.com/Kitware/CMake/releases/download/v3.21.4/cmake-3.21.4.tar.gz --output cmake-3.21.4.tar.gz
+wget https://github.com/Kitware/CMake/releases/download/v3.21.4/cmake-3.21.4.tar.gz
 tar -xzf cmake-3.21.4.tar.gz
 cd cmake-3.21.4/
 ./bootstrap
@@ -92,7 +92,7 @@ sudo apt install xorg-dev
 
 Clone repo (remember to change working directory):
 ```bash
-git clone git@github.com:wenjinghuan999/wengine.git
+git clone https://github.com/wenjinghuan999/wengine.git
 mkdir -p wengine/build
 cd wengine/build/
 ```

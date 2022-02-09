@@ -23,33 +23,46 @@ struct LocalPacked{
     
     static void write(const std::vector<uint8_t>& content, const std::string& filename) {
         std::ofstream out(filename, std::ios::binary);
-        out.write(reinterpret_cast<const char*>(content.data()), content.size());
+        out.write(reinterpret_cast<const char*>(content.data()), static_cast<std::streamsize>(content.size()));
+    }
+    
+    static bool checkSame(const std::vector<uint8_t>& content, const std::string& filename) {
+        std::ifstream in(filename, std::ios::binary);
+        std::vector<uint8_t> file_content;
+        file_content.resize(content.size());
+        in.read(reinterpret_cast<char*>(file_content.data()), static_cast<std::streamsize>(content.size()));
+        return 0 == std::memcmp(content.data(), file_content.data(), content.size());
     }
 };
 
 TEST_CASE("gfx engine" * doctest::timeout(10)) {
+    wg::App app("wegnine-gfx-engine-example", std::make_tuple(0, 0, 1));
     
     // Prepare data
-    wg::Logger::Disable();
-    
     // config
     std::filesystem::create_directories("config");
     {
         std::ofstream out("config/engine.json");
-        out << "{\"gfx-separate-transfer\": true, \"gfx-max-sampler-anisotropy\": 8.0}";
+        out << R"({"gfx-separate-transfer": true, "gfx-max-sampler-anisotropy": 8.0})";
     }
+    CHECK(std::filesystem::exists("config/engine.json"));
     
     // shader
     std::filesystem::create_directories("shader");
     LocalPacked::write(LocalPacked::vert_shader, "shader/vert.spv");
     LocalPacked::write(LocalPacked::frag_shader, "shader/frag.spv");
+    CHECK(std::filesystem::exists("shader/vert.spv"));
+    CHECK(LocalPacked::checkSame(LocalPacked::vert_shader, "shader/vert.spv"));
+    CHECK(std::filesystem::exists("shader/frag.spv"));
+    CHECK(LocalPacked::checkSame(LocalPacked::frag_shader, "shader/frag.spv"));
     
     // img
     std::filesystem::create_directories("resources");
     LocalPacked::write(LocalPacked::image, "resources/image.png");
+    CHECK(std::filesystem::exists("resources/image.png"));
+    CHECK(LocalPacked::checkSame(LocalPacked::image, "resources/image.png"));
     
     // Begin test
-    wg::App app("wegnine-gfx-engine-example", std::make_tuple(0, 0, 1));
     auto window = app.createWindow(800, 600, "WEngine gfx engine example");
 
     auto gfx = wg::Gfx::Create(app);

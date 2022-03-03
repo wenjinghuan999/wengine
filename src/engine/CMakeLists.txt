@@ -16,4 +16,5 @@ target_include_directories(wengine-engine
 target_link_libraries(wengine-engine
     PUBLIC wengine-common
     PUBLIC wengine-logger
-    PUBLIC wengine-gfx)
+    PUBLIC wengine-gfx
+    PRIVATE third-party-tinyobjloader)

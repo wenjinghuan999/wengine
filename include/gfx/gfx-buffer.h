@@ -3,6 +3,8 @@
 #include "common/common.h"
 #include "common/math.h"
 
+#include <glm/gtx/hash.hpp>
+
 #include <cstddef>
 #include <memory>
 #include <type_traits>
@@ -105,7 +107,25 @@ struct SimpleVertex {
             },
         };
     }
+    
+    inline bool operator==(const SimpleVertex&) const = default;
 };
+
+} // namespace wg
+
+template<>
+struct std::hash<wg::SimpleVertex>
+{
+    std::size_t operator()(wg::SimpleVertex const& v) const noexcept
+    {
+        std::size_t h = std::hash<glm::vec3>{}(v.position);
+        h = (h << 1) ^ std::hash<glm::vec3>{}(v.color);
+        h = (h << 1) ^ std::hash<glm::vec2>{}(v.tex_coord);
+        return h;
+    }
+};
+
+namespace wg {
 
 template <typename T>
 class is_vertex {

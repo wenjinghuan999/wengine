@@ -149,7 +149,7 @@ void Gfx::createPipelineResources(
         .rasterizerDiscardEnable = false,
         .polygonMode             = vk::PolygonMode::eFill,
         .cullMode                = vk::CullModeFlagBits::eBack,
-        .frontFace               = vk::FrontFace::eClockwise,
+        .frontFace               = vk::FrontFace::eCounterClockwise,
         .depthBiasEnable         = false,
         .depthBiasConstantFactor = 0.f,
         .depthBiasClamp          = 0.f,
@@ -307,16 +307,20 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     if (*pipeline_resources->set_layout) {
         uint32_t uniform_descriptors_count = 
             static_cast<uint32_t>(pipeline->uniform_layout().descriptions().size() * image_count);
-        descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eUniformBuffer,
-            .descriptorCount = uniform_descriptors_count
-        });
+        if (uniform_descriptors_count > 0) {
+            descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
+                .type = vk::DescriptorType::eUniformBuffer,
+                .descriptorCount = uniform_descriptors_count
+            });
+        }
         uint32_t sampler_descriptors_count = 
             static_cast<uint32_t>(pipeline->sampler_layout().descriptions().size() * image_count);
-        descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eCombinedImageSampler,
-            .descriptorCount = sampler_descriptors_count
-        });
+        if (sampler_descriptors_count > 0) {
+            descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
+                .type = vk::DescriptorType::eCombinedImageSampler,
+                .descriptorCount = sampler_descriptors_count
+            });
+        }
     }
     
     auto descriptor_pool_create_info = vk::DescriptorPoolCreateInfo{

@@ -39,10 +39,12 @@ std::shared_ptr<IRenderData> SceneRenderer::createRenderData() {
 }
 
 CameraUniform SceneRenderer::createUniformObject() {
-    return {
+    auto camera_uniform = CameraUniform{
         .view_mat = glm::lookAt(camera_.position, camera_.center, camera_.up),
         .project_mat = glm::perspective(glm::radians(45.0f), 4.f / 3.f, 0.1f, 10.0f)
     };
+    camera_uniform.project_mat[1][1] *= -1.f;
+    return camera_uniform;
 }
 
 } // namespace wg

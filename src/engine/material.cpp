@@ -63,8 +63,11 @@ GfxUniformLayout Material::createUniformLayout() const {
 }
 
 GfxSamplerLayout Material::createSamplerLayout() const {
-    return GfxSamplerLayout{}
-        .addDescription({ .binding = 2, .stages = wg::shader_stages::frag });
+    auto sampler_layout = GfxSamplerLayout{};
+    for (size_t i = 0; i < textures_.size(); ++i) {
+        sampler_layout.addDescription({ .binding = static_cast<uint32_t>(2U + i), .stages = wg::shader_stages::frag });
+    }
+    return sampler_layout;
 }
 
 } // namespace wg

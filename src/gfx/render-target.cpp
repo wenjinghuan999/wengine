@@ -356,22 +356,26 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
 
     // Update uniforms
     for (auto it = renderer->dirty_framebuffer_uniforms_.begin();
-         it != renderer->dirty_framebuffer_uniforms_.end(); ++it) {
+         it != renderer->dirty_framebuffer_uniforms_.end(); ) {
         auto&&[attribute, mask] = *it;
         commitFramebufferUniformBuffers(render_target, attribute, image_index);
         mask |= (1 << image_index);
         if (mask == (1 << image_count) - 1) {
             it = renderer->dirty_framebuffer_uniforms_.erase(it);
+        } else {
+            ++it;
         }
     }
     for (auto it = renderer->dirty_draw_command_uniforms_.begin();
-         it != renderer->dirty_draw_command_uniforms_.end(); ++it) {
+         it != renderer->dirty_draw_command_uniforms_.end(); ) {
         auto&&[key, mask] = *it;
         auto&&[draw_command_index, attribute] = key;
         commitDrawCommandUniformBuffers(render_target, draw_command_index, attribute, image_index);
         mask |= (1 << image_index);
         if (mask == (1 << image_count) - 1) {
             it = renderer->dirty_draw_command_uniforms_.erase(it);
+        } else {
+            ++it;
         }
     }
 

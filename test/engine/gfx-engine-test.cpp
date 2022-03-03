@@ -151,8 +151,8 @@ TEST_CASE("gfx engine" * doctest::timeout(10)) {
     auto renderer = wg::SceneRenderer::Create();
     renderer->setCamera({ glm::vec3(0.0f, -5.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f) });
     renderer->setRenderTarget(render_target);
-    renderer->addComponent(quad_component);
     renderer->addComponent(bunny_component);
+    renderer->addComponent(quad_component);
     render_data.emplace_back(renderer->createRenderData());
     CHECK_EQ(renderer->render_data()->weak_render_target.lock(), render_target);
     CHECK(renderer->render_data()->camera_uniform_buffer.get());

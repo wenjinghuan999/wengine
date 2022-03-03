@@ -169,12 +169,12 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     
     // shader
     std::filesystem::create_directories("shader");
-    LocalPacked::write(LocalPacked::vert_shader, "shader/vert.spv");
-    LocalPacked::write(LocalPacked::frag_shader, "shader/frag.spv");
-    CHECK(std::filesystem::exists("shader/vert.spv"));
-    CHECK(LocalPacked::checkSame(LocalPacked::vert_shader, "shader/vert.spv"));
-    CHECK(std::filesystem::exists("shader/frag.spv"));
-    CHECK(LocalPacked::checkSame(LocalPacked::frag_shader, "shader/frag.spv"));
+    LocalPacked::write(LocalPacked::vert_shader, "shader/simple.vert.spv");
+    LocalPacked::write(LocalPacked::frag_shader, "shader/simple.frag.spv");
+    CHECK(std::filesystem::exists("shader/simple.vert.spv"));
+    CHECK(LocalPacked::checkSame(LocalPacked::vert_shader, "shader/simple.vert.spv"));
+    CHECK(std::filesystem::exists("shader/simple.frag.spv"));
+    CHECK(LocalPacked::checkSame(LocalPacked::frag_shader, "shader/simple.frag.spv"));
     
     // img
     std::filesystem::create_directories("resources");
@@ -191,8 +191,8 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     gfx->selectBestPhysicalDevice();
     gfx->createLogicalDevice();
 
-    auto vert_shader = wg::Shader::Load("shader/vert.spv", wg::shader_stages::vert);
-    auto frag_shader = wg::Shader::Load("shader/frag.spv", wg::shader_stages::frag);
+    auto vert_shader = wg::Shader::Load("shader/simple.vert.spv", wg::shader_stages::vert);
+    auto frag_shader = wg::Shader::Load("shader/simple.frag.spv", wg::shader_stages::frag);
     gfx->createShaderResources(vert_shader);
     gfx->createShaderResources(frag_shader);
     
@@ -202,16 +202,18 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     CHECK(frag_shader->valid());
 
     auto camera_uniform_buffer = wg::UniformBuffer<wg::CameraUniform>::Create();
-    camera_uniform_buffer->setUniformObject(
-        {
-            .view_mat = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-            .project_mat = glm::perspective(glm::radians(45.0f), 4.f / 3.f, 0.1f, 10.0f)
-        }
-    );
+    auto camera_uniform_object = wg::CameraUniform{
+        .view_mat = glm::lookAt(glm::vec3(0.0f, -2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        .project_mat = glm::perspective(glm::radians(45.0f), 4.f / 3.f, 0.1f, 10.0f)
+    };
+    camera_uniform_object.project_mat[1][1] *= -1;
+    camera_uniform_buffer->setUniformObject(camera_uniform_object);
     CHECK(camera_uniform_buffer->has_cpu_data());
     
-    auto model_uniform_buffer = wg::UniformBuffer<wg::ModelUniform>::Create();
-    CHECK(!model_uniform_buffer->has_cpu_data());
+    auto quad_model_uniform_buffer = wg::UniformBuffer<wg::ModelUniform>::Create();
+    CHECK(!quad_model_uniform_buffer->has_cpu_data());
+    auto triangle_model_uniform_buffer = wg::UniformBuffer<wg::ModelUniform>::Create();
+    CHECK(!triangle_model_uniform_buffer->has_cpu_data());
 
     auto uniform_layout = wg::GfxUniformLayout{}
         .addDescription({ .attribute = wg::uniform_attributes::camera, .binding = 0, .stages = wg::shader_stages::vert | wg::shader_stages::frag })
@@ -226,10 +228,10 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
         .addDescription({ .binding = 2, .stages = wg::shader_stages::frag });
 
     auto vertices = std::vector<wg::SimpleVertex>{
-        { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 0.f } },
-        { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 1.f, 0.f } },
-        { .position = { 0.5f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 1.f, 1.f } },
-        { .position = { -0.5f, 0.5f, 0.f }, .color = { 1.f, 1.f, 0.f }, .tex_coord = { 0.f, 1.f } },
+        { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 1.f } },
+        { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 1.f, 1.f } },
+        { .position = { 0.5f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 1.f, 0.f } },
+        { .position = { -0.5f, 0.5f, 0.f }, .color = { 1.f, 1.f, 0.f }, .tex_coord = { 0.f, 0.f } },
     };
     auto vertex_buffer = wg::VertexBuffer<wg::SimpleVertex>::CreateFromVertexArray(vertices);
     CHECK(vertex_buffer->has_cpu_data());
@@ -263,25 +265,25 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     quad_draw_command->addVertexBuffer(vertex_buffer);
     CHECK(!quad_draw_command->valid());
     quad_draw_command->setIndexBuffer(index_buffer);
-    quad_draw_command->addUniformBuffer(model_uniform_buffer);
+    quad_draw_command->addUniformBuffer(quad_model_uniform_buffer);
     CHECK(!quad_draw_command->valid());
     quad_draw_command->addImage(2, image);
     CHECK(quad_draw_command->valid());
     gfx->finishDrawCommand(quad_draw_command);
 
-    auto vertices2 = std::vector<wg::SimpleVertex>{
+    auto triangle_vertices = std::vector<wg::SimpleVertex>{
         { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 0.f } },
         { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 1.f, 0.f } },
         { .position = { 0.0f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 0.5f, 1.f } },
     };
-    auto vertex_buffer2 = wg::VertexBuffer<wg::SimpleVertex>::CreateFromVertexArray(vertices2);
-    gfx->createVertexBufferResources(vertex_buffer2);
+    auto triangle_vertex_buffer = wg::VertexBuffer<wg::SimpleVertex>::CreateFromVertexArray(triangle_vertices);
+    gfx->createVertexBufferResources(triangle_vertex_buffer);
 
     auto triangle_draw_command = wg::SimpleDrawCommand::Create("triangle", pipeline);
     CHECK(!triangle_draw_command->valid());
-    triangle_draw_command->addVertexBuffer(vertex_buffer2);
+    triangle_draw_command->addVertexBuffer(triangle_vertex_buffer);
     CHECK(!triangle_draw_command->valid());
-    triangle_draw_command->addUniformBuffer(model_uniform_buffer);
+    triangle_draw_command->addUniformBuffer(triangle_model_uniform_buffer);
     triangle_draw_command->addImage(2, image);
     CHECK(triangle_draw_command->valid());
     gfx->finishDrawCommand(triangle_draw_command);
@@ -303,12 +305,17 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     gfx->render(render_target);
     app.wait();
     
-    model_uniform_buffer->setUniformObject(
+    quad_model_uniform_buffer->setUniformObject(
         {
-            .model_mat = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f))
+            .model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -0.2f))
         }
     );
     renderer->markUniformDirty(quad_draw_command, wg::uniform_attributes::model);
+    triangle_model_uniform_buffer->setUniformObject(
+        {
+            .model_mat = glm::mat4(1.0f)
+        }
+    );
     renderer->markUniformDirty(triangle_draw_command, wg::uniform_attributes::model);
 
     gfx->render(render_target);
@@ -316,10 +323,10 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
 
 // Packed data
 std::vector<uint8_t> LocalPacked::vert_shader = {
-#include "../resources/vert.inc" 
+#include "../resources/simple.vert.inc" 
 };
 std::vector<uint8_t> LocalPacked::frag_shader = {
-#include "../resources/frag.inc"
+#include "../resources/simple.frag.inc"
 };
 std::vector<uint8_t> LocalPacked::image = {
 #include "../resources/image.inc"

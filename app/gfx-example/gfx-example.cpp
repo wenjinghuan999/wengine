@@ -76,16 +76,16 @@ int main(int, char**) {
     assert(quad_draw_command->valid());
     gfx->finishDrawCommand(quad_draw_command);
 
-    auto vertices2 = std::vector<wg::SimpleVertex>{
+    auto triangle_vertices = std::vector<wg::SimpleVertex>{
         { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 0.f } },
         { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 1.f, 0.f } },
         { .position = { 0.0f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 0.5f, 1.f } },
     };
-    auto vertex_buffer2 = wg::VertexBuffer<wg::SimpleVertex>::CreateFromVertexArray(vertices2);
-    gfx->createVertexBufferResources(vertex_buffer2);
+    auto triangle_vertex_buffer = wg::VertexBuffer<wg::SimpleVertex>::CreateFromVertexArray(triangle_vertices);
+    gfx->createVertexBufferResources(triangle_vertex_buffer);
 
     auto triangle_draw_command = wg::SimpleDrawCommand::Create("triangle", simple_pipeline);
-    triangle_draw_command->addVertexBuffer(vertex_buffer2);
+    triangle_draw_command->addVertexBuffer(triangle_vertex_buffer);
     triangle_draw_command->addUniformBuffer(triangle_model_uniform_buffer);
     triangle_draw_command->addImage(2, image);
     assert(triangle_draw_command->valid());

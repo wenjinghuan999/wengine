@@ -16,6 +16,7 @@ public:
     [[nodiscard]] const std::string& name() const { return name_; }
     [[nodiscard]] virtual Size2D extent() const = 0;
     [[nodiscard]] virtual gfx_formats::Format format() const = 0;
+    [[nodiscard]] virtual gfx_formats::Format depth_format() const = 0;
     [[nodiscard]] virtual std::vector<gfx_queues::QueueId> queues() const = 0;
     [[nodiscard]] virtual bool preRendering(class Gfx& gfx) = 0;
     [[nodiscard]] virtual int acquireImage(class Gfx& gfx) = 0;
@@ -39,6 +40,7 @@ class RenderTargetSurface : public RenderTarget {
 public:
     Size2D extent() const override { return surface_->extent(); }
     gfx_formats::Format format() const override { return surface_->format(); }
+    gfx_formats::Format depth_format() const override { return surface_->depth_format(); }
     std::vector<gfx_queues::QueueId> queues() const override {
         return { gfx_queues::graphics, gfx_queues::present };
     }

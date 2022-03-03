@@ -104,6 +104,9 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
         auto clear_values = std::array{
             vk::ClearValue{
                 .color = { .float32 = std::array{ 0.f, 0.f, 0.f, 1.f } }
+            },
+            vk::ClearValue{
+                .depthStencil = { .depth  = 1.f, .stencil = 0 }
             }
         };
         auto render_pass_begin_info = vk::RenderPassBeginInfo{

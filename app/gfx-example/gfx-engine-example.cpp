@@ -74,13 +74,14 @@ int main(int, char**) {
     
     app.loop(
         [&](float time) {
-
-            auto transform = wg::Transform{
-                .transform = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f))
-            };
-
-            quad_component->setTransform(transform);
-            triangle_component->setTransform(transform);
+            auto transform = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+            quad_component->setTransform(wg::Transform{
+                .transform = transform
+            });
+            triangle_component->setTransform(wg::Transform{
+                .transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, -0.2f))
+            });
+            
             renderer->updateComponentTransform(quad_component);
             renderer->updateComponentTransform(triangle_component);
 

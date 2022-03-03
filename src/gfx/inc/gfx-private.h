@@ -55,7 +55,7 @@ struct Gfx::Impl {
         vk::BufferUsageFlags usage, vk::MemoryPropertyFlags memory_properties
     );
 
-    void transitionImageLayout(const std::shared_ptr<Image>& image, vk::ImageLayout layout, const QueueInfoRef& queue);
+    void transitionImageLayout(ImageResources* image_resources, vk::ImageLayout layout, const QueueInfoRef& queue);
     void copyBufferToImage(
         const QueueInfoRef& transfer_queue,
         vk::Buffer src, vk::Image dst, uint32_t width, uint32_t height, vk::ImageLayout image_layout
@@ -65,6 +65,16 @@ struct Gfx::Impl {
         const std::shared_ptr<Image>& cpu_image,
         const std::shared_ptr<Image>& gpu_image
     );
+    void createImage(
+        uint32_t width, uint32_t height, vk::Format vk_format,
+        vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect,
+        ImageResources& out_image_resources, GfxMemoryResources& out_memory_resources
+    );
+    void createSampler(SamplerResources& out_sampler_resources);
+    
+    inline static bool FormatHasStencil(vk::Format format) {
+        return format == vk::Format::eD24UnormS8Uint || format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD16UnormS8Uint;
+    }
 };
 
 struct PhysicalDevice::Impl {
@@ -113,6 +123,7 @@ struct LogicalDevice::Impl {
     OwnedResources<GfxMemoryResources> memory_resources;
     OwnedResources<GfxBufferResources> buffer_resources;
     OwnedResources<ImageResources> image_resources;
+    OwnedResources<SamplerResources> sampler_resources;
 
     explicit Impl(vk::raii::Device vk_device)
         : vk_device(std::move(vk_device)) {}

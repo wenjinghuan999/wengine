@@ -55,6 +55,14 @@ RenderTargetSurface::RenderTargetSurface(std::string name, const std::shared_ptr
         }
         return image_views;
     };
+    impl_->get_depth_image_views = [weak_surface = std::weak_ptr<Surface>(surface_)]() {
+        if (auto surface = weak_surface.lock()) {
+            if (auto* depth_image_resources = surface->impl_->depth_image_resources.data()) {
+                return *depth_image_resources->image_view;
+            }
+        }
+        return vk::ImageView{ nullptr };
+    };
 }
 
 bool RenderTargetSurface::preRendering(class Gfx& gfx) {
@@ -164,6 +172,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 
     auto[width, height] = render_target->extent();
     auto image_views = render_target->impl_->get_image_views();
+    auto depth_image_view = render_target->impl_->get_depth_image_views();
     auto image_count = image_views.size();
 
     auto resources = std::make_unique<RenderTargetResources>();
@@ -180,27 +189,44 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
         .initialLayout  = vk::ImageLayout::eUndefined,
         .finalLayout    = vk::ImageLayout::ePresentSrcKHR
     };
-    auto attachments = std::array{ color_attachment };
+    auto depth_attachment = vk::AttachmentDescription{
+        .format         = gfx_formats::ToVkFormat(render_target->depth_format()),
+        .samples        = vk::SampleCountFlagBits::e1,
+        .loadOp         = vk::AttachmentLoadOp::eClear,
+        .storeOp        = vk::AttachmentStoreOp::eDontCare,
+        .stencilLoadOp  = vk::AttachmentLoadOp::eDontCare,
+        .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+        .initialLayout  = vk::ImageLayout::eUndefined,
+        .finalLayout    = vk::ImageLayout::eDepthStencilAttachmentOptimal
+    };
+    auto attachments = std::array{ color_attachment, depth_attachment };
 
     auto color_attachment_reference = vk::AttachmentReference{
         .attachment = 0,
         .layout     = vk::ImageLayout::eColorAttachmentOptimal
     };
     auto color_attachments = std::array{ color_attachment_reference };
+    
+    auto depth_attachment_reference = vk::AttachmentReference{
+        .attachment = 1,
+        .layout     = vk::ImageLayout::eDepthStencilAttachmentOptimal
+    };
 
     auto subpass_description = vk::SubpassDescription{
-        .pipelineBindPoint = vk::PipelineBindPoint::eGraphics
+        .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
+        .pDepthStencilAttachment = &depth_attachment_reference
     }
         .setColorAttachments(color_attachments);
+    
     auto subpasses = std::array{ subpass_description };
     auto dependencies = std::array{
         vk::SubpassDependency{
             .srcSubpass    = VK_SUBPASS_EXTERNAL,
             .dstSubpass    = 0,
-            .srcStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-            .dstStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            .srcStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests,
+            .dstStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests,
             .srcAccessMask = {},
-            .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite
+            .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite
         }
     };
 
@@ -241,7 +267,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     // Framebuffers
     resources->framebuffer_resources.reserve(image_count);
     for (auto&& image_view : image_views) {
-        auto render_target_attachments = std::array{ image_view };
+        auto render_target_attachments = std::array{ image_view, depth_image_view };
         auto framebuffer_create_info = vk::FramebufferCreateInfo{
             .renderPass = *resources->render_pass,
             .width      = static_cast<uint32_t>(width),

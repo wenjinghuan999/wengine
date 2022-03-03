@@ -5,6 +5,7 @@
 #include "platform/inc/platform.inc"
 #include "gfx/surface.h"
 #include "common/owned-resources.h"
+#include "image-private.h"
 
 namespace wg {
 
@@ -18,7 +19,9 @@ struct SurfaceResources {
 
 struct Surface::Impl {
     vk::raii::SurfaceKHR vk_surface{ nullptr };
-    OwnedResourceHandle <SurfaceResources> resources;
+    OwnedResourceHandle<SurfaceResources> resources;
+    OwnedResourceHandle<ImageResources> depth_image_resources;
+    OwnedResourceHandle<GfxMemoryResources> depth_memory_resources;
 
     static void SetFrameBufferSizeCallback(GLFWwindow* window, int width, int height);
     static std::map<GLFWwindow*, std::function<void(int, int)>> glfw_window_to_resized_func_map;

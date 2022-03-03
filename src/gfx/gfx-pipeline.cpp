@@ -167,9 +167,9 @@ void Gfx::createPipelineResources(
     };
 
     resources->depth_stencil_create_info = vk::PipelineDepthStencilStateCreateInfo{
-        .depthTestEnable       = false,
-        .depthWriteEnable      = false,
-        .depthCompareOp        = {},
+        .depthTestEnable       = true,
+        .depthWriteEnable      = true,
+        .depthCompareOp        = vk::CompareOp::eLess,
         .depthBoundsTestEnable = false,
         .stencilTestEnable     = false,
         .front                 = {},
@@ -445,14 +445,16 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
             
             auto&& image = draw_command_resources.images[description.binding];
             if (auto* image_resources = image->impl_->resources.data()) {
-                image_info.emplace_back(
-                    vk::DescriptorImageInfo{
-                        .sampler     = *image_resources->sampler,
-                        .imageView   = *image_resources->image_view,
-                        .imageLayout = image_resources->image_layout
-                    }
-                );
-                image_infos.emplace_back(std::move(image_info));
+                if (auto* sampler_resources = image->impl_->sampler_resources.data()) {
+                    image_info.emplace_back(
+                        vk::DescriptorImageInfo{
+                            .sampler     = *sampler_resources->sampler,
+                            .imageView   = *image_resources->image_view,
+                            .imageLayout = image_resources->image_layout
+                        }
+                    );
+                    image_infos.emplace_back(std::move(image_info));
+                }
             } else {
                 logger().error("Image resources not available.");
             }

@@ -29,6 +29,7 @@ int main(int, char**) {
         }
     );
     auto model_uniform_buffer = wg::UniformBuffer<wg::ModelUniform>::Create();
+    auto model_uniform_buffer2 = wg::UniformBuffer<wg::ModelUniform>::Create();
 
     auto uniform_layout = wg::GfxUniformLayout{}
         .addDescription({ .attribute = wg::uniform_attributes::camera, .binding = 0, .stages = wg::shader_stages::vert | wg::shader_stages::frag })
@@ -85,7 +86,7 @@ int main(int, char**) {
 
     auto triangle_draw_command = wg::SimpleDrawCommand::Create("triangle", pipeline);
     triangle_draw_command->addVertexBuffer(vertex_buffer2);
-    triangle_draw_command->addUniformBuffer(model_uniform_buffer);
+    triangle_draw_command->addUniformBuffer(model_uniform_buffer2);
     triangle_draw_command->addImage(2, image);
     assert(triangle_draw_command->valid());
     gfx->finishDrawCommand(triangle_draw_command);
@@ -103,9 +104,15 @@ int main(int, char**) {
 
     app.loop(
         [&](float time) {
+            auto transform = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
             model_uniform_buffer->setUniformObject(
                 {
-                    .model_mat = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f))
+                    .model_mat = transform
+                }
+            );
+            model_uniform_buffer2->setUniformObject(
+                {
+                    .model_mat = glm::translate(transform, glm::vec3(0.0f, 0.0f, -0.2f))
                 }
             );
             renderer->markUniformDirty(quad_draw_command, wg::uniform_attributes::model);

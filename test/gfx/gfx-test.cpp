@@ -319,6 +319,15 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     renderer->markUniformDirty(triangle_draw_command, wg::uniform_attributes::model);
 
     gfx->render(render_target);
+    
+    triangle_model_uniform_buffer->setUniformObject(
+        {
+            .model_mat = glm::mat4(1.0f)
+        }
+    );
+    renderer->markUniformDirty(triangle_draw_command, wg::uniform_attributes::model);
+    
+    gfx->render(render_target);
 }
 
 // Packed data

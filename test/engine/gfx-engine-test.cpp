@@ -181,6 +181,13 @@ TEST_CASE("gfx engine" * doctest::timeout(10)) {
     renderer->updateComponentTransform(bunny_component);
 
     gfx->render(render_target);
+
+    bunny_component->setTransform(
+        wg::Transform{
+            .transform = glm::mat4(1.0f)
+        }
+    );
+    renderer->updateComponentTransform(bunny_component);
 }
 
 // Packed data

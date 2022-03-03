@@ -93,8 +93,8 @@ int main(int, char**) {
 
     auto renderer = wg::BasicRenderer::Create();
     renderer->addUniformBuffer(camera_uniform_buffer);
-    renderer->addDrawCommand(quad_draw_command);
     renderer->addDrawCommand(triangle_draw_command);
+    renderer->addDrawCommand(quad_draw_command);
     assert(renderer->valid());
 
     auto render_target = gfx->createRenderTarget(window);

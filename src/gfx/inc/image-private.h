@@ -14,6 +14,7 @@ struct ImageResources {
     
     uint32_t width{ 0 };
     uint32_t height{ 0 };
+    uint32_t mip_levels{ 0 };
     vk::Format format;
     vk::ImageLayout image_layout{};
     QueueInfoRef queue;

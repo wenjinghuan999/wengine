@@ -52,6 +52,7 @@ bool Image::load(const std::string& filename, gfx_formats::Format image_format, 
     image_format_ = image_format;
     width_ = width;
     height_ = height;
+    mip_levels_ = 1;
 
     has_cpu_data_ = true;
     has_gpu_data_ = false;
@@ -76,31 +77,52 @@ void Gfx::createImageResources(const std::shared_ptr<Image>& image) {
     }
 }
 
-void Gfx::Impl::transitionImageLayout(ImageResources* image_resources, vk::ImageLayout layout, const QueueInfoRef& queue) {
+void Gfx::Impl::transitionImageLayout(
+    ImageResources* image_resources, vk::ImageLayout new_layout, const QueueInfoRef& new_queue
+) {
     if (!image_resources) {
         logger().error("Cannot transition image layout because image resources are not available.");
         return;
     }
-    if (image_resources->image_layout == layout) {
+
+    transitionImageLayout(
+        image_resources, image_resources->image_layout, new_layout, image_resources->queue, new_queue, 0, image_resources->mip_levels
+    );
+
+    image_resources->image_layout = new_layout;
+    image_resources->queue = new_queue;
+}
+
+void Gfx::Impl::transitionImageLayout(
+    ImageResources* image_resources,
+    vk::ImageLayout old_layout, vk::ImageLayout new_layout,
+    const QueueInfoRef& old_queue, const QueueInfoRef& new_queue,
+    uint32_t base_mip, uint32_t mip_count
+) {
+    if (!image_resources) {
+        logger().error("Cannot transition image layout because image resources are not available.");
+        return;
+    }
+    if (old_layout == new_layout && old_queue.queue_family_index == new_queue.queue_family_index) {
         return;
     }
 
     auto barrier = vk::ImageMemoryBarrier{
-        .oldLayout           = image_resources->image_layout,
-        .newLayout           = layout,
-        .srcQueueFamilyIndex = image_resources->queue.queue_family_index,
-        .dstQueueFamilyIndex = queue.queue_family_index,
+        .oldLayout           = old_layout,
+        .newLayout           = new_layout,
+        .srcQueueFamilyIndex = old_queue.queue_family_index,
+        .dstQueueFamilyIndex = new_queue.queue_family_index,
         .image               = *image_resources->image,
         .subresourceRange    = {
             .aspectMask      = vk::ImageAspectFlagBits::eColor, // will fix below
-            .baseMipLevel    = 0,
-            .levelCount      = 1,
+            .baseMipLevel    = base_mip,
+            .levelCount      = mip_count,
             .baseArrayLayer  = 0,
             .layerCount      = 1
         }
     };
-    
-    if (layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+
+    if (new_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
         barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
         const bool format_has_stencil = [](vk::Format format) {
             return format == vk::Format::eD24UnormS8Uint || format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD16UnormS8Uint;
@@ -112,39 +134,39 @@ void Gfx::Impl::transitionImageLayout(ImageResources* image_resources, vk::Image
 
     vk::PipelineStageFlagBits src_stage;
     vk::PipelineStageFlagBits dst_stage;
-    if (image_resources->image_layout == vk::ImageLayout::eUndefined && layout == vk::ImageLayout::eTransferDstOptimal) {
+    if (old_layout == vk::ImageLayout::eUndefined && new_layout == vk::ImageLayout::eTransferDstOptimal) {
         barrier.srcAccessMask = {};
         barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
         src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
         dst_stage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (image_resources->image_layout == vk::ImageLayout::eTransferDstOptimal && layout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+    } else if (old_layout == vk::ImageLayout::eTransferDstOptimal && new_layout == vk::ImageLayout::eShaderReadOnlyOptimal) {
         barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
         barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
         src_stage = vk::PipelineStageFlagBits::eTransfer;
         dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
-    } else if (image_resources->image_layout == vk::ImageLayout::eUndefined && layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+    } else if (old_layout == vk::ImageLayout::eTransferSrcOptimal && new_layout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+        barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
+        barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+        src_stage = vk::PipelineStageFlagBits::eTransfer;
+        dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
+    } else if (old_layout == vk::ImageLayout::eTransferDstOptimal && new_layout == vk::ImageLayout::eTransferSrcOptimal) {
+        barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+        src_stage = vk::PipelineStageFlagBits::eTransfer;
+        dst_stage = vk::PipelineStageFlagBits::eTransfer;
+    } else if (old_layout == vk::ImageLayout::eUndefined && new_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
         barrier.srcAccessMask = {};
         barrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
         src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
         dst_stage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
     } else {
-        logger().error("Unsupported image layout transition: {} => {}", vk::to_string(image_resources->image_layout), vk::to_string(layout));
+        logger().error("Unsupported image layout transition: {} => {}", vk::to_string(old_layout), vk::to_string(new_layout));
         return;
     }
 
-    singleTimeCommand(
-        image_resources->queue,
-        [&barrier, src_stage, dst_stage](vk::CommandBuffer& command_buffer) {
-            command_buffer.pipelineBarrier(
-                src_stage, dst_stage, {},
-                {}, {}, { barrier }
-            );
-        }
-    );
-    if (image_resources->queue.queue_family_index != queue.queue_family_index) {
-        // Need a barrier on target queue, too.
+    if (old_queue.queue_family_index == new_queue.queue_family_index) {
         singleTimeCommand(
-            queue,
+            old_queue,
             [&barrier, src_stage, dst_stage](vk::CommandBuffer& command_buffer) {
                 command_buffer.pipelineBarrier(
                     src_stage, dst_stage, {},
@@ -152,10 +174,32 @@ void Gfx::Impl::transitionImageLayout(ImageResources* image_resources, vk::Image
                 );
             }
         );
+    } else {
+        // Ownership transfer
+        // https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-queue-transfers
+        static auto semaphore1 = gfx->logical_device_->impl_->vk_device.createSemaphore({});
+        static auto semaphore2 = gfx->logical_device_->impl_->vk_device.createSemaphore({});
+        singleTimeCommand(
+            old_queue,
+            [&barrier, src_stage, dst_stage](vk::CommandBuffer& command_buffer) {
+                command_buffer.pipelineBarrier(
+                    src_stage, dst_stage, {},
+                    {}, {}, { barrier }
+                );
+            },
+            { *semaphore1 }, { *semaphore2 }
+        );
+        singleTimeCommand(
+            new_queue,
+            [&barrier, src_stage, dst_stage](vk::CommandBuffer& command_buffer) {
+                command_buffer.pipelineBarrier(
+                    src_stage, dst_stage, {},
+                    {}, {}, { barrier }
+                );
+            },
+            { *semaphore2 }, { *semaphore1 }
+        );
     }
-
-    image_resources->image_layout = layout;
-    image_resources->queue = queue;
 }
 
 void Gfx::Impl::copyBufferToImage(
@@ -209,20 +253,30 @@ void Gfx::Impl::createReferenceImageResources(
     }
     logger().info("Creating resources for image \"{}\".", cpu_image->filename());
 
+    auto max_mip_levels = static_cast<int>(std::floor(std::log2(std::max(cpu_image->width_, cpu_image->height_)))) + 1;
+    const bool need_generate_mipmap = cpu_image->mip_levels_ < max_mip_levels;
+    bool can_generate_mipmap = need_generate_mipmap;
+    auto format_properties = gfx->physical_device().impl_->vk_physical_device.getFormatProperties(gfx_formats::ToVkFormat(cpu_image->image_format_));
+    if (!(format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
+        can_generate_mipmap = false;
+    }
+
     gpu_image->width_ = cpu_image->width_;
     gpu_image->height_ = cpu_image->height_;
+    gpu_image->mip_levels_ = cpu_image->mip_levels_;
 
     auto resources = std::make_unique<ImageResources>();
     auto memory_resources = std::make_unique<GfxMemoryResources>();
     auto sampler_resources = std::make_unique<SamplerResources>();
 
+    int real_mip_levels = can_generate_mipmap ? max_mip_levels : gpu_image->mip_levels_;
     createImage(
-        cpu_image->width_, cpu_image->height_, gfx_formats::ToVkFormat(cpu_image->image_format()),
-        vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+        gpu_image->width_, gpu_image->height_, real_mip_levels, gfx_formats::ToVkFormat(cpu_image->image_format()),
+        vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
         vk::ImageAspectFlagBits::eColor,
         *resources, *memory_resources
     );
-    createSampler(*sampler_resources);
+    createSampler(*resources, *sampler_resources);
 
     gpu_image->impl_->memory_resources = gfx->logical_device_->impl_->memory_resources.store(std::move(memory_resources));
     gpu_image->impl_->resources = gfx->logical_device_->impl_->image_resources.store(std::move(resources));
@@ -230,7 +284,7 @@ void Gfx::Impl::createReferenceImageResources(
 }
 
 void Gfx::Impl::createImage(
-    uint32_t width, uint32_t height, vk::Format vk_format, 
+    uint32_t width, uint32_t height, uint32_t mip_levels, vk::Format vk_format,
     vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect,
     ImageResources& out_image_resources, GfxMemoryResources& out_memory_resources
 ) {
@@ -243,6 +297,7 @@ void Gfx::Impl::createImage(
 
     out_image_resources.width = width;
     out_image_resources.height = height;
+    out_image_resources.mip_levels = mip_levels;
     out_image_resources.image_layout = vk::ImageLayout::eUndefined;
     out_image_resources.format = vk_format;
     out_image_resources.queue = graphics_queue;
@@ -257,7 +312,7 @@ void Gfx::Impl::createImage(
             .height    = height,
             .depth     = 1
         },
-        .mipLevels     = 1,
+        .mipLevels     = mip_levels,
         .arrayLayers   = 1,
         .samples       = vk::SampleCountFlagBits::e1,
         .tiling        = vk::ImageTiling::eOptimal,
@@ -285,7 +340,7 @@ void Gfx::Impl::createImage(
         .subresourceRange   = {
             .aspectMask     = aspect,
             .baseMipLevel   = 0,
-            .levelCount     = 1,
+            .levelCount     = mip_levels,
             .baseArrayLayer = 0,
             .layerCount     = 1
         }
@@ -293,7 +348,7 @@ void Gfx::Impl::createImage(
     out_image_resources.image_view = gfx->logical_device_->impl_->vk_device.createImageView(image_view_create_info);
 }
 
-void Gfx::Impl::createSampler(SamplerResources& out_sampler_resources) {
+void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerResources& out_sampler_resources) {
 
     if (!gfx->logical_device_) {
         logger().error("Cannot create image resources because logical device is not available.");
@@ -320,7 +375,7 @@ void Gfx::Impl::createSampler(SamplerResources& out_sampler_resources) {
         .compareEnable = false,
         .compareOp = vk::CompareOp::eAlways,
         .minLod = 0,
-        .maxLod = 0,
+        .maxLod = static_cast<float>(image_resources.mip_levels),
         .borderColor = vk::BorderColor::eIntOpaqueBlack,
         .unnormalizedCoordinates = false
     };
@@ -387,7 +442,90 @@ void Gfx::commitReferenceImage(
     impl_->copyBufferToImage(
         transfer_queue, *staging_resources.buffer, *resources->image, resources->width, resources->height, resources->image_layout
     );
-    impl_->transitionImageLayout(resources, vk::ImageLayout::eShaderReadOnlyOptimal, graphics_queue);
+
+    // Generate mipmaps
+    if (cpu_image->mip_levels_ < static_cast<int>(resources->mip_levels)) {
+        impl_->singleTimeCommand(
+            transfer_queue,
+            [resources, &cpu_image](vk::CommandBuffer& command_buffer) {
+                auto barrier = vk::ImageMemoryBarrier{
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .image               = *resources->image,
+                    .subresourceRange    = {
+                        .aspectMask      = vk::ImageAspectFlagBits::eColor,
+                        .levelCount      = 1,
+                        .baseArrayLayer  = 0,
+                        .layerCount      = 1
+                    }
+                };
+
+                int32_t mip_width = cpu_image->width_;
+                int32_t mip_height = cpu_image->height_;
+                for (uint32_t i = 1U; i < resources->mip_levels; ++i) {
+                    // wait for transfer (as destination) to finish, then transition to transfer source
+                    barrier.subresourceRange.baseMipLevel = i - 1U;
+                    barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+                    barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+                    barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+                    barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+                    command_buffer.pipelineBarrier(
+                        vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, {},
+                        {}, {}, { barrier }
+                    );
+
+                    auto src_offsets = std::array{
+                        vk::Offset3D{ 0, 0, 0 },
+                        vk::Offset3D{ mip_width, mip_height, 1 }
+                    };
+                    mip_width = mip_width > 1 ? mip_width / 2 : 1;
+                    mip_height = mip_height > 1 ? mip_height / 2 : 1;
+                    auto dst_offsets = std::array{
+                        vk::Offset3D{ 0, 0, 0 },
+                        vk::Offset3D{ mip_width, mip_height, 1 }
+                    };
+
+                    auto blit = vk::ImageBlit{
+                        .srcSubresource = {
+                            .aspectMask = vk::ImageAspectFlagBits::eColor,
+                            .mipLevel = static_cast<uint32_t>(i - 1),
+                            .baseArrayLayer = 0,
+                            .layerCount = 1,
+                        },
+                        .srcOffsets = src_offsets,
+                        .dstSubresource = {
+                            .aspectMask = vk::ImageAspectFlagBits::eColor,
+                            .mipLevel = static_cast<uint32_t>(i),
+                            .baseArrayLayer = 0,
+                            .layerCount = 1,
+                        },
+                        .dstOffsets = dst_offsets
+                    };
+
+                    command_buffer.blitImage(
+                        *resources->image, vk::ImageLayout::eTransferSrcOptimal,
+                        *resources->image, vk::ImageLayout::eTransferDstOptimal,
+                        { blit }, vk::Filter::eLinear
+                    );
+                }
+            }
+        );
+
+        for (uint32_t i = 1; i < resources->mip_levels; ++i) {
+            impl_->transitionImageLayout(
+                resources, vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, transfer_queue, graphics_queue, i - 1U, 1U
+            );
+        }
+        impl_->transitionImageLayout(
+            resources, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, transfer_queue, graphics_queue,
+            resources->mip_levels - 1U, 1U
+        );
+        resources->image_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        resources->queue = graphics_queue;
+    } else {
+        resources->mip_levels = 1;
+        impl_->transitionImageLayout(resources, vk::ImageLayout::eShaderReadOnlyOptimal, graphics_queue);
+    }
 
     gpu_image->has_gpu_data_ = true;
     if (!cpu_image->keep_cpu_data_) {

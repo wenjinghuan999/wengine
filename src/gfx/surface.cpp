@@ -303,7 +303,7 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
         depth_aspect |= vk::ImageAspectFlagBits::eStencil;
     }
     impl_->createImage(
-        resources->vk_extent.width, resources->vk_extent.height, depth_image_format,
+        resources->vk_extent.width, resources->vk_extent.height, 1U, depth_image_format,
         vk::ImageUsageFlagBits::eDepthStencilAttachment, depth_aspect,
         *depth_image_resources, *depth_memory_resources
     );

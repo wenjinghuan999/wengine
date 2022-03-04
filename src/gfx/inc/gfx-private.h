@@ -33,7 +33,8 @@ struct Gfx::Impl {
 
     void singleTimeCommand(
         const QueueInfoRef& queue, std::function<void(vk::CommandBuffer&)> func,
-        std::vector<vk::Semaphore> wait_semaphores = {}, std::vector<vk::Semaphore> signal_semaphores = {}
+        std::vector<vk::Semaphore> wait_semaphores = {}, std::vector<vk::PipelineStageFlags> wait_stages = {}, 
+        std::vector<vk::Semaphore> signal_semaphores = {}
     );
 
     bool createGfxMemory(

@@ -177,8 +177,15 @@ void Gfx::Impl::transitionImageLayout(
     } else {
         // Ownership transfer
         // https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-queue-transfers
-        static auto semaphore1 = gfx->logical_device_->impl_->vk_device.createSemaphore({});
-        static auto semaphore2 = gfx->logical_device_->impl_->vk_device.createSemaphore({});
+        std::vector<vk::Fence> wait_fences;
+        for (int i = 0; i < mip_count; ++i) {
+            wait_fences.push_back(*image_resources->ownership_transfer_fences[base_mip + i]);
+        }
+        auto result = gfx->logical_device_->impl_->vk_device.waitForFences(wait_fences, true, UINT64_MAX);
+        if (result != vk::Result::eSuccess) {
+            logger().error("Error waiting for fence before ownership transfer: {}. ", vk::to_string(result));
+        }
+        vk::Semaphore semaphore = *image_resources->ownership_transfer_semaphores[base_mip];
         singleTimeCommand(
             old_queue,
             [&barrier, src_stage, dst_stage](vk::CommandBuffer& command_buffer) {
@@ -187,7 +194,7 @@ void Gfx::Impl::transitionImageLayout(
                     {}, {}, { barrier }
                 );
             },
-            { *semaphore1 }, { *semaphore2 }
+            {}, {}, { semaphore }
         );
         singleTimeCommand(
             new_queue,
@@ -197,7 +204,7 @@ void Gfx::Impl::transitionImageLayout(
                     {}, {}, { barrier }
                 );
             },
-            { *semaphore2 }, { *semaphore1 }
+            { semaphore }, { vk::PipelineStageFlagBits::eTransfer }, {}
         );
     }
 }
@@ -346,6 +353,20 @@ void Gfx::Impl::createImage(
         }
     };
     out_image_resources.image_view = gfx->logical_device_->impl_->vk_device.createImageView(image_view_create_info);
+
+    QueueInfoRef transfer_queue;
+    getTransferQueue(transfer_queue);
+    if (transfer_queue.queue_family_index != graphics_queue.queue_family_index) {
+        for (int i = 0; i < mip_levels; ++i) {
+            out_image_resources.ownership_transfer_semaphores.emplace_back(
+                gfx->logical_device_->impl_->vk_device.createSemaphore({}));
+            out_image_resources.ownership_transfer_fences.emplace_back(
+                gfx->logical_device_->impl_->vk_device.createFence({
+                    .flags = { vk::FenceCreateFlagBits::eSignaled }
+                })
+            );
+        }
+    }
 }
 
 void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerResources& out_sampler_resources) {

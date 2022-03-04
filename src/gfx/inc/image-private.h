@@ -11,6 +11,8 @@ namespace wg {
 struct ImageResources {
     vk::raii::Image image{ nullptr };
     vk::raii::ImageView image_view{ nullptr };
+    std::vector<vk::raii::Semaphore> ownership_transfer_semaphores;
+    std::vector<vk::raii::Fence> ownership_transfer_fences;
     
     uint32_t width{ 0 };
     uint32_t height{ 0 };

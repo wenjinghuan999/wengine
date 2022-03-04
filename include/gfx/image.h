@@ -33,6 +33,7 @@ public:
     [[nodiscard]] const std::string& filename() const { return filename_; }
     [[nodiscard]] image_file_formats::ImageFileFormat file_format() const { return file_format_; }
     [[nodiscard]] Size2D size() const { return { width_, height_ }; }
+    [[nodiscard]] int mip_levels() const { return mip_levels_; }
     [[nodiscard]] gfx_formats::Format image_format() const { return image_format_; }
 
     bool load(
@@ -45,6 +46,7 @@ protected:
     image_file_formats::ImageFileFormat file_format_;
     int width_{ 0 };
     int height_{ 0 };
+    int mip_levels_{ 1 };
     gfx_formats::Format image_format_{ gfx_formats::none };
     std::vector<uint8_t> raw_data_;
 

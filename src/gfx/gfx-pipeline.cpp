@@ -149,7 +149,7 @@ void Gfx::createPipelineResources(
         .rasterizerDiscardEnable = false,
         .polygonMode             = vk::PolygonMode::eFill,
         .cullMode                = vk::CullModeFlagBits::eBack,
-        .frontFace               = vk::FrontFace::eClockwise,
+        .frontFace               = vk::FrontFace::eCounterClockwise,
         .depthBiasEnable         = false,
         .depthBiasConstantFactor = 0.f,
         .depthBiasClamp          = 0.f,
@@ -167,9 +167,9 @@ void Gfx::createPipelineResources(
     };
 
     resources->depth_stencil_create_info = vk::PipelineDepthStencilStateCreateInfo{
-        .depthTestEnable       = false,
-        .depthWriteEnable      = false,
-        .depthCompareOp        = {},
+        .depthTestEnable       = true,
+        .depthWriteEnable      = true,
+        .depthCompareOp        = vk::CompareOp::eLess,
         .depthBoundsTestEnable = false,
         .stencilTestEnable     = false,
         .front                 = {},
@@ -307,16 +307,20 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     if (*pipeline_resources->set_layout) {
         uint32_t uniform_descriptors_count = 
             static_cast<uint32_t>(pipeline->uniform_layout().descriptions().size() * image_count);
-        descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eUniformBuffer,
-            .descriptorCount = uniform_descriptors_count
-        });
+        if (uniform_descriptors_count > 0) {
+            descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
+                .type = vk::DescriptorType::eUniformBuffer,
+                .descriptorCount = uniform_descriptors_count
+            });
+        }
         uint32_t sampler_descriptors_count = 
             static_cast<uint32_t>(pipeline->sampler_layout().descriptions().size() * image_count);
-        descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::eCombinedImageSampler,
-            .descriptorCount = sampler_descriptors_count
-        });
+        if (sampler_descriptors_count > 0) {
+            descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
+                .type = vk::DescriptorType::eCombinedImageSampler,
+                .descriptorCount = sampler_descriptors_count
+            });
+        }
     }
     
     auto descriptor_pool_create_info = vk::DescriptorPoolCreateInfo{
@@ -445,14 +449,16 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
             
             auto&& image = draw_command_resources.images[description.binding];
             if (auto* image_resources = image->impl_->resources.data()) {
-                image_info.emplace_back(
-                    vk::DescriptorImageInfo{
-                        .sampler     = *image_resources->sampler,
-                        .imageView   = *image_resources->image_view,
-                        .imageLayout = image_resources->image_layout
-                    }
-                );
-                image_infos.emplace_back(std::move(image_info));
+                if (auto* sampler_resources = image->impl_->sampler_resources.data()) {
+                    image_info.emplace_back(
+                        vk::DescriptorImageInfo{
+                            .sampler     = *sampler_resources->sampler,
+                            .imageView   = *image_resources->image_view,
+                            .imageLayout = image_resources->image_layout
+                        }
+                    );
+                    image_infos.emplace_back(std::move(image_info));
+                }
             } else {
                 logger().error("Image resources not available.");
             }

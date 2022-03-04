@@ -35,6 +35,9 @@ public:
     static std::shared_ptr<Mesh> CreateFromVertices(
         const std::string& name, std::vector<SimpleVertex> vertices, std::vector<uint32_t> indices
     );
+    static std::shared_ptr<Mesh> CreateFromObjFile(
+        const std::string& name, const std::string& filename
+    );
     
     const std::vector<wg::SimpleVertex>& vertices() const { return vertices_; }
     const std::vector<uint32_t>& indices() const { return indices_; }

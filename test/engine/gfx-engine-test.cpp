@@ -16,16 +16,19 @@
 #include <filesystem>
 #include <fstream>
 
-struct LocalPacked{
+struct LocalPacked {
     static std::vector<uint8_t> vert_shader;
     static std::vector<uint8_t> frag_shader;
+    static std::vector<uint8_t> grid_vert_shader;
+    static std::vector<uint8_t> grid_frag_shader;
     static std::vector<uint8_t> image;
-    
+    static std::vector<uint8_t> model;
+
     static void write(const std::vector<uint8_t>& content, const std::string& filename) {
         std::ofstream out(filename, std::ios::binary);
         out.write(reinterpret_cast<const char*>(content.data()), static_cast<std::streamsize>(content.size()));
     }
-    
+
     static bool checkSame(const std::vector<uint8_t>& content, const std::string& filename) {
         std::ifstream in(filename, std::ios::binary);
         std::vector<uint8_t> file_content;
@@ -37,7 +40,7 @@ struct LocalPacked{
 
 TEST_CASE("gfx engine" * doctest::timeout(10)) {
     wg::App app("wegnine-gfx-engine-example", std::make_tuple(0, 0, 1));
-    
+
     // Prepare data
     // config
     std::filesystem::create_directories("config");
@@ -46,22 +49,25 @@ TEST_CASE("gfx engine" * doctest::timeout(10)) {
         out << R"({"gfx-separate-transfer": true, "gfx-max-sampler-anisotropy": 8.0})";
     }
     CHECK(std::filesystem::exists("config/engine.json"));
-    
+
     // shader
     std::filesystem::create_directories("shader");
-    LocalPacked::write(LocalPacked::vert_shader, "shader/vert.spv");
-    LocalPacked::write(LocalPacked::frag_shader, "shader/frag.spv");
-    CHECK(std::filesystem::exists("shader/vert.spv"));
-    CHECK(LocalPacked::checkSame(LocalPacked::vert_shader, "shader/vert.spv"));
-    CHECK(std::filesystem::exists("shader/frag.spv"));
-    CHECK(LocalPacked::checkSame(LocalPacked::frag_shader, "shader/frag.spv"));
-    
+    LocalPacked::write(LocalPacked::vert_shader, "shader/simple.vert.spv");
+    LocalPacked::write(LocalPacked::frag_shader, "shader/simple.frag.spv");
+    LocalPacked::write(LocalPacked::grid_vert_shader, "shader/grid.vert.spv");
+    LocalPacked::write(LocalPacked::grid_frag_shader, "shader/grid.frag.spv");
+    CHECK(std::filesystem::exists("shader/simple.vert.spv"));
+    CHECK(std::filesystem::exists("shader/simple.frag.spv"));
+    CHECK(std::filesystem::exists("shader/grid.vert.spv"));
+    CHECK(std::filesystem::exists("shader/grid.frag.spv"));
+
     // img
     std::filesystem::create_directories("resources");
     LocalPacked::write(LocalPacked::image, "resources/image.png");
     CHECK(std::filesystem::exists("resources/image.png"));
-    CHECK(LocalPacked::checkSame(LocalPacked::image, "resources/image.png"));
-    
+    LocalPacked::write(LocalPacked::model, "resources/model.obj");
+    CHECK(std::filesystem::exists("resources/model.obj"));
+
     // Begin test
     auto window = app.createWindow(800, 600, "WEngine gfx engine example");
 
@@ -81,38 +87,40 @@ TEST_CASE("gfx engine" * doctest::timeout(10)) {
 
     auto material = wg::Material::Create(
         "default material",
-        "shader/vert.spv", "shader/frag.spv"
+        "shader/simple.vert.spv", "shader/simple.frag.spv"
     );
     material->addTexture(texture);
     render_data.emplace_back(material->createRenderData());
 
+    auto grid_material = wg::Material::Create(
+        "grid material",
+        "shader/grid.vert.spv", "shader/grid.frag.spv"
+    );
+    render_data.emplace_back(grid_material->createRenderData());
+
     auto quad_vertices = std::vector<wg::SimpleVertex>{
-        { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 0.f } },
-        { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 1.f, 0.f } },
-        { .position = { 0.5f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 1.f, 1.f } },
-        { .position = { -0.5f, 0.5f, 0.f }, .color = { 1.f, 1.f, 0.f }, .tex_coord = { 0.f, 1.f } },
+        { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 1.f } },
+        { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 1.f, 1.f } },
+        { .position = { 0.5f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 1.f, 0.f } },
+        { .position = { 0.5f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 1.f, 0.f } },
+        { .position = { -0.5f, 0.5f, 0.f }, .color = { 1.f, 1.f, 0.f }, .tex_coord = { 0.f, 0.f } },
+        { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 1.f } },
     };
-    auto quad_indices = std::vector<uint32_t>{ 0, 1, 2, 2, 3, 0 };
-    auto quad_mesh = wg::Mesh::CreateFromVertices("quad", quad_vertices, quad_indices);
+    auto quad_mesh = wg::Mesh::CreateFromVertices("quad", quad_vertices);
     render_data.emplace_back(quad_mesh->createRenderData());
     CHECK(quad_mesh->render_data()->vertex_buffer.get());
     CHECK(quad_mesh->render_data()->vertex_buffer->has_cpu_data());
     CHECK(!quad_mesh->render_data()->vertex_buffer->has_gpu_data());
-    CHECK(quad_mesh->render_data()->index_buffer.get());
-    CHECK(quad_mesh->render_data()->index_buffer->has_cpu_data());
-    CHECK(!quad_mesh->render_data()->index_buffer->has_gpu_data());
+    CHECK(!quad_mesh->render_data()->index_buffer.get());
 
-    auto triangle_vertices = std::vector<wg::SimpleVertex>{
-        { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 0.f } },
-        { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 1.f, 0.f } },
-        { .position = { 0.0f, 0.5f, 0.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 0.5f, 1.f } },
-    };
-    auto triangle_mesh = wg::Mesh::CreateFromVertices("triangle", triangle_vertices);
-    render_data.emplace_back(triangle_mesh->createRenderData());
-    CHECK(triangle_mesh->render_data()->vertex_buffer.get());
-    CHECK(triangle_mesh->render_data()->vertex_buffer->has_cpu_data());
-    CHECK(!triangle_mesh->render_data()->vertex_buffer->has_gpu_data());
-    CHECK(!triangle_mesh->render_data()->index_buffer.get());
+    auto bunny_mesh = wg::Mesh::CreateFromObjFile("bunny", "resources/model.obj");
+    render_data.emplace_back(bunny_mesh->createRenderData());
+    CHECK(bunny_mesh->render_data()->vertex_buffer.get());
+    CHECK(bunny_mesh->render_data()->vertex_buffer->has_cpu_data());
+    CHECK(!bunny_mesh->render_data()->vertex_buffer->has_gpu_data());
+    CHECK(bunny_mesh->render_data()->index_buffer.get());
+    CHECK(bunny_mesh->render_data()->index_buffer->has_cpu_data());
+    CHECK(!bunny_mesh->render_data()->index_buffer->has_gpu_data());
 
     auto quad_component = wg::MeshComponent::Create("quad");
     quad_component->setTransform(wg::Transform());
@@ -126,25 +134,25 @@ TEST_CASE("gfx engine" * doctest::timeout(10)) {
     CHECK(quad_component->render_data()->draw_commands[0].get());
     CHECK(quad_component->render_data()->draw_commands[0]->valid());
 
-    auto triangle_component = wg::MeshComponent::Create("triangle");
-    triangle_component->setTransform(wg::Transform());
-    triangle_component->setMaterial(material);
-    triangle_component->setMesh(triangle_mesh);
-    render_data.emplace_back(triangle_component->createRenderData());
-    CHECK(triangle_component->render_data()->model_uniform_buffer.get());
-    CHECK(triangle_component->render_data()->model_uniform_buffer->has_cpu_data());
-    CHECK(!triangle_component->render_data()->model_uniform_buffer->has_gpu_data());
-    CHECK(!triangle_component->render_data()->draw_commands.empty());
-    CHECK(triangle_component->render_data()->draw_commands[0].get());
-    CHECK(triangle_component->render_data()->draw_commands[0]->valid());
+    auto bunny_component = wg::MeshComponent::Create("triangle");
+    bunny_component->setTransform(wg::Transform());
+    bunny_component->setMaterial(grid_material);
+    bunny_component->setMesh(bunny_mesh);
+    render_data.emplace_back(bunny_component->createRenderData());
+    CHECK(bunny_component->render_data()->model_uniform_buffer.get());
+    CHECK(bunny_component->render_data()->model_uniform_buffer->has_cpu_data());
+    CHECK(!bunny_component->render_data()->model_uniform_buffer->has_gpu_data());
+    CHECK(!bunny_component->render_data()->draw_commands.empty());
+    CHECK(bunny_component->render_data()->draw_commands[0].get());
+    CHECK(bunny_component->render_data()->draw_commands[0]->valid());
 
     auto render_target = gfx->createRenderTarget(window);
 
     auto renderer = wg::SceneRenderer::Create();
-    renderer->setCamera({ glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f) });
+    renderer->setCamera({ glm::vec3(0.0f, -5.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f) });
     renderer->setRenderTarget(render_target);
+    renderer->addComponent(bunny_component);
     renderer->addComponent(quad_component);
-    renderer->addComponent(triangle_component);
     render_data.emplace_back(renderer->createRenderData());
     CHECK_EQ(renderer->render_data()->weak_render_target.lock(), render_target);
     CHECK(renderer->render_data()->camera_uniform_buffer.get());
@@ -158,26 +166,46 @@ TEST_CASE("gfx engine" * doctest::timeout(10)) {
 
     gfx->render(render_target);
     app.wait();
-    
-    auto transform = wg::Transform{
-        .transform = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f))
-    };
 
-    quad_component->setTransform(transform);
-    triangle_component->setTransform(transform);
+    quad_component->setTransform(
+        wg::Transform{
+            .transform = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(3.0f, 3.0f, 1.0f)), glm::vec3(0.0f, 0.0f, -0.3f))
+        }
+    );
+    bunny_component->setTransform(
+        wg::Transform{
+            .transform = glm::mat4(1.0f)
+        }
+    );
     renderer->updateComponentTransform(quad_component);
-    renderer->updateComponentTransform(triangle_component);
+    renderer->updateComponentTransform(bunny_component);
 
     gfx->render(render_target);
+
+    bunny_component->setTransform(
+        wg::Transform{
+            .transform = glm::mat4(1.0f)
+        }
+    );
+    renderer->updateComponentTransform(bunny_component);
 }
 
 // Packed data
 std::vector<uint8_t> LocalPacked::vert_shader = {
-#include "../resources/vert.inc" 
+#include "../resources/simple.vert.inc"
 };
 std::vector<uint8_t> LocalPacked::frag_shader = {
-#include "../resources/frag.inc"
+#include "../resources/simple.frag.inc"
+};
+std::vector<uint8_t> LocalPacked::grid_vert_shader = {
+#include "../resources/grid.vert.inc"
+};
+std::vector<uint8_t> LocalPacked::grid_frag_shader = {
+#include "../resources/grid.frag.inc"
 };
 std::vector<uint8_t> LocalPacked::image = {
 #include "../resources/image.inc"
+};
+std::vector<uint8_t> LocalPacked::model = {
+#include "../resources/model.inc"
 };

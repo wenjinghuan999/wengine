@@ -52,7 +52,10 @@ std::shared_ptr<UniformBufferBase> UniformBufferBase::Create(uniform_attributes:
     }
 }
 
-void Gfx::Impl::singleTimeCommand(const QueueInfoRef& queue, std::function<void(vk::CommandBuffer&)> func) {
+void Gfx::Impl::singleTimeCommand(
+    const QueueInfoRef& queue, std::function<void(vk::CommandBuffer&)> func,
+    std::vector<vk::Semaphore> wait_semaphores, std::vector<vk::Semaphore> signal_semaphores
+) {
     auto command_buffer_allocate_info = vk::CommandBufferAllocateInfo{
         .commandPool = queue.vk_command_pool,
         .level = vk::CommandBufferLevel::ePrimary,
@@ -75,7 +78,9 @@ void Gfx::Impl::singleTimeCommand(const QueueInfoRef& queue, std::function<void(
     command_buffer.end();
 
     auto submit_info = vk::SubmitInfo{}
-        .setCommandBuffers(command_buffers);
+        .setCommandBuffers(command_buffers)
+        .setWaitSemaphores(wait_semaphores)
+        .setSignalSemaphores(signal_semaphores);
     queue.vk_queue.submit({ submit_info });
     queue.vk_queue.waitIdle();
 

@@ -11,16 +11,22 @@ namespace wg {
 struct ImageResources {
     vk::raii::Image image{ nullptr };
     vk::raii::ImageView image_view{ nullptr };
-    vk::raii::Sampler sampler{ nullptr };
     
     uint32_t width{ 0 };
     uint32_t height{ 0 };
+    uint32_t mip_levels{ 0 };
+    vk::Format format;
     vk::ImageLayout image_layout{};
     QueueInfoRef queue;
 };
 
+struct SamplerResources {
+    vk::raii::Sampler sampler{ nullptr };
+};
+
 struct Image::Impl : public GfxMemoryBase::Impl {
     OwnedResourceHandle<ImageResources> resources;
+    OwnedResourceHandle<SamplerResources> sampler_resources;
 };
 
 } // namespace wg

@@ -55,6 +55,13 @@ gfx_formats::Format Surface::format() const {
     return {};
 }
 
+gfx_formats::Format Surface::depth_format() const {
+    if (auto* depth_image_resources = impl_->depth_image_resources.data()) {
+        return gfx_formats::FromVkFormat(depth_image_resources->format);
+    }
+    return {};
+}
+
 void Gfx::createWindowSurface(const std::shared_ptr<Window>& window) {
     auto surface = Surface::Create(window);
 
@@ -258,12 +265,12 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
     logger().info("Creating resources for surface of window \"{}\".", window->title());
     surface->impl_->resources.reset();
 
+    // Images
     auto vk_images = resources->vk_swapchain.getImages();
     resources->vk_images.reserve(vk_images.size());
     for (auto vk_image : vk_images) {
         resources->vk_images.push_back(static_cast<vk::Image>(vk_image));
     }
-    logger().info(" - Creating image views: {}.", resources->vk_images.size());
     resources->vk_image_views.reserve(resources->vk_images.size());
     for (auto&& vk_image : resources->vk_images) {
         resources->vk_image_views.emplace_back(
@@ -273,7 +280,39 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
         );
     }
 
+    // Depth images
+    auto depth_image_resources = std::make_unique<ImageResources>();
+    auto depth_memory_resources = std::make_unique<GfxMemoryResources>();
+
+    auto depth_image_format = [this]() {
+        auto available_formats = std::array{ gfx_formats::D24UnormS8Uint, gfx_formats::D32SfloatS8Uint, gfx_formats::D32Sfloat, };
+        for (auto&& format : available_formats) {
+            auto vk_format = gfx_formats::ToVkFormat(format);
+            auto properties = physical_device().impl_->vk_physical_device.getFormatProperties(vk_format);
+            if (properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+                return vk_format;
+            } else if (properties.linearTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+                return vk_format;
+            }
+        }
+        return vk::Format::eUndefined;
+    }();
+
+    vk::ImageAspectFlags depth_aspect = vk::ImageAspectFlagBits::eDepth;
+    if (Gfx::Impl::FormatHasStencil(depth_image_format)) {
+        depth_aspect |= vk::ImageAspectFlagBits::eStencil;
+    }
+    impl_->createImage(
+        resources->vk_extent.width, resources->vk_extent.height, 1U, depth_image_format,
+        vk::ImageUsageFlagBits::eDepthStencilAttachment, depth_aspect,
+        *depth_image_resources, *depth_memory_resources
+    );
+    impl_->transitionImageLayout(&*depth_image_resources, vk::ImageLayout::eDepthStencilAttachmentOptimal, depth_image_resources->queue);
+
     surface->impl_->resources = logical_device_->impl_->surface_resources.store(std::move(resources));
+    surface->impl_->depth_image_resources = logical_device_->impl_->image_resources.store(std::move(depth_image_resources));
+    surface->impl_->depth_memory_resources = logical_device_->impl_->memory_resources.store(std::move(depth_memory_resources));
+    
     surface->resized_ = false;
     surface->hidden_ = false;
 

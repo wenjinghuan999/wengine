@@ -178,7 +178,7 @@ void Gfx::Impl::transitionImageLayout(
         // Ownership transfer
         // https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-queue-transfers
         std::vector<vk::Fence> wait_fences;
-        for (int i = 0; i < mip_count; ++i) {
+        for (uint32_t i = 0; i < mip_count; ++i) {
             wait_fences.push_back(*image_resources->ownership_transfer_fences[base_mip + i]);
         }
         auto result = gfx->logical_device_->impl_->vk_device.waitForFences(wait_fences, true, UINT64_MAX);
@@ -357,13 +357,16 @@ void Gfx::Impl::createImage(
     QueueInfoRef transfer_queue;
     getTransferQueue(transfer_queue);
     if (transfer_queue.queue_family_index != graphics_queue.queue_family_index) {
-        for (int i = 0; i < mip_levels; ++i) {
+        for (uint32_t i = 0; i < mip_levels; ++i) {
             out_image_resources.ownership_transfer_semaphores.emplace_back(
-                gfx->logical_device_->impl_->vk_device.createSemaphore({}));
+                gfx->logical_device_->impl_->vk_device.createSemaphore({})
+            );
             out_image_resources.ownership_transfer_fences.emplace_back(
-                gfx->logical_device_->impl_->vk_device.createFence({
-                    .flags = { vk::FenceCreateFlagBits::eSignaled }
-                })
+                gfx->logical_device_->impl_->vk_device.createFence(
+                    {
+                        .flags = { vk::FenceCreateFlagBits::eSignaled }
+                    }
+                )
             );
         }
     }

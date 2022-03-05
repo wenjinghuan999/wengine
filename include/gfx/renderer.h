@@ -16,6 +16,7 @@ class Renderer : public IGfxObject, public std::enable_shared_from_this<Renderer
 public:
     ~Renderer() override = default;
     [[nodiscard]] virtual const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const = 0;
+    virtual void onFramebufferResized(int width, int height) {}
     
     Renderer& addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
     void clearUniformBuffers();

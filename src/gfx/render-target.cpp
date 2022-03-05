@@ -112,6 +112,8 @@ void RenderTargetSurface::recreateSurfaceResources(Gfx& gfx) {
     impl_->resources.reset();
     bool result = gfx.createWindowSurfaceResources(surface_);
     if (result) {
+        auto* resources = surface_->impl_->resources.data();
+        renderer_->onFramebufferResized(static_cast<int>(resources->vk_extent.width), static_cast<int>(resources->vk_extent.height));
         gfx.createRenderTargetResources(shared_from_this());
         gfx.submitDrawCommands(shared_from_this());
     }

@@ -27,6 +27,10 @@ struct Camera {
     glm::vec3 position{ 1.0f, 0.0f, 0.0f };
     glm::vec3 center{ 0.0f, 0.0f, 0.0f };
     glm::vec3 up{ 0.0f, 0.0f, 1.0f };
+    float aspect = 4.0f / 3.0f;
+    float fov_y = 45.f;
+    float z_near = 0.1f;
+    float z_far = 100.f;
 };
 
 class SceneRenderer : public BasicRenderer {
@@ -35,6 +39,8 @@ public:
     [[nodiscard]] static std::shared_ptr<SceneRenderer> Create() {
         return std::shared_ptr<SceneRenderer>(new SceneRenderer());
     }
+
+    void onFramebufferResized(int width, int height) override;
     
     void setRenderTarget(const std::shared_ptr<RenderTarget>& render_target) { weak_render_target_ = render_target; }
 
@@ -45,7 +51,7 @@ public:
         components_.clear();
     }
 
-    void setCamera(Camera camera) { camera_ = camera; }
+    void setCamera(Camera camera);
     const Camera& camera() const { return camera_; }
     
     void updateComponentTransform(const std::shared_ptr<MeshComponent>& component) {

@@ -12,7 +12,7 @@ struct Config::Impl {
 Config::Config(std::string filename) : filename_(std::move(filename)), impl_(std::make_unique<Impl>()) {}
 Config::~Config() = default;
 
-EngineConfig::EngineConfig() : Config("config/engine.json") {}
+EngineConfig::EngineConfig() : Config("config/engine.json") { load(); }
 EngineConfig::~EngineConfig() = default;
 
 Config& Config::save() {

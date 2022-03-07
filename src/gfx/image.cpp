@@ -413,7 +413,7 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
     auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
     float max_anisotropy = 0.f;
     if (GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_anisotropy)) {
-        float engine_max_anisotropy = EngineConfig::Get().load().get<float>("gfx-max-sampler-anisotropy");
+        float engine_max_anisotropy = EngineConfig::Get().get<float>("gfx-max-sampler-anisotropy");
         engine_max_anisotropy = std::min<float>(engine_max_anisotropy, device_properties.limits.maxSamplerAnisotropy);
         max_anisotropy = std::min(config.max_anisotropy, engine_max_anisotropy);
     }

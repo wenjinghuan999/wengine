@@ -192,7 +192,6 @@ TEST_CASE("engine config") {
     }
     
     auto& config = wg::EngineConfig::Get();
-    config.load();
 
     CHECK_EQ(config.get<bool>("gfx-separate-transfer"), true);
     CHECK_EQ(config.get<float>("gfx-max-sampler-anisotropy"), 8.0);

@@ -1111,7 +1111,6 @@ std::vector<gfx_features::FeatureId> GfxFeaturesManager::features_enabled() cons
 
 void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_device) {
     EngineConfig& config = EngineConfig::Get();
-    config.load();
 
     if (config.get<bool>("gfx-separate-transfer")) {
         enableFeature(gfx_features::separate_transfer);
@@ -1125,10 +1124,6 @@ void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_d
             max_sampler_anisotropy = device_properties.limits.maxSamplerAnisotropy;
             config.set("gfx-max-sampler-anisotropy", max_sampler_anisotropy);
         }
-    }
-
-    if (config.dirty()) {
-        config.save();
     }
 }
 

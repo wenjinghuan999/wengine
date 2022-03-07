@@ -12,9 +12,24 @@
 
 namespace wg {
 
+namespace window_mode {
+
+enum WindowMode {
+    windowed = 0,
+    windowed_fullscreen,
+    fullscreen
+};
+
+} // namespace window_mode
+
+
 class Monitor : public ICopyable {
 public:
     [[nodiscard]] static Monitor GetPrimary();
+    
+    [[nodiscard]] Size2D position() const;
+    [[nodiscard]] Size2D work_area_size() const;
+    [[nodiscard]] Size2D size() const;
 
 protected:
     Monitor() = default;
@@ -28,6 +43,9 @@ public:
 
     [[nodiscard]] const std::string& title() const { return title_; }
     [[nodiscard]] Size2D extent() const;
+    [[nodiscard]] Size2D total_size() const;
+    
+    void setPosition(Size2D position);
 
 protected:
     std::string title_;
@@ -38,7 +56,7 @@ protected:
     friend class Surface;
     Window(
         int width, int height, std::string title,
-        const std::optional<Monitor>& monitor = {}, const std::shared_ptr<Window>& share = {}
+        const std::optional<Monitor>& monitor = {}, window_mode::WindowMode mode = window_mode::windowed
     );
     struct Impl;
     std::unique_ptr<Impl> impl_;
@@ -60,7 +78,7 @@ public:
 
     [[nodiscard]] std::shared_ptr<Window> createWindow(
         int width, int height, const std::string& title,
-        const std::optional<Monitor>& monitor = {}, const std::shared_ptr<Window>& share = {}
+        const std::optional<Monitor>& monitor = {}, window_mode::WindowMode mode = window_mode::windowed
     );
 
 protected:

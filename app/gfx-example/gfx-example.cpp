@@ -21,10 +21,13 @@ int main(int, char**) {
     gfx->createShaderResources(simple_vert_shader);
     gfx->createShaderResources(simple_frag_shader);
 
+    auto framebuffer_size = window->extent();
     auto camera_uniform_buffer = wg::UniformBuffer<wg::CameraUniform>::Create();
     auto camera_uniform_object = wg::CameraUniform{
         .view_mat = glm::lookAt(glm::vec3(0.0f, -2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-        .project_mat = glm::perspective(glm::radians(45.0f), 4.f / 3.f, 0.1f, 10.0f)
+        .project_mat = glm::perspective(
+            glm::radians(45.0f), static_cast<float>(framebuffer_size.x()) / static_cast<float>(framebuffer_size.y()), 0.1f, 10.0f
+        )
     };
     camera_uniform_object.project_mat[1][1] *= -1;
     camera_uniform_buffer->setUniformObject(camera_uniform_object);

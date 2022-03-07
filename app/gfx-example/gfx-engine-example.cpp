@@ -8,7 +8,7 @@
 
 int main(int, char**) {
     wg::App app("wegnine-gfx-engine-example", std::make_tuple(0, 0, 1));
-    auto window = app.createWindow(800, 600, "WEngine gfx engine example");
+    auto window = app.createWindow(800, 600, "WEngine gfx engine example", wg::Monitor::GetPrimary(), wg::window_mode::windowed);
 
     auto gfx = wg::Gfx::Create(app);
 
@@ -62,7 +62,15 @@ int main(int, char**) {
     auto render_target = gfx->createRenderTarget(window);
 
     auto renderer = wg::SceneRenderer::Create();
-    renderer->setCamera({ glm::vec3(0.0f, -5.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f) });
+    auto initial_framebuffer_size = window->extent();
+    renderer->setCamera(
+        {
+            .position = glm::vec3(0.0f, -5.0f, 5.0f), 
+            .center = glm::vec3(0.0f, 0.0f, 0.0f),
+            .up = glm::vec3(0.0f, 0.0f, 1.0f),
+            .aspect = static_cast<float>(initial_framebuffer_size.x()) / static_cast<float>(initial_framebuffer_size.y())
+        }
+    );
     renderer->setRenderTarget(render_target);
     renderer->addComponent(bunny_component);
     renderer->addComponent(quad_component);

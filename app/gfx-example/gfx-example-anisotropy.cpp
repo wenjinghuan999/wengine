@@ -9,8 +9,20 @@
 
 int main(int, char**) {
     wg::App app("wegnine-gfx-example-anisotropy", std::make_tuple(0, 0, 1));
-    auto window_on = app.createWindow(800, 600, "anisotropy 8.0");
-    auto window_off = app.createWindow(800, 600, "anisotropy off");
+    
+    int width = 800, height = 600;
+    auto window_on = app.createWindow(width, height, "anisotropy 8.0");
+    auto window_off = app.createWindow(width, height, "anisotropy off");
+    
+    auto monitor = wg::Monitor::GetPrimary();
+    auto monitor_size = monitor.work_area_size();
+    auto window_size = window_on->total_size();
+    auto edge_size = wg::Size2D{
+        monitor_size.x() / 2 - window_size.x() - 10,
+        (monitor_size.y() - window_size.y()) / 2,
+    };
+    window_on->setPosition({ edge_size.x(), edge_size.y() });
+    window_off->setPosition({ monitor_size.x() - window_size.x() - edge_size.x(), edge_size.y() });
 
     auto gfx = wg::Gfx::Create(app);
 

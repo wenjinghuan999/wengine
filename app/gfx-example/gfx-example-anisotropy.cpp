@@ -14,15 +14,8 @@ int main(int, char**) {
     auto window_on = app.createWindow(width, height, "anisotropy 8.0");
     auto window_off = app.createWindow(width, height, "anisotropy off");
     
-    auto monitor = wg::Monitor::GetPrimary();
-    auto monitor_size = monitor.work_area_size();
-    auto window_size = window_on->total_size();
-    auto edge_size = wg::Size2D{
-        monitor_size.x() / 2 - window_size.x() - 10,
-        (monitor_size.y() - window_size.y()) / 2,
-    };
-    window_on->setPosition({ edge_size.x(), edge_size.y() });
-    window_off->setPosition({ monitor_size.x() - window_size.x() - edge_size.x(), edge_size.y() });
+    window_on->setPositionToSubPlot(wg::Monitor::GetPrimary(), 1, 2, 1);
+    window_off->setPositionToSubPlot(wg::Monitor::GetPrimary(), 1, 2, 2);
 
     auto gfx = wg::Gfx::Create(app);
 

@@ -47,6 +47,7 @@ public:
     
     void setPosition(Size2D position);
     void setPositionToCenter(const Monitor& monitor);
+    void setPositionToSubPlot(const Monitor& monitor, int n_rows, int n_cols, int index);
 
 protected:
     std::string title_;

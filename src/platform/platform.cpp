@@ -125,6 +125,26 @@ void Window::setPositionToCenter(const Monitor& monitor) {
     glfwSetWindowPos(glfw_window, pos_x, pos_y);
 }
 
+void Window::setPositionToSubPlot(const Monitor& monitor, int n_rows, int n_cols, int index) {
+    GLFWwindow* glfw_window = impl_->glfw_window;
+    GLFWmonitor* glfw_monitor = reinterpret_cast<GLFWmonitor*>(monitor.impl_);
+
+    int work_area_x_pos, work_area_y_pos, work_area_width, work_area_height;
+    glfwGetMonitorWorkarea(glfw_monitor, &work_area_x_pos, &work_area_y_pos, &work_area_width, &work_area_height);
+    
+    int row = (index - 1) / n_cols;
+    int col = (index - 1) % n_cols;
+    auto center_x = work_area_x_pos + work_area_width / (n_cols + 1) * (col + 1);
+    auto center_y = work_area_y_pos + work_area_height / (n_rows + 1) * (row + 1);
+    
+    auto window_size = total_size();
+
+    int pos_x = center_x - window_size.x() / 2;
+    int pos_y = center_y - window_size.y() / 2;
+
+    glfwSetWindowPos(glfw_window, pos_x, pos_y);
+}
+
 App::App(std::string name, std::tuple<int, int, int> version)
     : name_(std::move(name)), version_(std::move(version)) {
 

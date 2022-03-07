@@ -8,6 +8,7 @@
 #include "common/config.h"
 
 int main(int, char**) {
+    wg::EngineConfig::Get().set("gfx-sampler-filter-cubic", true);
     wg::EngineConfig::Get().set("gfx-sampler-mirror-clamp-to-edge", true);
     
     wg::App app("wegnine-gfx-example-anisotropy", std::make_tuple(0, 0, 1));

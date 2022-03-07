@@ -439,16 +439,19 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
     }
     bool integer_format = gfx_formats::IsIntegerFormat(gfx_formats::FromVkFormat(image_resources.format));
     auto get_compatible_filter = [this, &image_resources](image_sampler::Filter filter) {
-        auto image_format_info = vk::PhysicalDeviceImageFormatInfo2{
-            .format = image_resources.format,
-            .type = vk::ImageType::e2D,
-            .usage = vk::ImageUsageFlagBits::eSampled,
-        };
         if (filter == image_sampler::cubic) {
+            if (!GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_filter_cubic)) {
+                logger().warn("Cubic filter not available because feature \"gfx-sampler-mirror-clamp-to-edge\" is not enabled. Use linear instead.");
+                return image_sampler::linear;
+            }
+            
             auto format_properties = gfx->physical_device().impl_->vk_physical_device.getFormatProperties(image_resources.format);
             if (!(format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterCubicEXT)) {
-                logger().warn("Cubic filter not available for image format {}. Use linear instead.", gfx_formats::ToString(gfx_formats::FromVkFormat(image_resources.format)));
-                filter = image_sampler::linear;
+                logger().warn(
+                    "Cubic filter not available for image format {}. Use linear instead.",
+                    gfx_formats::ToString(gfx_formats::FromVkFormat(image_resources.format))
+                );
+                return image_sampler::linear;
             }
         }
         return filter;
@@ -460,7 +463,7 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
         if (address_mode == image_sampler::mirror_clamp_to_edge) {
             if (!GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_mirror_clamp_to_edge)) {
                 logger().warn("Sampler address mode mirror_clamp_to_edge can not be applied because feature \"gfx-sampler-mirror-clamp-to-edge\" is not enabled. Use mirrored_repeat instead.");
-                address_mode = image_sampler::mirrored_repeat;
+                return image_sampler::mirrored_repeat;
             }
         }
         return address_mode;

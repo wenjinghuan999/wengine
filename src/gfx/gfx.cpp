@@ -24,6 +24,7 @@ const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL] = {
     "window_surface",
     "separate_transfer",
     "sampler_anisotropy",
+    "sampler_filter_cubic",
     "sampler_mirror_clamp_to_edge",
     "_must_enable_if_valid",
     "_debug_utils"
@@ -215,9 +216,13 @@ private:
                 device_features.samplerAnisotropy = true;
             }
         };
+    case wg::gfx_features::sampler_filter_cubic:
+        return {
+            .device_extensions = { VK_EXT_FILTER_CUBIC_EXTENSION_NAME }
+        };
     case wg::gfx_features::sampler_mirror_clamp_to_edge:
         return {
-            .device_extensions = { VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME },
+            .device_extensions = { VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME},
         };
     case wg::gfx_features::_must_enable_if_valid:
         // VUID-VkDeviceCreateInfo-pProperties-04451
@@ -1129,6 +1134,10 @@ void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_d
             max_sampler_anisotropy = device_properties.limits.maxSamplerAnisotropy;
             config.set("gfx-max-sampler-anisotropy", max_sampler_anisotropy);
         }
+    }
+    
+    if (config.get<bool>("gfx-sampler-filter-cubic")) {
+        enableFeature(gfx_features::sampler_filter_cubic);
     }
 
     if (config.get<bool>("gfx-sampler-mirror-clamp-to-edge")) {

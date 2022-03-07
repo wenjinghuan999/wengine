@@ -153,6 +153,7 @@ enum FeatureId {
     window_surface,
     separate_transfer,
     sampler_anisotropy,
+    sampler_filter_cubic,
     sampler_mirror_clamp_to_edge,
     // Engine controlled features
     _must_enable_if_valid, NUM_FEATURES = _must_enable_if_valid,

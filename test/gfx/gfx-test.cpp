@@ -223,6 +223,8 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     gfx->createImageResources(image);
     CHECK(image->has_cpu_data());
     CHECK(image->has_gpu_data());
+    auto sampler = wg::Sampler::Create(image);
+    gfx->createSamplerResources(sampler);
 
     auto sampler_layout = wg::GfxSamplerLayout{}
         .addDescription({ .binding = 2, .stages = wg::shader_stages::frag });
@@ -267,7 +269,7 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     quad_draw_command->setIndexBuffer(index_buffer);
     quad_draw_command->addUniformBuffer(quad_model_uniform_buffer);
     CHECK(!quad_draw_command->valid());
-    quad_draw_command->addImage(2, image);
+    quad_draw_command->addSampler(2, sampler);
     CHECK(quad_draw_command->valid());
     gfx->finishDrawCommand(quad_draw_command);
 
@@ -284,7 +286,7 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     triangle_draw_command->addVertexBuffer(triangle_vertex_buffer);
     CHECK(!triangle_draw_command->valid());
     triangle_draw_command->addUniformBuffer(triangle_model_uniform_buffer);
-    triangle_draw_command->addImage(2, image);
+    triangle_draw_command->addSampler(2, sampler);
     CHECK(triangle_draw_command->valid());
     gfx->finishDrawCommand(triangle_draw_command);
 

@@ -276,6 +276,28 @@ enum Format {
     return format == D24UnormS8Uint || format == D32SfloatS8Uint || format == D16UnormS8Uint;
 }
 
+template <typename Func>
+auto ForEachFormat(Func func) -> std::enable_if_t<std::is_same_v<decltype(func(gfx_formats::Format{})), void>, void> {
+    for (int i = 1; i <= 184; ++i) {
+        func(static_cast<gfx_formats::Format>(i));
+    }
+    for (int i = 1000156000; i <= 1000156033; ++i) {
+        func(static_cast<gfx_formats::Format>(i));
+    }
+    for (int i = 1000054000; i <= 1000054007; ++i) {
+        func(static_cast<gfx_formats::Format>(i));
+    }
+    for (int i = 1000066000; i <= 1000066013; ++i) {
+        func(static_cast<gfx_formats::Format>(i));
+    }
+    for (int i = 1000330000; i <= 1000330003; ++i) {
+        func(static_cast<gfx_formats::Format>(i));
+    }
+    for (int i = 1000340000; i <= 1000340001; ++i) {
+        func(static_cast<gfx_formats::Format>(i));
+    }
+}
+
 }
 
 class IRenderData {

@@ -52,7 +52,7 @@ enum BorderColor {
 class Image : public GfxMemoryBase, public std::enable_shared_from_this<Image> {
 public:
     static std::shared_ptr<Image> Load(
-        const std::string& filename, gfx_formats::Format image_format = gfx_formats::R8G8B8A8Srgb,
+        const std::string& filename, gfx_formats::Format image_format = gfx_formats::R8G8B8A8Unorm,
         bool keep_cpu_data = false, image_file_formats::ImageFileFormat file_format = image_file_formats::none
     );
     ~Image() override = default;
@@ -67,7 +67,7 @@ public:
     [[nodiscard]] gfx_formats::Format image_format() const { return image_format_; }
 
     bool load(
-        const std::string& filename, gfx_formats::Format image_format = gfx_formats::R8G8B8A8Srgb,
+        const std::string& filename, gfx_formats::Format image_format = gfx_formats::R8G8B8A8Unorm,
         image_file_formats::ImageFileFormat file_format = image_file_formats::none
     );
 

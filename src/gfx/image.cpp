@@ -37,15 +37,35 @@ bool Image::load(const std::string& filename, gfx_formats::Format image_format, 
     int desired_channels = gfx_formats::GetChannels(image_format);
     int width = 0, height = 0, channels = 0;
     stbi_uc* pixels = stbi_load(filename.c_str(), &width, &height, &channels, desired_channels);
-    size_t data_size = static_cast<size_t>(width * height * desired_channels);
+    size_t n_pixels = static_cast<size_t>(width * height * desired_channels);
 
     if (!pixels) {
         logger().error("Unable to load image {}", filename);
         return false;
     }
 
-    raw_data_.resize(data_size);
-    std::memcpy(raw_data_.data(), pixels, data_size);
+    switch (image_format) {
+    case gfx_formats::R8Unorm:
+    case gfx_formats::R8G8Unorm:
+    case gfx_formats::R8G8B8Unorm:
+    case gfx_formats::R8G8B8A8Unorm:
+        raw_data_.resize(n_pixels);
+        std::memcpy(raw_data_.data(), pixels, n_pixels);
+        break;
+    case gfx_formats::R32Sfloat:
+    case gfx_formats::R32G32Sfloat:
+    case gfx_formats::R32G32B32Sfloat:
+    case gfx_formats::R32G32B32A32Sfloat:
+        raw_data_.resize(n_pixels * sizeof(float));
+        for (int i = 0; i < n_pixels; ++i) {
+            float* ptr = reinterpret_cast<float*>(raw_data_.data());
+            ptr[i] = static_cast<float>(pixels[i]) / 255.f;
+        }
+        break;
+    default:
+        logger().error("Unsupported image format for loading: {}", gfx_formats::ToString(image_format));
+        return false;
+    }
 
     filename_ = filename;
     file_format_ = file_format;
@@ -418,10 +438,27 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
         max_anisotropy = std::min(config.max_anisotropy, engine_max_anisotropy);
     }
     bool integer_format = gfx_formats::IsIntegerFormat(gfx_formats::FromVkFormat(image_resources.format));
+    auto get_compatible_filter = [this, &image_resources](image_sampler::Filter filter) {
+        auto image_format_info = vk::PhysicalDeviceImageFormatInfo2{
+            .format = image_resources.format,
+            .type = vk::ImageType::e2D,
+            .usage = vk::ImageUsageFlagBits::eSampled,
+        };
+        if (filter == image_sampler::cubic) {
+            auto format_properties = gfx->physical_device().impl_->vk_physical_device.getFormatProperties(image_resources.format);
+            if (!(format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterCubicEXT)) {
+                logger().warn("Cubic filter not available for image format {}, use linear instead.", gfx_formats::ToString(gfx_formats::FromVkFormat(image_resources.format)));
+                filter = image_sampler::linear;
+            }
+        }
+        return filter;
+    };
+    auto mag_filter = get_compatible_filter(config.mag_filter);
+    auto min_filter = get_compatible_filter(config.min_filter);
 
     auto sampler_create_info = vk::SamplerCreateInfo{
-        .magFilter = image_sampler::ToVkFilter(config.mag_filter),
-        .minFilter = image_sampler::ToVkFilter(config.min_filter),
+        .magFilter = image_sampler::ToVkFilter(mag_filter),
+        .minFilter = image_sampler::ToVkFilter(min_filter),
         .mipmapMode = image_sampler::ToVkMipMapMode(config.mip_map_mode),
         .addressModeU = image_sampler::ToVkAddressMode(config.address_u),
         .addressModeV = image_sampler::ToVkAddressMode(config.address_v),

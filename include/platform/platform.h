@@ -46,6 +46,7 @@ public:
     [[nodiscard]] Size2D total_size() const;
     
     void setPosition(Size2D position);
+    void setPositionToCenter(const Monitor& monitor);
 
 protected:
     std::string title_;

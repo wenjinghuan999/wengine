@@ -108,6 +108,23 @@ void Window::setPosition(Size2D position) {
     glfwSetWindowPos(glfw_window, position.x(), position.y());
 }
 
+void Window::setPositionToCenter(const Monitor& monitor) {
+    GLFWwindow* glfw_window = impl_->glfw_window;
+    GLFWmonitor* glfw_monitor = reinterpret_cast<GLFWmonitor*>(monitor.impl_);
+
+    int width, height;
+    glfwGetWindowSize(glfw_window, &width, &height);
+    int left, top, right, bottom;
+    glfwGetWindowFrameSize(glfw_window, &left, &top, &right, &bottom);
+    int work_area_x_pos, work_area_y_pos, work_area_width, work_area_height;
+    glfwGetMonitorWorkarea(glfw_monitor, &work_area_x_pos, &work_area_y_pos, &work_area_width, &work_area_height);
+    
+    int pos_x = work_area_x_pos + (work_area_width - width - left - right) / 2;
+    int pos_y = work_area_y_pos + (work_area_height - height - left - right) / 2;
+    
+    glfwSetWindowPos(glfw_window, pos_x, pos_y);
+}
+
 App::App(std::string name, std::tuple<int, int, int> version)
     : name_(std::move(name)), version_(std::move(version)) {
 

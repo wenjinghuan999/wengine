@@ -447,7 +447,7 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
         if (filter == image_sampler::cubic) {
             auto format_properties = gfx->physical_device().impl_->vk_physical_device.getFormatProperties(image_resources.format);
             if (!(format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterCubicEXT)) {
-                logger().warn("Cubic filter not available for image format {}, use linear instead.", gfx_formats::ToString(gfx_formats::FromVkFormat(image_resources.format)));
+                logger().warn("Cubic filter not available for image format {}. Use linear instead.", gfx_formats::ToString(gfx_formats::FromVkFormat(image_resources.format)));
                 filter = image_sampler::linear;
             }
         }
@@ -455,14 +455,27 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
     };
     auto mag_filter = get_compatible_filter(config.mag_filter);
     auto min_filter = get_compatible_filter(config.min_filter);
+    
+    auto get_compatible_address_mode = [this](image_sampler::AddressMode address_mode) {
+        if (address_mode == image_sampler::mirror_clamp_to_edge) {
+            if (!GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_mirror_clamp_to_edge)) {
+                logger().warn("Sampler address mode mirror_clamp_to_edge can not be applied because feature \"gfx-sampler-mirror-clamp-to-edge\" is not enabled. Use mirrored_repeat instead.");
+                address_mode = image_sampler::mirrored_repeat;
+            }
+        }
+        return address_mode;
+    };
+    auto address_u = get_compatible_address_mode(config.address_u);
+    auto address_v = get_compatible_address_mode(config.address_v);
+    auto address_w = get_compatible_address_mode(config.address_w);
 
     auto sampler_create_info = vk::SamplerCreateInfo{
         .magFilter = image_sampler::ToVkFilter(mag_filter),
         .minFilter = image_sampler::ToVkFilter(min_filter),
         .mipmapMode = image_sampler::ToVkMipMapMode(config.mip_map_mode),
-        .addressModeU = image_sampler::ToVkAddressMode(config.address_u),
-        .addressModeV = image_sampler::ToVkAddressMode(config.address_v),
-        .addressModeW = image_sampler::ToVkAddressMode(config.address_w),
+        .addressModeU = image_sampler::ToVkAddressMode(address_u),
+        .addressModeV = image_sampler::ToVkAddressMode(address_v),
+        .addressModeW = image_sampler::ToVkAddressMode(address_w),
         .mipLodBias = config.mip_lod_bias,
         .anisotropyEnable = max_anisotropy > 0.f,
         .maxAnisotropy = max_anisotropy,

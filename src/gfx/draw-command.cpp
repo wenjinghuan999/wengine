@@ -106,13 +106,13 @@ void DrawCommand::clearUniformBuffers() {
     uniform_buffers_.clear();
 }
 
-DrawCommand& DrawCommand::addImage(uint32_t binding, const std::shared_ptr<Image>& image) {
-    images_[binding] = image;
+DrawCommand& DrawCommand::addSampler(uint32_t binding, const std::shared_ptr<Sampler>& sampler) {
+    samplers_[binding] = sampler;
     return *this;
 }
 
-void DrawCommand::clearImages() {
-    images_.clear();
+void DrawCommand::clearSamplers() {
+    samplers_.clear();
 }
 
 bool DrawCommand::valid() const {
@@ -150,7 +150,7 @@ bool DrawCommand::valid() const {
     }
 
     for (auto&& description : pipeline_->sampler_layout().descriptions()) {
-        if (images_.find(description.binding) == images_.end()) {
+        if (samplers_.find(description.binding) == samplers_.end()) {
             return false;
         }
     }

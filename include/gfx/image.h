@@ -19,6 +19,36 @@ typedef uint32_t ImageFileFormats;
 
 } // namespace image_file_formats
 
+namespace image_sampler {
+
+enum Filter {
+    nearest = 0,
+    linear = 1,
+    cubic = 1000015000
+};
+
+enum MipMapMode {
+    mipmap_nearest = 0,
+    mipmap_linear = 1,
+};
+
+enum AddressMode {
+    repeat = 0,
+    mirrored_repeat = 1,
+    clamp_to_edge = 2,
+    clamp_to_border = 3,
+    mirror_clamp_to_edge = 4
+};
+
+enum BorderColor {
+    transparent_black,
+    opaque_black,
+    opaque_white,
+    custom,
+};
+
+} // namespace image_sampler
+
 class Image : public GfxMemoryBase, public std::enable_shared_from_this<Image> {
 public:
     static std::shared_ptr<Image> Load(
@@ -57,6 +87,39 @@ protected:
     struct Impl;
     std::unique_ptr<Impl> impl_;
     GfxMemoryBase::Impl* getImpl() override;
+};
+
+struct SamplerConfig {
+    image_sampler::Filter mag_filter = image_sampler::linear;
+    image_sampler::Filter min_filter = image_sampler::linear;
+    image_sampler::MipMapMode mip_map_mode = image_sampler::mipmap_linear;
+    image_sampler::AddressMode address_u = image_sampler::repeat;
+    image_sampler::AddressMode address_v = image_sampler::repeat;
+    image_sampler::AddressMode address_w = image_sampler::repeat;
+    float mip_lod_bias = 0.f;
+    float max_anisotropy = 8.f;
+    image_sampler::BorderColor border_color = image_sampler::opaque_black;
+    bool unnormalized_coordinates = false;
+};
+
+class Sampler : public std::enable_shared_from_this<Sampler> {
+public:
+    static std::shared_ptr<Sampler> Create(std::shared_ptr<Image> image);
+    ~Sampler() = default;
+
+    SamplerConfig config() const { return config_; }
+    void setConfig(SamplerConfig config) { config_ = config; }
+    const std::shared_ptr<Image>& image() const { return image_; }
+    
+protected:
+    std::shared_ptr<Image> image_;
+    SamplerConfig config_;
+
+protected:
+    friend class Gfx;
+    explicit Sampler(std::shared_ptr<Image> image);
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 }

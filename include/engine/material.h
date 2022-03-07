@@ -18,10 +18,16 @@ public:
     
 public:
     std::shared_ptr<GfxPipeline> pipeline;
+    std::vector<std::shared_ptr<Sampler>> samplers;
     
 protected:
     friend class Material;
     MaterialRenderData() = default;
+};
+
+struct CombinedTextureSampler {
+    std::shared_ptr<Texture> texture;
+    std::shared_ptr<Sampler> sampler;
 };
 
 class Material : public IGfxObject, public std::enable_shared_from_this<Material> {
@@ -30,11 +36,13 @@ public:
         const std::string& vert_shader_filename, const std::string& frag_shader_filename);
     ~Material() override = default;
     
-    void addTexture(const std::shared_ptr<Texture>& texture) {
-        textures_.push_back(texture);
+    void addTexture(const std::shared_ptr<Texture>& texture, SamplerConfig sampler_config = {}) {
+        std::shared_ptr<Sampler> sampler = Sampler::Create(texture->image());
+        sampler->setConfig(sampler_config);
+        textures_.emplace_back(CombinedTextureSampler{ texture, sampler });
     }
     void clearTextures() { textures_.clear(); }
-    [[nodiscard]] const std::vector<std::shared_ptr<Texture>>& textures() const { return textures_; }
+    [[nodiscard]] const std::vector<CombinedTextureSampler>& textures() const { return textures_; }
     
     [[nodiscard]] const std::string& name() const { return name_; }
     std::shared_ptr<IRenderData> createRenderData() override;
@@ -44,7 +52,7 @@ protected:
     std::string name_;
     std::string vert_shader_filename_;
     std::string frag_shader_filename_;
-    std::vector<std::shared_ptr<Texture>> textures_;
+    std::vector<CombinedTextureSampler> textures_;
     std::shared_ptr<MaterialRenderData> render_data_;
     
 protected:

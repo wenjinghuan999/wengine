@@ -14,6 +14,9 @@ namespace {
 namespace wg {
 
 void MaterialRenderData::createGfxResources(Gfx& gfx) {
+    for (auto&& sampler : samplers) {
+        gfx.createSamplerResources(sampler);
+    }
     for (auto&& shader : pipeline->shaders()) {
         gfx.createShaderResources(shader);
     }
@@ -44,6 +47,10 @@ std::shared_ptr<IRenderData> Material::createRenderData() {
     render_data_->pipeline->setSamplerLayout(createSamplerLayout());
     render_data_->pipeline->addShader(vert_shader);
     render_data_->pipeline->addShader(frag_shader);
+    
+    for (auto&& texture : textures_) {
+        render_data_->samplers.push_back(texture.sampler);
+    }
 
     return render_data_;
 }

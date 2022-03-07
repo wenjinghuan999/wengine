@@ -246,11 +246,11 @@ void Gfx::Impl::createReferenceImageResources(
 ) {
     gpu_image->impl_->memory_resources.reset();
     gpu_image->impl_->resources.reset();
-    gpu_image->impl_->sampler_resources.reset();
     gpu_image->has_gpu_data_ = false;
 
     if (!gfx->logical_device_) {
         logger().error("Cannot create image resources because logical device is not available.");
+        return;
     }
     gfx->waitDeviceIdle();
 
@@ -274,7 +274,6 @@ void Gfx::Impl::createReferenceImageResources(
 
     auto resources = std::make_unique<ImageResources>();
     auto memory_resources = std::make_unique<GfxMemoryResources>();
-    auto sampler_resources = std::make_unique<SamplerResources>();
 
     int real_mip_levels = can_generate_mipmap ? max_mip_levels : gpu_image->mip_levels_;
     createImage(
@@ -283,11 +282,9 @@ void Gfx::Impl::createReferenceImageResources(
         vk::ImageAspectFlagBits::eColor,
         *resources, *memory_resources
     );
-    createSampler(*resources, *sampler_resources);
 
     gpu_image->impl_->memory_resources = gfx->logical_device_->impl_->memory_resources.store(std::move(memory_resources));
     gpu_image->impl_->resources = gfx->logical_device_->impl_->image_resources.store(std::move(resources));
-    gpu_image->impl_->sampler_resources = gfx->logical_device_->impl_->sampler_resources.store(std::move(sampler_resources));
 }
 
 void Gfx::Impl::createImage(
@@ -297,6 +294,7 @@ void Gfx::Impl::createImage(
 ) {
     if (!gfx->logical_device_) {
         logger().error("Cannot create image resources because logical device is not available.");
+        return;
     }
     gfx->waitDeviceIdle();
 
@@ -372,35 +370,70 @@ void Gfx::Impl::createImage(
     }
 }
 
-void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerResources& out_sampler_resources) {
+std::shared_ptr<Sampler> Sampler::Create(std::shared_ptr<Image> image) {
+    return std::shared_ptr<Sampler>(new Sampler(std::move(image)));
+}
+
+Sampler::Sampler(std::shared_ptr<Image> image)
+    : image_(std::move(image)), impl_(std::make_unique<Sampler::Impl>()) {}
+
+void Gfx::createSamplerResources(const std::shared_ptr<Sampler>& sampler) {
+    sampler->impl_->resources.reset();
+
+    if (!logical_device_) {
+        logger().error("Cannot create sampler resources because logical device is not available.");
+        return;
+    }
+    waitDeviceIdle();
+    
+    if (!sampler->image_) {
+        logger().error("Cannot create sampler resources because image is not available.");
+        return;
+    }
+
+    auto image_resources = sampler->image_->impl_->resources.data();
+    if (!image_resources) {
+        logger().error("Cannot create sampler resources because image resources are not available.");
+        return;
+    }
+
+    auto sampler_resources = std::make_unique<SamplerResources>();
+    impl_->createSampler(*image_resources, sampler->config(), *sampler_resources);
+    sampler->impl_->resources = logical_device_->impl_->sampler_resources.store(std::move(sampler_resources));
+}
+
+void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConfig config, SamplerResources& out_sampler_resources) {
 
     if (!gfx->logical_device_) {
         logger().error("Cannot create image resources because logical device is not available.");
+        return;
     }
     gfx->waitDeviceIdle();
 
     auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
-    float max_sampler_anisotropy = 0.f;
+    float max_anisotropy = 0.f;
     if (GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_anisotropy)) {
-        max_sampler_anisotropy = EngineConfig::Get().load().get<float>("gfx-max-sampler-anisotropy");
-        max_sampler_anisotropy = std::min<float>(max_sampler_anisotropy, device_properties.limits.maxSamplerAnisotropy);
+        float engine_max_anisotropy = EngineConfig::Get().load().get<float>("gfx-max-sampler-anisotropy");
+        engine_max_anisotropy = std::min<float>(engine_max_anisotropy, device_properties.limits.maxSamplerAnisotropy);
+        max_anisotropy = std::min(config.max_anisotropy, engine_max_anisotropy);
     }
+    bool integer_format = gfx_formats::IsIntegerFormat(gfx_formats::FromVkFormat(image_resources.format));
 
     auto sampler_create_info = vk::SamplerCreateInfo{
-        .magFilter = vk::Filter::eLinear,
-        .minFilter = vk::Filter::eLinear,
-        .mipmapMode = vk::SamplerMipmapMode::eLinear,
-        .addressModeU = vk::SamplerAddressMode::eRepeat,
-        .addressModeV = vk::SamplerAddressMode::eRepeat,
-        .addressModeW = vk::SamplerAddressMode::eRepeat,
-        .mipLodBias = 0,
-        .anisotropyEnable = max_sampler_anisotropy > 0.f,
-        .maxAnisotropy = max_sampler_anisotropy,
+        .magFilter = image_sampler::ToVkFilter(config.mag_filter),
+        .minFilter = image_sampler::ToVkFilter(config.min_filter),
+        .mipmapMode = image_sampler::ToVkMipMapMode(config.mip_map_mode),
+        .addressModeU = image_sampler::ToVkAddressMode(config.address_u),
+        .addressModeV = image_sampler::ToVkAddressMode(config.address_v),
+        .addressModeW = image_sampler::ToVkAddressMode(config.address_w),
+        .mipLodBias = config.mip_lod_bias,
+        .anisotropyEnable = max_anisotropy > 0.f,
+        .maxAnisotropy = max_anisotropy,
         .compareEnable = false,
         .compareOp = vk::CompareOp::eAlways,
         .minLod = 0,
-        .maxLod = static_cast<float>(image_resources.mip_levels),
-        .borderColor = vk::BorderColor::eIntOpaqueBlack,
+        .maxLod = static_cast<float>(image_resources.mip_levels) - config.mip_lod_bias,
+        .borderColor = image_sampler::ToVkBorderColor(config.border_color, integer_format),
         .unnormalizedCoordinates = false
     };
     out_sampler_resources.sampler = gfx->logical_device_->impl_->vk_device.createSampler(sampler_create_info);

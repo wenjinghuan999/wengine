@@ -270,6 +270,11 @@ enum Format {
 
 [[nodiscard]] std::string ToString(Format format);
 [[nodiscard]] int GetChannels(Format format);
+[[nodiscard]] bool IsIntegerFormat(Format format);
+
+[[nodiscard]] inline bool FormatHasStencil(Format format) {
+    return format == D24UnormS8Uint || format == D32SfloatS8Uint || format == D16UnormS8Uint;
+}
 
 }
 

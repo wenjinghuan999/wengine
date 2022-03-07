@@ -37,6 +37,8 @@ int main(int, char**) {
 
     auto image = wg::Image::Load("resources/img/statue.png");
     gfx->createImageResources(image);
+    auto sampler = wg::Sampler::Create(image);
+    gfx->createSamplerResources(sampler);
     
     auto sampler_layout = wg::GfxSamplerLayout{}
         .addDescription({ .binding = 2, .stages = wg::shader_stages::frag });
@@ -72,7 +74,7 @@ int main(int, char**) {
     quad_draw_command->addVertexBuffer(quad_vertex_buffer);
     quad_draw_command->setIndexBuffer(quad_index_buffer);
     quad_draw_command->addUniformBuffer(quad_model_uniform_buffer);
-    quad_draw_command->addImage(2, image);
+    quad_draw_command->addSampler(2, sampler);
     assert(quad_draw_command->valid());
     gfx->finishDrawCommand(quad_draw_command);
 
@@ -87,7 +89,7 @@ int main(int, char**) {
     auto triangle_draw_command = wg::SimpleDrawCommand::Create("triangle", simple_pipeline);
     triangle_draw_command->addVertexBuffer(triangle_vertex_buffer);
     triangle_draw_command->addUniformBuffer(triangle_model_uniform_buffer);
-    triangle_draw_command->addImage(2, image);
+    triangle_draw_command->addSampler(2, sampler);
     assert(triangle_draw_command->valid());
     gfx->finishDrawCommand(triangle_draw_command);
 

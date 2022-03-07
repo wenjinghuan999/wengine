@@ -362,13 +362,13 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 commitReferenceBuffer(cpu_uniform, gpu_uniform);
             }
         }
-        std::map<uint32_t, std::shared_ptr<Image>> images;
+        std::map<uint32_t, std::shared_ptr<Sampler>> samplers;
         for (auto&& description : pipeline->sampler_layout_.descriptions_) {
-            auto it = draw_command->images_.find(description.binding);
-            if (it == draw_command->images_.end()) {
-                logger().error("Cannot find image for binding {} in draw command {}", description.binding, draw_command->name());
+            auto it = draw_command->samplers_.find(description.binding);
+            if (it == draw_command->samplers_.end()) {
+                logger().error("Cannot find sampler for binding {} in draw command {}", description.binding, draw_command->name());
             } else {
-                images[description.binding] = it->second;       
+                samplers[description.binding] = it->second;       
             }
         }
         vk::DescriptorSet descriptor_set = nullptr;
@@ -382,7 +382,7 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 .pipeline_layout = *pipeline_resources->pipeline_layout,
                 .descriptor_set  = descriptor_set,
                 .uniforms        = std::move(gpu_uniforms),
-                .images          = std::move(images)
+                .samplers        = std::move(samplers),
             }
         );
     }
@@ -442,14 +442,14 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
         for (size_t j = 0; j < pipeline->sampler_layout_.descriptions_.size(); ++j) {
             auto& description = pipeline->sampler_layout_.descriptions_[j];
             std::vector<vk::DescriptorImageInfo> image_info;
-            if (draw_command_resources.images.find(description.binding) == draw_command_resources.images.end()) {
+            if (draw_command_resources.samplers.find(description.binding) == draw_command_resources.samplers.end()) {
                 image_infos.emplace_back(std::move(image_info));
                 continue;
             }
             
-            auto&& image = draw_command_resources.images[description.binding];
-            if (auto* image_resources = image->impl_->resources.data()) {
-                if (auto* sampler_resources = image->impl_->sampler_resources.data()) {
+            auto&& sampler = draw_command_resources.samplers[description.binding];
+            if (auto* image_resources = sampler->image_->impl_->resources.data()) {
+                if (auto* sampler_resources = sampler->impl_->resources.data()) {
                     image_info.emplace_back(
                         vk::DescriptorImageInfo{
                             .sampler     = *sampler_resources->sampler,
@@ -460,7 +460,7 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                     image_infos.emplace_back(std::move(image_info));
                 }
             } else {
-                logger().error("Image resources not available.");
+                logger().error("Image/sampler resources not available.");
             }
         }
 

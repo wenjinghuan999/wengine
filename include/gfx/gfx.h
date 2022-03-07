@@ -103,6 +103,9 @@ public:
         const std::shared_ptr<Image>& cpu_image,
         const std::shared_ptr<Image>& gpu_image
     );
+    
+    // Sampler
+    void createSamplerResources(const std::shared_ptr<Sampler>& image);
 
 protected:
     struct Impl;

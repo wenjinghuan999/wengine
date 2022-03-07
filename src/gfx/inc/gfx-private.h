@@ -82,11 +82,12 @@ struct Gfx::Impl {
         vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect,
         ImageResources& out_image_resources, GfxMemoryResources& out_memory_resources
     );
-    void createSampler(const ImageResources& image_resources, SamplerResources& out_sampler_resources);
     
-    inline static bool FormatHasStencil(vk::Format format) {
-        return format == vk::Format::eD24UnormS8Uint || format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD16UnormS8Uint;
-    }
+    void createSamplerResources(
+        const std::shared_ptr<Image>& gpu_image,
+        const std::shared_ptr<Sampler>& sampler
+    );
+    void createSampler(const ImageResources& image_resources, SamplerConfig config, SamplerResources& out_sampler_resources);
 };
 
 struct PhysicalDevice::Impl {

@@ -287,23 +287,22 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
     auto depth_image_format = [this]() {
         auto available_formats = std::array{ gfx_formats::D24UnormS8Uint, gfx_formats::D32SfloatS8Uint, gfx_formats::D32Sfloat, };
         for (auto&& format : available_formats) {
-            auto vk_format = gfx_formats::ToVkFormat(format);
-            auto properties = physical_device().impl_->vk_physical_device.getFormatProperties(vk_format);
+            auto properties = physical_device().impl_->vk_physical_device.getFormatProperties(gfx_formats::ToVkFormat(format));
             if (properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
-                return vk_format;
+                return format;
             } else if (properties.linearTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
-                return vk_format;
+                return format;
             }
         }
-        return vk::Format::eUndefined;
+        return gfx_formats::none;
     }();
 
     vk::ImageAspectFlags depth_aspect = vk::ImageAspectFlagBits::eDepth;
-    if (Gfx::Impl::FormatHasStencil(depth_image_format)) {
+    if (gfx_formats::FormatHasStencil(depth_image_format)) {
         depth_aspect |= vk::ImageAspectFlagBits::eStencil;
     }
     impl_->createImage(
-        resources->vk_extent.width, resources->vk_extent.height, 1U, depth_image_format,
+        resources->vk_extent.width, resources->vk_extent.height, 1U, gfx_formats::ToVkFormat(depth_image_format),
         vk::ImageUsageFlagBits::eDepthStencilAttachment, depth_aspect,
         *depth_image_resources, *depth_memory_resources
     );

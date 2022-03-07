@@ -38,8 +38,8 @@ std::shared_ptr<IRenderData> MeshComponent::createRenderData() {
         for (size_t i = 0; i < material_render_data_->pipeline->sampler_layout().descriptions().size(); ++i) {
             if (i < material_->textures().size()){
                 auto&& description = material_render_data_->pipeline->sampler_layout().descriptions()[i];
-                auto&& texture = material_->textures()[i];
-                draw_command->addImage(description.binding, texture->render_data()->image);
+                auto&& sampler = material_->render_data()->samplers[i];
+                draw_command->addSampler(description.binding, sampler);
             }
         }
     }

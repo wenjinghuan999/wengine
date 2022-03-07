@@ -37,6 +37,7 @@ public:
     [[nodiscard]] image_file_formats::ImageFileFormat file_format() const { return image_ ? image_->file_format() : image_file_formats::none; }
     [[nodiscard]] Size2D size() const { return image_ ? image_->size() : Size2D{ 0, 0 }; }
     [[nodiscard]] gfx_formats::Format image_format() const { return image_ ? image_->image_format() : gfx_formats::none; }
+    [[nodiscard]] const std::shared_ptr<Image>& image() const { return image_; }
 
     std::shared_ptr<IRenderData> createRenderData() override;
     const std::shared_ptr<TextureRenderData>& render_data() const { return render_data_; }

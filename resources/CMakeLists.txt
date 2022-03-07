@@ -2,6 +2,7 @@
 set(WG_RESOURCES_TARGET_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/resources)
 set(WG_RESOURCES_FILES
     img/statue.png
+    img/chessboard.png
     model/bunny.obj
     model/cornell.obj
     model/cornell.mtl)

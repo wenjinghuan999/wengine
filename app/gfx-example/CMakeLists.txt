@@ -26,3 +26,18 @@ target_link_libraries(gfx-engine-example
 add_dependencies(gfx-engine-example
     wengine-shader-static
     wengine-resources)
+
+add_executable(gfx-example-anisotropy
+    gfx-example-anisotropy.cpp)
+
+target_include_directories(gfx-example-anisotropy
+    PUBLIC ${PROJECT_SOURCE_DIR}/include)
+
+target_link_libraries(gfx-example-anisotropy
+    PRIVATE wengine-platform
+    PRIVATE wengine-engine
+    PRIVATE wengine-gfx)
+
+add_dependencies(gfx-example-anisotropy
+    wengine-shader-static
+    wengine-resources)

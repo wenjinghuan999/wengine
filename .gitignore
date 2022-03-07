@@ -5,3 +5,4 @@ build/
 extern/
 cmake-build-*/
 CMakeSettings.json
+__pycache__/

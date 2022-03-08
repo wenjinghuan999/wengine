@@ -9,6 +9,7 @@
 int main(int, char**) {
     wg::App app("wegnine-gfx-engine-example", std::make_tuple(0, 0, 1));
     auto window = app.createWindow(800, 600, "WEngine gfx engine example", wg::Monitor::GetPrimary(), wg::window_mode::windowed);
+    window->setPositionToCenter(wg::Monitor::GetPrimary());
 
     auto gfx = wg::Gfx::Create(app);
 

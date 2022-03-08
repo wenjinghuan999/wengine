@@ -70,6 +70,7 @@ TEST_CASE("gfx engine" * doctest::timeout(10)) {
 
     // Begin test
     auto window = app.createWindow(800, 600, "WEngine gfx engine example");
+    window->setPositionToCenter(wg::Monitor::GetPrimary());
 
     auto gfx = wg::Gfx::Create(app);
 

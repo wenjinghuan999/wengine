@@ -47,7 +47,7 @@ public:
     
     void setPosition(Size2D position);
     void setPositionToCenter(const Monitor& monitor);
-    void setPositionToSubPlot(const Monitor& monitor, int n_rows, int n_cols, int index);
+    static void SubPlotLayout(const Monitor& monitor, std::vector<std::shared_ptr<Window>> windows, int n_rows, int n_cols);
 
 protected:
     std::string title_;

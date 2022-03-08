@@ -3,6 +3,8 @@
 #include "common/logger.h"
 #include "window-private.h"
 
+#include <numeric>
+
 namespace {
 
 auto& logger() {
@@ -125,24 +127,52 @@ void Window::setPositionToCenter(const Monitor& monitor) {
     glfwSetWindowPos(glfw_window, pos_x, pos_y);
 }
 
-void Window::setPositionToSubPlot(const Monitor& monitor, int n_rows, int n_cols, int index) {
-    GLFWwindow* glfw_window = impl_->glfw_window;
-    GLFWmonitor* glfw_monitor = reinterpret_cast<GLFWmonitor*>(monitor.impl_);
+void Window::SubPlotLayout(const Monitor& monitor, std::vector<std::shared_ptr<Window>> windows, int n_rows, int n_cols) {
+    std::vector<float> widths(n_cols);
+    std::vector<float> heights(n_rows);
+    for (int i = 0; i < static_cast<int>(windows.size()); ++i) {
+        int row = i / n_cols % n_rows;
+        int col = i % n_cols;
+        auto size = windows[i] ? windows[i]->total_size() : Size2D();
+        widths[col] = std::max(widths[col], static_cast<float>(size.x()));
+        heights[row] = std::max(heights[row], static_cast<float>(size.y()));
+    }
+    float total_width = std::accumulate(widths.begin(), widths.end(), 0.f);
+    float total_height = std::accumulate(heights.begin(), heights.end(), 0.f);
 
+    auto* glfw_monitor = reinterpret_cast<GLFWmonitor*>(monitor.impl_);
     int work_area_x_pos, work_area_y_pos, work_area_width, work_area_height;
     glfwGetMonitorWorkarea(glfw_monitor, &work_area_x_pos, &work_area_y_pos, &work_area_width, &work_area_height);
     
-    int row = (index - 1) / n_cols;
-    int col = (index - 1) % n_cols;
-    auto center_x = work_area_x_pos + work_area_width / (n_cols + 1) * (col + 1);
-    auto center_y = work_area_y_pos + work_area_height / (n_rows + 1) * (row + 1);
-    
-    auto window_size = total_size();
+    float margin_w = std::min((static_cast<float>(work_area_width) - total_width) / static_cast<float>(n_cols - 1), 10.f);
+    total_width += margin_w * static_cast<float>(n_cols - 1);
+    total_width = std::min(total_width, static_cast<float>(work_area_width));
+    float margin_h = std::min((static_cast<float>(work_area_height) - total_height) / static_cast<float>(n_rows - 1), 10.f);
+    total_height += margin_h * static_cast<float>(n_rows - 1);
+    total_height = std::min(total_height, static_cast<float>(work_area_height));
 
-    int pos_x = center_x - window_size.x() / 2;
-    int pos_y = center_y - window_size.y() / 2;
+    std::vector<float> x_offsets(n_cols);
+    std::vector<float> y_offsets(n_rows);
+    for (size_t i = 0; i < x_offsets.size(); ++i) {
+        x_offsets[i] = i == 0 ? 0.f : x_offsets[i - 1] + widths[i - 1] + margin_w;
+    }
+    for (size_t i = 0; i < y_offsets.size(); ++i) {
+        y_offsets[i] = i == 0 ? 0.f : y_offsets[i - 1] + heights[i - 1] + margin_h;
+    }
 
-    glfwSetWindowPos(glfw_window, pos_x, pos_y);
+    for (int i = 0; i < static_cast<int>(windows.size()); ++i) {
+        if (!windows[i]) {
+            continue;
+        }
+        int row = i / n_cols % n_rows;
+        int col = i % n_cols;
+        auto size = windows[i]->total_size();
+        float x_center = x_offsets[col] + widths[col] / 2;
+        float y_center = y_offsets[row] + heights[row] / 2;
+        int x_pos = static_cast<int>(x_center - static_cast<float>(size.x()) / 2 + (static_cast<float>(work_area_width) - total_width) / 2);
+        int y_pos = static_cast<int>(y_center - static_cast<float>(size.y()) / 2 + (static_cast<float>(work_area_height) - total_height) / 2);
+        windows[i]->setPosition({ work_area_x_pos + x_pos, work_area_y_pos + y_pos });
+    }
 }
 
 App::App(std::string name, std::tuple<int, int, int> version)

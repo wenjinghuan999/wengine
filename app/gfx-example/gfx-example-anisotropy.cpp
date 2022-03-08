@@ -13,9 +13,7 @@ int main(int, char**) {
     int width = 800, height = 600;
     auto window_on = app.createWindow(width, height, "anisotropy 8.0");
     auto window_off = app.createWindow(width, height, "anisotropy off");
-    
-    window_on->setPositionToSubPlot(wg::Monitor::GetPrimary(), 1, 2, 1);
-    window_off->setPositionToSubPlot(wg::Monitor::GetPrimary(), 1, 2, 2);
+    wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), { window_on, window_off }, 1, 2);
 
     auto gfx = wg::Gfx::Create(app);
 

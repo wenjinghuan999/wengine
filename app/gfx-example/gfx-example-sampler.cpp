@@ -14,10 +14,8 @@ int main(int, char**) {
     wg::App app("wegnine-gfx-example-anisotropy", std::make_tuple(0, 0, 1));
     
     auto window_filter = app.createWindow(800, 300, "nearest vs linear filter");
-    window_filter->setPositionToSubPlot(wg::Monitor::GetPrimary(), 1, 2, 1);
-    
     auto window_address_mode = app.createWindow(800, 600, "repeat, mirrored repeat, clamp to edge, clamp to border, mirror clamp to edge");
-    window_address_mode->setPositionToSubPlot(wg::Monitor::GetPrimary(), 1, 2, 2);
+    wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), { window_filter, window_address_mode }, 2, 3);
 
     auto gfx = wg::Gfx::Create(app);
 

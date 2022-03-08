@@ -223,7 +223,7 @@ private:
         };
     case wg::gfx_features::sampler_mirror_clamp_to_edge:
         return {
-            .device_extensions = { VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME},
+            .device_extensions = { VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME },
         };
     case wg::gfx_features::msaa:
         return {
@@ -499,7 +499,7 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
         if (property.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
             score += 1000;
         }
-        
+
         score += static_cast<int>(static_cast<uint32_t>(property.limits.sampledImageColorSampleCounts)) * 10;
 
         score += static_cast<int>(property.limits
@@ -514,8 +514,7 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
         }
 
         for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
-            if (queues_required[i] > device.impl_
-                ->num_queues_total[i]) {
+            if (queues_required[i] > device.impl_->num_queues_total[i]) {
                 return 0;
             }
         }
@@ -523,8 +522,7 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
         for (auto& window_surface : impl_->window_surfaces_) {
             bool has_any_family = false;
             const auto& surface = window_surface.surface;
-            auto window = surface->window_
-                .lock();
+            auto window = surface->window_.lock();
             if (!window) {
                 continue;
             }
@@ -568,10 +566,8 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
     }
 
     int index = -1;
-    if (!candidates.empty() && candidates.rbegin()
-        ->first > 0) {
-        index = candidates.rbegin()
-            ->second;
+    if (!candidates.empty() && candidates.rbegin()->first > 0) {
+        index = candidates.rbegin()->second;
     } else {
         logger().error("Failed to find available physical device.");
     }
@@ -693,8 +689,7 @@ bool PhysicalDevice::Impl::allocateQueues(
                     allocated_queue_counts[family_index][queue_id] = 1;
                     required_queues[i] = 0;
                     queue_index_in_family[family_index] = (queue_index_in_family[family_index] + 1U) % num_queues[family_index];
-                    last_family_index = queue_index_in_family[family_index] == 0 ?
-                                        (family_index + 1U) % num_queues.size() : family_index;
+                    last_family_index = queue_index_in_family[family_index] == 0 ? (family_index + 1U) % num_queues.size() : family_index;
                     allocated = true;
                     break;
                 }
@@ -826,10 +821,8 @@ void Gfx::createLogicalDevice() {
         return;
     }
 
-    auto& vk_physical_device = physical_device().impl_
-        ->vk_physical_device;
-    auto& num_queues_total = physical_device().impl_
-        ->num_queues_total;
+    auto& vk_physical_device = physical_device().impl_->vk_physical_device;
+    auto& num_queues_total = physical_device().impl_->num_queues_total;
 
     // Check and enable available device features
     AvailableVulkanFeatures available_features;
@@ -850,8 +843,7 @@ void Gfx::createLogicalDevice() {
     }
 
     logger().info(
-        "{} device extensions available.", available_features.device_extensions
-            .size()
+        "{} device extensions available.", available_features.device_extensions.size()
     );
     for (auto&& extension : available_features.device_extensions) {
         logger().debug(
@@ -862,22 +854,13 @@ void Gfx::createLogicalDevice() {
     }
 
     logger().info("Device queues:");
-    for (uint32_t queue_family_index = 0;
-         queue_family_index < physical_device().impl_
-             ->num_queues
-             .size();
-         ++queue_family_index) {
+    for (uint32_t queue_family_index = 0; queue_family_index < physical_device().impl_->num_queues.size(); ++queue_family_index) {
 
-        auto num_queues = physical_device().impl_
-            ->num_queues[queue_family_index];
-        auto g = physical_device().impl_
-            ->checkQueueSupport(queue_family_index, gfx_queues::graphics, {});
-        auto p = physical_device().impl_
-            ->checkQueueSupport(queue_family_index, gfx_queues::present, {});
-        auto t = physical_device().impl_
-            ->checkQueueSupport(queue_family_index, gfx_queues::transfer, {});
-        auto c = physical_device().impl_
-            ->checkQueueSupport(queue_family_index, gfx_queues::compute, {});
+        auto num_queues = physical_device().impl_->num_queues[queue_family_index];
+        auto g = physical_device().impl_->checkQueueSupport(queue_family_index, gfx_queues::graphics, {});
+        auto p = physical_device().impl_->checkQueueSupport(queue_family_index, gfx_queues::present, {});
+        auto t = physical_device().impl_->checkQueueSupport(queue_family_index, gfx_queues::transfer, {});
+        auto c = physical_device().impl_->checkQueueSupport(queue_family_index, gfx_queues::compute, {});
         logger().info(
             " - family {}: {}\t{}{}{}{}",
             queue_family_index, num_queues,
@@ -1121,7 +1104,7 @@ void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_d
             config.set("gfx-max-sampler-anisotropy", max_sampler_anisotropy);
         }
     }
-    
+
     if (config.get<bool>("gfx-sampler-filter-cubic")) {
         enableFeature(gfx_features::sampler_filter_cubic);
     }
@@ -1129,7 +1112,7 @@ void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_d
     if (config.get<bool>("gfx-sampler-mirror-clamp-to-edge")) {
         enableFeature(gfx_features::sampler_mirror_clamp_to_edge);
     }
-    
+
     if (config.get<int>("gfx-msaa-samples") > 1) {
         enableFeature(gfx_features::msaa);
     }

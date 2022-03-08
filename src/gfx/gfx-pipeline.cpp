@@ -1,5 +1,6 @@
 #include "gfx/gfx.h"
 #include "gfx/gfx-pipeline.h"
+#include "common/config.h"
 #include "common/logger.h"
 #include "gfx/gfx-buffer.h"
 #include "gfx-private.h"
@@ -157,8 +158,18 @@ void Gfx::createPipelineResources(
         .lineWidth               = 1.f,
     };
 
+    auto sample_count = []() {
+        int msaa_samples = EngineConfig::Get().get<int>("gfx-msaa-samples");
+        for (int i = 1; i <= 64; i <<= 1) {
+            if (msaa_samples <= i) {
+                return static_cast<vk::SampleCountFlagBits>(i);
+            }
+        }
+        return vk::SampleCountFlagBits::e64;
+    }();
+    
     resources->multisample_create_info = vk::PipelineMultisampleStateCreateInfo{
-        .rasterizationSamples  = vk::SampleCountFlagBits::e1,
+        .rasterizationSamples  = sample_count,
         .sampleShadingEnable   = false,
         .minSampleShading      = 1.f,
         .pSampleMask           = nullptr,

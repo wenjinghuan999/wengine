@@ -68,6 +68,8 @@ struct RenderTargetResources {
 
 struct RenderTarget::Impl {
     std::function<std::vector<vk::ImageView>()> get_image_views;
+    std::function<vk::SampleCountFlagBits()> get_sample_count;
+    std::function<vk::ImageView()> get_color_image_views;
     std::function<vk::ImageView()> get_depth_image_views;
     OwnedResourceHandle<RenderTargetResources> resources;
 };

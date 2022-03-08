@@ -55,6 +55,20 @@ RenderTargetSurface::RenderTargetSurface(std::string name, const std::shared_ptr
         }
         return image_views;
     };
+    impl_->get_sample_count = [weak_surface = std::weak_ptr<Surface>(surface_)]() {
+        if (auto surface = weak_surface.lock()) {
+            return surface->impl_->sample_count;
+        }
+        return vk::SampleCountFlagBits::e1;
+    };
+    impl_->get_color_image_views = [weak_surface = std::weak_ptr<Surface>(surface_)]() {
+        if (auto surface = weak_surface.lock()) {
+            if (auto* color_image_resources = surface->impl_->color_image_resources.data()) {
+                return *color_image_resources->image_view;
+            }
+        }
+        return vk::ImageView{ nullptr };
+    };
     impl_->get_depth_image_views = [weak_surface = std::weak_ptr<Surface>(surface_)]() {
         if (auto surface = weak_surface.lock()) {
             if (auto* depth_image_resources = surface->impl_->depth_image_resources.data()) {
@@ -174,26 +188,30 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 
     auto[width, height] = render_target->extent();
     auto image_views = render_target->impl_->get_image_views();
+    auto sample_count = render_target->impl_->get_sample_count();
+    auto color_image_view = render_target->impl_->get_color_image_views();
     auto depth_image_view = render_target->impl_->get_depth_image_views();
     auto image_count = image_views.size();
 
+    const bool need_resolve = sample_count > vk::SampleCountFlagBits::e1;
+    
     auto resources = std::make_unique<RenderTargetResources>();
     resources->device = &logical_device_->impl_->vk_device;
 
     // Render pass
     auto color_attachment = vk::AttachmentDescription{
         .format         = gfx_formats::ToVkFormat(render_target->format()),
-        .samples        = vk::SampleCountFlagBits::e1,
+        .samples        = sample_count,
         .loadOp         = vk::AttachmentLoadOp::eClear,
         .storeOp        = vk::AttachmentStoreOp::eStore,
         .stencilLoadOp  = vk::AttachmentLoadOp::eDontCare,
         .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
         .initialLayout  = vk::ImageLayout::eUndefined,
-        .finalLayout    = vk::ImageLayout::ePresentSrcKHR
+        .finalLayout    = need_resolve ? vk::ImageLayout::eColorAttachmentOptimal : vk::ImageLayout::ePresentSrcKHR
     };
     auto depth_attachment = vk::AttachmentDescription{
         .format         = gfx_formats::ToVkFormat(render_target->depth_format()),
-        .samples        = vk::SampleCountFlagBits::e1,
+        .samples        = sample_count,
         .loadOp         = vk::AttachmentLoadOp::eClear,
         .storeOp        = vk::AttachmentStoreOp::eDontCare,
         .stencilLoadOp  = vk::AttachmentLoadOp::eDontCare,
@@ -201,14 +219,13 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
         .initialLayout  = vk::ImageLayout::eUndefined,
         .finalLayout    = vk::ImageLayout::eDepthStencilAttachmentOptimal
     };
-    auto attachments = std::array{ color_attachment, depth_attachment };
 
     auto color_attachment_reference = vk::AttachmentReference{
         .attachment = 0,
         .layout     = vk::ImageLayout::eColorAttachmentOptimal
     };
     auto color_attachments = std::array{ color_attachment_reference };
-    
+
     auto depth_attachment_reference = vk::AttachmentReference{
         .attachment = 1,
         .layout     = vk::ImageLayout::eDepthStencilAttachmentOptimal
@@ -216,10 +233,34 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
 
     auto subpass_description = vk::SubpassDescription{
         .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
-        .pDepthStencilAttachment = &depth_attachment_reference
     }
-        .setColorAttachments(color_attachments);
+        .setColorAttachments(color_attachments)
+        .setPDepthStencilAttachment(&depth_attachment_reference);
     
+    std::vector<vk::AttachmentDescription> attachments = { color_attachment, depth_attachment };
+    
+    if (need_resolve) {
+        auto resolve_attachment = vk::AttachmentDescription{
+            .format         = gfx_formats::ToVkFormat(render_target->format()),
+            .samples        = vk::SampleCountFlagBits::e1,
+            .loadOp         = vk::AttachmentLoadOp::eDontCare,
+            .storeOp        = vk::AttachmentStoreOp::eStore,
+            .stencilLoadOp  = vk::AttachmentLoadOp::eDontCare,
+            .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
+            .initialLayout  = vk::ImageLayout::eUndefined,
+            .finalLayout    = vk::ImageLayout::ePresentSrcKHR
+        };
+        attachments.push_back(resolve_attachment);
+        
+        auto resolve_attachment_reference = vk::AttachmentReference{
+            .attachment = 2,
+            .layout     = vk::ImageLayout::eColorAttachmentOptimal
+        };
+        auto resolve_attachments = std::array{ resolve_attachment_reference };
+        
+        subpass_description.setResolveAttachments(resolve_attachments);
+    }
+
     auto subpasses = std::array{ subpass_description };
     auto dependencies = std::array{
         vk::SubpassDependency{
@@ -269,7 +310,12 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     // Framebuffers
     resources->framebuffer_resources.reserve(image_count);
     for (auto&& image_view : image_views) {
-        auto render_target_attachments = std::array{ image_view, depth_image_view };
+        std::vector<vk::ImageView> render_target_attachments;
+        if (need_resolve) {
+            render_target_attachments = { color_image_view, depth_image_view, image_view };
+        } else {
+            render_target_attachments = { image_view, depth_image_view };
+        }
         auto framebuffer_create_info = vk::FramebufferCreateInfo{
             .renderPass = *resources->render_pass,
             .width      = static_cast<uint32_t>(width),

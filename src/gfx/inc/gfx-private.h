@@ -78,8 +78,8 @@ struct Gfx::Impl {
         const std::shared_ptr<Image>& gpu_image
     );
     void createImage(
-        uint32_t width, uint32_t height, uint32_t mip_levels, vk::Format vk_format,
-        vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect,
+        uint32_t width, uint32_t height, uint32_t mip_levels, vk::SampleCountFlagBits sample_count,
+        vk::Format vk_format, vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect,
         ImageResources& out_image_resources, GfxMemoryResources& out_memory_resources
     );
     
@@ -88,6 +88,10 @@ struct Gfx::Impl {
         const std::shared_ptr<Sampler>& sampler
     );
     void createSampler(const ImageResources& image_resources, SamplerConfig config, SamplerResources& out_sampler_resources);
+
+    [[nodiscard]] image_sampler::Filter getCompatibleFilter(image_sampler::Filter filter, gfx_formats::Format format) const;
+    [[nodiscard]] vk::SampleCountFlagBits getMaxSampleCount(vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect) const;
+    [[nodiscard]] float getMaxAnisotropy() const;
 };
 
 struct PhysicalDevice::Impl {

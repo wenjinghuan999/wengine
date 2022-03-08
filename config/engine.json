@@ -1,4 +1,5 @@
 {
     "gfx-separate-transfer": true,
-    "gfx-max-sampler-anisotropy": 8.0
+    "gfx-max-sampler-anisotropy": 8.0,
+    "gfx-msaa-samples": 4
 }

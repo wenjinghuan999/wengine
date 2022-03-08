@@ -26,6 +26,7 @@ const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL] = {
     "sampler_anisotropy",
     "sampler_filter_cubic",
     "sampler_mirror_clamp_to_edge",
+    "msaa",
     "_must_enable_if_valid",
     "_debug_utils"
 };
@@ -223,6 +224,14 @@ private:
     case wg::gfx_features::sampler_mirror_clamp_to_edge:
         return {
             .device_extensions = { VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME},
+        };
+    case wg::gfx_features::msaa:
+        return {
+            .check_properties_and_features_func = [](
+                const vk::PhysicalDeviceProperties& device_properties, const vk::PhysicalDeviceFeatures& device_features
+            ) -> bool {
+                return device_properties.limits.framebufferColorSampleCounts > vk::SampleCountFlagBits::e1;
+            },
         };
     case wg::gfx_features::_must_enable_if_valid:
         // VUID-VkDeviceCreateInfo-pProperties-04451
@@ -484,16 +493,14 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
         (const PhysicalDevice& device, int hint_score) {
 
         int score = hint_score;
-        auto property = device.impl_
-            ->vk_physical_device
-            .getProperties();
-        auto features = device.impl_
-            ->vk_physical_device
-            .getFeatures();
+        auto property = device.impl_->vk_physical_device.getProperties();
+        auto features = device.impl_->vk_physical_device.getFeatures();
 
         if (property.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
             score += 1000;
         }
+        
+        score += static_cast<int>(static_cast<uint32_t>(property.limits.sampledImageColorSampleCounts)) * 10;
 
         score += static_cast<int>(property.limits
             .maxImageDimension2D);
@@ -521,17 +528,8 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
             if (!window) {
                 continue;
             }
-            for (uint32_t family_index = 0;
-                 family_index < device.impl_
-                     ->num_queues
-                     .size();
-                 ++family_index) {
-                if (device.impl_
-                    ->vk_physical_device
-                    .getSurfaceSupportKHR(
-                        family_index, *surface->impl_
-                            ->vk_surface
-                    )) {
+            for (uint32_t family_index = 0; family_index < device.impl_->num_queues.size(); ++family_index) {
+                if (device.impl_->vk_physical_device.getSurfaceSupportKHR(family_index, *surface->impl_->vk_surface)) {
                     has_any_family = true;
                     break;
                 }
@@ -543,26 +541,14 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
                 );
                 return 0;
             }
-            if (device.impl_
-                ->vk_physical_device
-                .getSurfaceFormatsKHR(
-                    *surface->impl_
-                        ->vk_surface
-                )
-                .empty()) {
+            if (device.impl_->vk_physical_device.getSurfaceFormatsKHR(*surface->impl_->vk_surface).empty()) {
                 logger().info(
                     "Physical device {} does not support surface of window \"{}\" (no format).",
                     device.name(), window->title()
                 );
                 return 0;
             }
-            if (device.impl_
-                ->vk_physical_device
-                .getSurfacePresentModesKHR(
-                    *surface->impl_
-                        ->vk_surface
-                )
-                .empty()) {
+            if (device.impl_->vk_physical_device.getSurfacePresentModesKHR(*surface->impl_->vk_surface).empty()) {
                 logger().info(
                     "Physical device {} does not support surface of window \"{}\" (no present mode).",
                     device.name(), window->title()
@@ -1142,6 +1128,10 @@ void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_d
 
     if (config.get<bool>("gfx-sampler-mirror-clamp-to-edge")) {
         enableFeature(gfx_features::sampler_mirror_clamp_to_edge);
+    }
+    
+    if (config.get<int>("gfx-msaa-samples") > 1) {
+        enableFeature(gfx_features::msaa);
     }
 }
 

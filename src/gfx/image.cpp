@@ -179,6 +179,11 @@ void Gfx::Impl::transitionImageLayout(
         barrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
         src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
         dst_stage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+    } else if (old_layout == vk::ImageLayout::eUndefined && new_layout == vk::ImageLayout::eColorAttachmentOptimal) {
+        barrier.srcAccessMask = {};
+        barrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+        src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
+        dst_stage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
     } else {
         logger().error("Unsupported image layout transition: {} => {}", vk::to_string(old_layout), vk::to_string(new_layout));
         return;
@@ -297,7 +302,8 @@ void Gfx::Impl::createReferenceImageResources(
 
     int real_mip_levels = can_generate_mipmap ? max_mip_levels : gpu_image->mip_levels_;
     createImage(
-        gpu_image->width_, gpu_image->height_, real_mip_levels, gfx_formats::ToVkFormat(cpu_image->image_format()),
+        gpu_image->width_, gpu_image->height_, real_mip_levels, vk::SampleCountFlagBits::e1,
+        gfx_formats::ToVkFormat(cpu_image->image_format()),
         vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
         vk::ImageAspectFlagBits::eColor,
         *resources, *memory_resources
@@ -308,8 +314,8 @@ void Gfx::Impl::createReferenceImageResources(
 }
 
 void Gfx::Impl::createImage(
-    uint32_t width, uint32_t height, uint32_t mip_levels, vk::Format vk_format,
-    vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect,
+    uint32_t width, uint32_t height, uint32_t mip_levels, vk::SampleCountFlagBits sample_count,
+    vk::Format vk_format, vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect,
     ImageResources& out_image_resources, GfxMemoryResources& out_memory_resources
 ) {
     if (!gfx->logical_device_) {
@@ -317,6 +323,11 @@ void Gfx::Impl::createImage(
         return;
     }
     gfx->waitDeviceIdle();
+
+    vk::SampleCountFlagBits max_sample_count = getMaxSampleCount(usage, aspect);
+    if (sample_count > max_sample_count) {
+        sample_count = max_sample_count;
+    }
 
     auto graphics_queue = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0];
 
@@ -339,7 +350,7 @@ void Gfx::Impl::createImage(
         },
         .mipLevels     = mip_levels,
         .arrayLayers   = 1,
-        .samples       = vk::SampleCountFlagBits::e1,
+        .samples       = sample_count,
         .tiling        = vk::ImageTiling::eOptimal,
         .usage         = usage,
         .sharingMode   = vk::SharingMode::eExclusive,
@@ -431,33 +442,10 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
     gfx->waitDeviceIdle();
 
     auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
-    float max_anisotropy = 0.f;
-    if (GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_anisotropy)) {
-        float engine_max_anisotropy = EngineConfig::Get().get<float>("gfx-max-sampler-anisotropy");
-        engine_max_anisotropy = std::min<float>(engine_max_anisotropy, device_properties.limits.maxSamplerAnisotropy);
-        max_anisotropy = std::min(config.max_anisotropy, engine_max_anisotropy);
-    }
+    float max_anisotropy = std::min(config.max_anisotropy, getMaxAnisotropy());
     bool integer_format = gfx_formats::IsIntegerFormat(gfx_formats::FromVkFormat(image_resources.format));
-    auto get_compatible_filter = [this, &image_resources](image_sampler::Filter filter) {
-        if (filter == image_sampler::cubic) {
-            if (!GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_filter_cubic)) {
-                logger().warn("Cubic filter not available because feature \"gfx-sampler-mirror-clamp-to-edge\" is not enabled. Use linear instead.");
-                return image_sampler::linear;
-            }
-            
-            auto format_properties = gfx->physical_device().impl_->vk_physical_device.getFormatProperties(image_resources.format);
-            if (!(format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterCubicEXT)) {
-                logger().warn(
-                    "Cubic filter not available for image format {}. Use linear instead.",
-                    gfx_formats::ToString(gfx_formats::FromVkFormat(image_resources.format))
-                );
-                return image_sampler::linear;
-            }
-        }
-        return filter;
-    };
-    auto mag_filter = get_compatible_filter(config.mag_filter);
-    auto min_filter = get_compatible_filter(config.min_filter);
+    auto mag_filter = getCompatibleFilter(config.mag_filter, gfx_formats::FromVkFormat(image_resources.format));
+    auto min_filter = getCompatibleFilter(config.min_filter, gfx_formats::FromVkFormat(image_resources.format));
     
     auto get_compatible_address_mode = [this](image_sampler::AddressMode address_mode) {
         if (address_mode == image_sampler::mirror_clamp_to_edge) {
@@ -490,6 +478,69 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
         .unnormalizedCoordinates = false
     };
     out_sampler_resources.sampler = gfx->logical_device_->impl_->vk_device.createSampler(sampler_create_info);
+}
+
+image_sampler::Filter Gfx::Impl::getCompatibleFilter(image_sampler::Filter filter, gfx_formats::Format format) const {
+    if (filter == image_sampler::cubic) {
+        if (!GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_filter_cubic)) {
+            logger().warn("Cubic filter not available because feature \"gfx-sampler-filter-cubic\" is not enabled. Use linear instead.");
+            return image_sampler::linear;
+        }
+
+        auto format_properties = gfx->physical_device().impl_->vk_physical_device.getFormatProperties(gfx_formats::ToVkFormat(format));
+        if (!(format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterCubicEXT)) {
+            logger().warn("Cubic filter not available for image format {}. Use linear instead.", gfx_formats::ToString(format));
+            return image_sampler::linear;
+        }
+    }
+    return filter;
+}
+
+vk::SampleCountFlagBits Gfx::Impl::getMaxSampleCount(vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect) const {
+    if (GfxFeaturesManager::Get().feature_enabled(gfx_features::msaa)) {
+        auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
+        
+        auto sample_counts = static_cast<vk::SampleCountFlags>(VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM);
+        if ((usage & vk::ImageUsageFlagBits::eColorAttachment) && (aspect & vk::ImageAspectFlagBits::eColor)) {
+            sample_counts &= device_properties.limits.framebufferColorSampleCounts;
+        }
+        if ((usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) && (aspect & vk::ImageAspectFlagBits::eDepth)) {
+            sample_counts &= device_properties.limits.framebufferDepthSampleCounts;
+        }
+        if ((usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) && (aspect & vk::ImageAspectFlagBits::eStencil)) {
+            sample_counts &= device_properties.limits.framebufferStencilSampleCounts;
+        }
+        if ((usage & vk::ImageUsageFlagBits::eSampled) && (aspect & vk::ImageAspectFlagBits::eColor)) {
+            sample_counts &= device_properties.limits.sampledImageColorSampleCounts;
+        }
+        if ((usage & vk::ImageUsageFlagBits::eSampled) && (aspect & vk::ImageAspectFlagBits::eDepth)) {
+            sample_counts &= device_properties.limits.sampledImageDepthSampleCounts;
+        }
+        if ((usage & vk::ImageUsageFlagBits::eSampled) && (aspect & vk::ImageAspectFlagBits::eStencil)) {
+            sample_counts &= device_properties.limits.sampledImageStencilSampleCounts;
+        }
+        
+        if (sample_counts == static_cast<vk::SampleCountFlags>(VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM)) {
+            return vk::SampleCountFlagBits::e1;
+        }
+        for (int i = 64; i > 0; i >>= 1) {
+            auto sample_count = static_cast<vk::SampleCountFlagBits>(i);
+            if (sample_counts & sample_count) {
+                return sample_count;
+            }
+        }
+    }
+    return vk::SampleCountFlagBits::e1;
+}
+
+float Gfx::Impl::getMaxAnisotropy() const {
+    if (GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_anisotropy)) {
+        auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
+        float engine_max_anisotropy = EngineConfig::Get().get<float>("gfx-max-sampler-anisotropy");
+        engine_max_anisotropy = std::min<float>(engine_max_anisotropy, device_properties.limits.maxSamplerAnisotropy);
+        return engine_max_anisotropy;
+    }
+    return 0.f;
 }
 
 void Gfx::commitImage(const std::shared_ptr<Image>& image) {

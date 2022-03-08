@@ -2,6 +2,7 @@
 
 #include "gfx/gfx.h"
 #include "gfx/surface.h"
+#include "common/config.h"
 #include "common/logger.h"
 #include "platform/inc/window-private.h"
 #include "gfx-private.h"
@@ -280,7 +281,32 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
         );
     }
 
-    // Depth images
+    auto sample_count = []() {
+        int msaa_samples = EngineConfig::Get().get<int>("gfx-msaa-samples");
+        for (int i = 1; i <= 64; i <<= 1) {
+            if (msaa_samples <= i) {
+                return static_cast<vk::SampleCountFlagBits>(i);
+            }
+        }
+        return vk::SampleCountFlagBits::e64;
+    }();
+    surface->impl_->sample_count = sample_count;
+
+    // Color image
+    std::unique_ptr<ImageResources> color_image_resources;
+    std::unique_ptr<GfxMemoryResources> color_memory_resources;
+    if (sample_count > vk::SampleCountFlagBits::e1) {
+        color_image_resources = std::make_unique<ImageResources>();
+        color_memory_resources = std::make_unique<GfxMemoryResources>();
+        impl_->createImage(
+            resources->vk_extent.width, resources->vk_extent.height, 1U, sample_count,
+            resources->vk_format.format, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment,
+            vk::ImageAspectFlagBits::eColor, *color_image_resources, *color_memory_resources
+        );
+        impl_->transitionImageLayout(&*color_image_resources, vk::ImageLayout::eColorAttachmentOptimal, color_image_resources->queue);
+    }
+    
+    // Depth image
     auto depth_image_resources = std::make_unique<ImageResources>();
     auto depth_memory_resources = std::make_unique<GfxMemoryResources>();
 
@@ -302,13 +328,17 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
         depth_aspect |= vk::ImageAspectFlagBits::eStencil;
     }
     impl_->createImage(
-        resources->vk_extent.width, resources->vk_extent.height, 1U, gfx_formats::ToVkFormat(depth_image_format),
-        vk::ImageUsageFlagBits::eDepthStencilAttachment, depth_aspect,
+        resources->vk_extent.width, resources->vk_extent.height, 1U, sample_count,
+        gfx_formats::ToVkFormat(depth_image_format), vk::ImageUsageFlagBits::eDepthStencilAttachment, depth_aspect,
         *depth_image_resources, *depth_memory_resources
     );
     impl_->transitionImageLayout(&*depth_image_resources, vk::ImageLayout::eDepthStencilAttachmentOptimal, depth_image_resources->queue);
 
     surface->impl_->resources = logical_device_->impl_->surface_resources.store(std::move(resources));
+    if (sample_count > vk::SampleCountFlagBits::e1) {
+        surface->impl_->color_image_resources = logical_device_->impl_->image_resources.store(std::move(color_image_resources));
+        surface->impl_->color_memory_resources = logical_device_->impl_->memory_resources.store(std::move(color_memory_resources));
+    }
     surface->impl_->depth_image_resources = logical_device_->impl_->image_resources.store(std::move(depth_image_resources));
     surface->impl_->depth_memory_resources = logical_device_->impl_->memory_resources.store(std::move(depth_memory_resources));
     

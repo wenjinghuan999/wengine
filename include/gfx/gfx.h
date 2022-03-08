@@ -155,6 +155,7 @@ enum FeatureId {
     sampler_anisotropy,
     sampler_filter_cubic,
     sampler_mirror_clamp_to_edge,
+    msaa,
     // Engine controlled features
     _must_enable_if_valid, NUM_FEATURES = _must_enable_if_valid,
     _debug_utils,

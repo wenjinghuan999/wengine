@@ -20,8 +20,11 @@ struct SurfaceResources {
 struct Surface::Impl {
     vk::raii::SurfaceKHR vk_surface{ nullptr };
     OwnedResourceHandle<SurfaceResources> resources;
+    OwnedResourceHandle<ImageResources> color_image_resources;
+    OwnedResourceHandle<GfxMemoryResources> color_memory_resources;
     OwnedResourceHandle<ImageResources> depth_image_resources;
     OwnedResourceHandle<GfxMemoryResources> depth_memory_resources;
+    vk::SampleCountFlagBits sample_count = vk::SampleCountFlagBits::e1;
 
     static void SetFrameBufferSizeCallback(GLFWwindow* window, int width, int height);
     static std::map<GLFWwindow*, std::function<void(int, int)>> glfw_window_to_resized_func_map;

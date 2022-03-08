@@ -44,3 +44,9 @@ add_executable(gfx-example-sampler.cpp
 
 target_link_libraries(gfx-example-sampler.cpp
     PRIVATE gfx-examples-interface)
+
+add_executable(gfx-example-msaa
+    gfx-example-msaa.cpp)
+
+target_link_libraries(gfx-example-msaa
+    PRIVATE gfx-examples-interface)

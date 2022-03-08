@@ -197,8 +197,13 @@ void App::loop(const std::function<void(float)>& func) {
 
     while (!windows_.empty()) {
         for (auto it = windows_.begin(); it != windows_.end();) {
-            GLFWwindow* glfw_window = (*it)->impl_->glfw_window;
+            auto& window = *it;
+            GLFWwindow* glfw_window = window->impl_->glfw_window;
             if (glfwWindowShouldClose(glfw_window)) {
+                if (window->on_window_closed_) {
+                    window->on_window_closed_();
+                }
+                window_data_.erase(window->weak_from_this());
                 it = windows_.erase(it);
             } else {
                 ++it;
@@ -229,6 +234,10 @@ std::shared_ptr<Window> App::createWindow(
     std::shared_ptr<Window> window(new Window(width, height, title, monitor, mode));
     windows_.push_back(window);
     return window;
+}
+
+void App::registerWindowData(const std::shared_ptr<Window>& window, std::any data) {
+    window_data_[window->weak_from_this()].emplace_back(std::move(data));
 }
 
 } // namespace wg

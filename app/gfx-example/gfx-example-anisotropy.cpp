@@ -53,15 +53,22 @@ int main(int, char**) {
     auto quad_mesh = wg::Mesh::CreateFromVertices("quad", quad_vertices, quad_indices);
     render_data.emplace_back(quad_mesh->createRenderData());
 
+    for (auto&& data : render_data) {
+        data->createGfxResources(*gfx);
+    }
+    
     auto create_render_target = [&](
         const std::shared_ptr<wg::Material>& material,
         const std::shared_ptr<wg::Window>& window
-    ) -> std::shared_ptr<wg::RenderTarget> {
+    ) -> std::weak_ptr<wg::RenderTarget> {
+        
+        std::vector<std::shared_ptr<wg::IRenderData>> window_render_data;
+        
         auto quad_component = wg::MeshComponent::Create("quad");
         quad_component->setTransform(wg::Transform());
         quad_component->setMaterial(material);
         quad_component->setMesh(quad_mesh);
-        render_data.emplace_back(quad_component->createRenderData());
+        window_render_data.emplace_back(quad_component->createRenderData());
 
         auto render_target = gfx->createRenderTarget(window);
 
@@ -69,22 +76,29 @@ int main(int, char**) {
         renderer->setCamera({ glm::vec3(0.0f, -5.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f) });
         renderer->setRenderTarget(render_target);
         renderer->addComponent(quad_component);
-        render_data.emplace_back(renderer->createRenderData());
+        window_render_data.emplace_back(renderer->createRenderData());
 
-        return render_target;
+        for (auto&& data : window_render_data) {
+            data->createGfxResources(*gfx);
+        }
+        app.registerWindowData(window, window_render_data);
+        app.registerWindowData(window, render_target);
+        return render_target->weak_from_this();
     };
     
     auto render_target_on = create_render_target(material_on, window_on);
     auto render_target_off = create_render_target(material_off, window_off);
-
-    for (auto&& data : render_data) {
-        data->createGfxResources(*gfx);
-    }
+    window_on.reset();
+    window_off.reset();
 
     app.loop(
         [&](float time) {
-            gfx->render(render_target_on);
-            gfx->render(render_target_off);
+            if (auto render_target = render_target_on.lock()) {
+                gfx->render(render_target);
+            }
+            if (auto render_target = render_target_off.lock()) {
+                gfx->render(render_target);
+            }
         }
     );
 

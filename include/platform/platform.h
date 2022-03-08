@@ -9,6 +9,8 @@
 #include <vector>
 #include <optional>
 #include <tuple>
+#include <map>
+#include <any>
 
 namespace wg {
 
@@ -48,9 +50,12 @@ public:
     void setPosition(Size2D position);
     void setPositionToCenter(const Monitor& monitor);
     static void SubPlotLayout(const Monitor& monitor, std::vector<std::shared_ptr<Window>> windows, int n_rows, int n_cols);
+    
+    void setOnWindowClosed(std::function<void()> on_window_closed) { on_window_closed_ = std::move(on_window_closed); }
 
 protected:
     std::string title_;
+    std::function<void()> on_window_closed_;
 
 protected:
     friend class App;
@@ -82,9 +87,11 @@ public:
         int width, int height, const std::string& title,
         const std::optional<Monitor>& monitor = {}, window_mode::WindowMode mode = window_mode::windowed
     );
+    void registerWindowData(const std::shared_ptr<Window>& window, std::any data);
 
 protected:
     std::vector<std::shared_ptr<Window>> windows_;
+    std::map<std::weak_ptr<Window>, std::vector<std::any>, std::owner_less<std::weak_ptr<Window>>> window_data_;
     const std::string name_;
     const std::tuple<int, int, int> version_;
 };

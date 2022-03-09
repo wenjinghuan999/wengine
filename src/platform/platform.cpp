@@ -75,7 +75,7 @@ Window::Window(
 }
 
 Window::~Window() {
-    impl_->surface_handle.reset();
+    impl_->resources.reset();
 
     GLFWwindow* glfw_window = impl_->glfw_window;
     auto[width, height] = this->extent();

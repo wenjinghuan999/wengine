@@ -18,7 +18,7 @@
 
 namespace wg {
 
-struct WindowSurfaceResources {
+struct WindowResources {
     std::shared_ptr<Surface> surface;
 };
 
@@ -28,7 +28,8 @@ struct Gfx::Impl {
 #ifndef NDEBUG
     [[maybe_unused]] vk::raii::DebugUtilsMessengerEXT debug_messenger{ nullptr };
 #endif
-    OwnedResources<WindowSurfaceResources> window_surfaces_;
+    OwnedResources<WindowResources> window_resources_;
+    OwnedResources<WindowSurfaceResources> window_surface_resources_;
     Gfx* gfx;
 
     void singleTimeCommand(

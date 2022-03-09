@@ -80,10 +80,13 @@ void Gfx::createWindowSurface(const std::shared_ptr<Window>& window) {
         return;
     }
 
-    surface->impl_->vk_surface = vk::raii::SurfaceKHR(impl_->instance, vk_surface);
-    auto window_surface = std::make_unique<WindowSurfaceResources>();
-    window_surface->surface = surface;
-    window->impl_->surface_handle = impl_->window_surfaces_.store(std::move(window_surface));
+    auto window_resources = std::make_unique<WindowResources>();
+    window_resources->surface = surface;
+    window->impl_->resources = impl_->window_resources_.store(std::move(window_resources));
+    
+    auto window_surface_resources = std::make_unique<WindowSurfaceResources>();
+    window_surface_resources->vk_surface = vk::raii::SurfaceKHR(impl_->instance, vk_surface);
+    surface->impl_->window_surface_resources = impl_->window_surface_resources_.store(std::move(window_surface_resources));
 
     glfwSetFramebufferSizeCallback(window->impl_->glfw_window, Surface::Impl::SetFrameBufferSizeCallback);
     Surface::Impl::glfw_window_to_resized_func_map[window->impl_->glfw_window] =
@@ -97,10 +100,10 @@ void Gfx::createWindowSurface(const std::shared_ptr<Window>& window) {
 }
 
 std::shared_ptr<Surface> Gfx::getWindowSurface(const std::shared_ptr<Window>& window) const {
-    if (!window || !window->impl_->surface_handle || !logical_device_) {
+    if (!window || !window->impl_->resources || !logical_device_) {
         return {};
     }
-    auto& window_surface = impl_->window_surfaces_.get(window->impl_->surface_handle);
+    auto& window_surface = impl_->window_resources_.get(window->impl_->resources);
     return window_surface.surface;
 }
 
@@ -109,12 +112,12 @@ std::shared_ptr<Surface> Gfx::getWindowSurface(const std::shared_ptr<Window>& wi
 namespace {
 
 [[nodiscard]] vk::raii::SwapchainKHR CreateSwapchainForSurface(
-    const vk::raii::PhysicalDevice& physical_device, const vk::raii::Device& device, const vk::raii::SurfaceKHR& surface, const wg::Window& window,
+    const vk::raii::PhysicalDevice& physical_device, const vk::raii::Device& device, vk::SurfaceKHR surface, const wg::Window& window,
     uint32_t graphics_family_index, uint32_t present_family_index, vk::SwapchainKHR old_swapchain, vk::SurfaceFormatKHR& out_format,
     vk::Extent2D& out_extent
 ) {
     out_format = [&physical_device, &surface]() {
-        auto available_formats = physical_device.getSurfaceFormatsKHR(*surface);
+        auto available_formats = physical_device.getSurfaceFormatsKHR(surface);
         for (auto&& available_format : available_formats) {
             if (available_format.format == vk::Format::eR8G8B8A8Srgb && available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
                 return available_format;
@@ -123,7 +126,7 @@ namespace {
         return available_formats[0];
     }();
     auto present_mode = [&physical_device, &surface]() {
-        auto available_modes = physical_device.getSurfacePresentModesKHR(*surface);
+        auto available_modes = physical_device.getSurfacePresentModesKHR(surface);
         for (auto&& available_mode : available_modes) {
             if (available_mode == vk::PresentModeKHR::eMailbox) {
                 return available_mode;
@@ -136,7 +139,7 @@ namespace {
         }
         return available_modes[0];
     }();
-    auto capabilities = physical_device.getSurfaceCapabilitiesKHR(*surface);
+    auto capabilities = physical_device.getSurfaceCapabilitiesKHR(surface);
     out_extent = [&capabilities, &window]() {
         if (capabilities.currentExtent.width != UINT32_MAX) {
             return capabilities.currentExtent;
@@ -165,7 +168,7 @@ namespace {
     std::array<uint32_t, 2> queue_family_indices{ graphics_family_index, present_family_index };
 
     vk::SwapchainCreateInfoKHR swapchain_create_info{
-        .surface          = *surface,
+        .surface          = surface,
         .minImageCount    = image_count,
         .imageFormat      = out_format.format,
         .imageColorSpace  = out_format.colorSpace,
@@ -217,10 +220,10 @@ vk::raii::ImageView CreateImageViewForSurface(
 
 namespace wg {
 
-bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) {
+bool Gfx::createSurfaceResources(const std::shared_ptr<Surface>& surface) {
 
     if (!logical_device_) {
-        logger().error("Cannot create window surface resources because logical device is not available.");
+        logger().error("Cannot create surface resources because logical device is not available.");
     }
     waitDeviceIdle();
 
@@ -233,6 +236,12 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
     if (logical_device_->impl_->queue_references[gfx_queues::graphics].empty() ||
         logical_device_->impl_->queue_references[gfx_queues::present].empty()) {
         logger().info("Skip creating resources for surface of window \"{}\" because no queues available.", window->title());
+        return false;
+    }
+    
+    auto* window_surface_resources = surface->impl_->window_surface_resources.data();
+    if (!window_surface_resources) {
+        logger().error("Cannot create surface resources because window surface resources are not available.");
         return false;
     }
 
@@ -251,7 +260,7 @@ bool Gfx::createWindowSurfaceResources(const std::shared_ptr<Surface>& surface) 
     auto resources = std::make_unique<SurfaceResources>();
     resources->vk_swapchain = CreateSwapchainForSurface(
         physical_device().impl_->vk_physical_device, logical_device_->impl_->vk_device,
-        surface->impl_->vk_surface, *window,
+        *window_surface_resources->vk_surface, *window,
         graphics_family_index, present_family_index,
         *old_swapchain,
         resources->vk_format, resources->vk_extent

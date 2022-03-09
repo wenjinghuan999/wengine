@@ -519,15 +519,20 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
             }
         }
 
-        for (auto& window_surface : impl_->window_surfaces_) {
+        for (auto& window_surface : impl_->window_resources_) {
             bool has_any_family = false;
             const auto& surface = window_surface.surface;
             auto window = surface->window_.lock();
             if (!window) {
                 continue;
             }
+            auto* resources = surface->impl_->window_surface_resources.data();
+            if (!resources) {
+                continue;
+            }
+            
             for (uint32_t family_index = 0; family_index < device.impl_->num_queues.size(); ++family_index) {
-                if (device.impl_->vk_physical_device.getSurfaceSupportKHR(family_index, *surface->impl_->vk_surface)) {
+                if (device.impl_->vk_physical_device.getSurfaceSupportKHR(family_index, *resources->vk_surface)) {
                     has_any_family = true;
                     break;
                 }
@@ -539,14 +544,14 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
                 );
                 return 0;
             }
-            if (device.impl_->vk_physical_device.getSurfaceFormatsKHR(*surface->impl_->vk_surface).empty()) {
+            if (device.impl_->vk_physical_device.getSurfaceFormatsKHR(*resources->vk_surface).empty()) {
                 logger().info(
                     "Physical device {} does not support surface of window \"{}\" (no format).",
                     device.name(), window->title()
                 );
                 return 0;
             }
-            if (device.impl_->vk_physical_device.getSurfacePresentModesKHR(*surface->impl_->vk_surface).empty()) {
+            if (device.impl_->vk_physical_device.getSurfacePresentModesKHR(*resources->vk_surface).empty()) {
                 logger().info(
                     "Physical device {} does not support surface of window \"{}\" (no present mode).",
                     device.name(), window->title()
@@ -913,8 +918,8 @@ void Gfx::createLogicalDevice() {
     }
 
     std::vector<vk::SurfaceKHR> surfaces;
-    for (auto&& window_surface : impl_->window_surfaces_) {
-        surfaces.emplace_back(*window_surface.surface->impl_->vk_surface);
+    for (auto&& resources : impl_->window_surface_resources_) {
+        surfaces.emplace_back(*resources.vk_surface);
     }
 
     // Allocate queues.
@@ -1025,8 +1030,8 @@ void Gfx::createLogicalDevice() {
     logger().info("Logical device created.");
 
     // Create swapchains for surfaces
-    for (auto& window_surface : impl_->window_surfaces_) {
-        bool result = createWindowSurfaceResources(window_surface.surface);
+    for (auto& window_surface : impl_->window_resources_) {
+        bool result = createSurfaceResources(window_surface.surface);
         if (!result) {
             logger().error(
                 "Failed to create surface resources for window \"{}\".",

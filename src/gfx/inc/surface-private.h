@@ -9,6 +9,10 @@
 
 namespace wg {
 
+struct WindowSurfaceResources {
+    vk::raii::SurfaceKHR vk_surface{ nullptr };
+};
+
 struct SurfaceResources {
     vk::raii::SwapchainKHR vk_swapchain{ nullptr };
     vk::SurfaceFormatKHR vk_format;
@@ -18,7 +22,7 @@ struct SurfaceResources {
 };
 
 struct Surface::Impl {
-    vk::raii::SurfaceKHR vk_surface{ nullptr };
+    OwnedResourceHandle<WindowSurfaceResources> window_surface_resources;
     OwnedResourceHandle<SurfaceResources> resources;
     OwnedResourceHandle<ImageResources> color_image_resources;
     OwnedResourceHandle<GfxMemoryResources> color_memory_resources;

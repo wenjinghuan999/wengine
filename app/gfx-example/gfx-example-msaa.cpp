@@ -64,9 +64,9 @@ int main(int, char**) {
         for (auto&& data : render_data) {
             data->createGfxResources(*gfx);
         }
+        app.registerWindowData(window, gfx);
         app.registerWindowData(window, render_data);
         app.registerWindowData(window, render_target);
-        app.registerWindowData(window, gfx);
         return std::make_pair(gfx->weak_from_this(), render_target->weak_from_this());
     };
 

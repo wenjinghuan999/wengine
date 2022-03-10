@@ -7,20 +7,28 @@
 #include "engine/texture.h"
 #include "common/config.h"
 
+#include <array>
+#include <fmt/format.h>
+
 int main(int, char**) {
     wg::App app("wegnine-gfx-example-anisotropy", std::make_tuple(0, 0, 1));
     
-    int width = 800, height = 600;
-    auto window_on = app.createWindow(width, height, "anisotropy 8.0");
-    auto window_off = app.createWindow(width, height, "anisotropy off");
-    wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), { window_on, window_off }, 1, 2);
+    int width = 400, height = 300;
+    std::vector<std::shared_ptr<wg::Window>> windows;
+    
+    auto max_anisotropies = std::array{ 8.f, 4.f, 2.f, 0.f };
+    for (float max_anisotropy : max_anisotropies) {
+        windows.emplace_back(app.createWindow(width, height, fmt::format("max anisotropy {}", max_anisotropy)));
+    }
+    wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), windows, 2, 2);
     
     wg::EngineConfig::Get().set("gfx-max-sampler-anisotropy", 8.f);
 
     auto gfx = wg::Gfx::Create(app);
 
-    gfx->createWindowSurface(window_on);
-    gfx->createWindowSurface(window_off);
+    for (auto&& window : windows) {
+        gfx->createWindowSurface(window);
+    }
     gfx->selectBestPhysicalDevice();
     gfx->createLogicalDevice();
 
@@ -28,20 +36,6 @@ int main(int, char**) {
 
     auto texture = wg::Texture::Load("resources/img/chessboard.png");
     render_data.emplace_back(texture->createRenderData());
-
-    auto material_on = wg::Material::Create(
-        "default material",
-        "shader/static/simple.vert.spv", "shader/static/simple.frag.spv"
-    );
-    material_on->addTexture(texture, { .max_anisotropy = 8.f });
-    render_data.emplace_back(material_on->createRenderData());
-    
-    auto material_off = wg::Material::Create(
-        "default material",
-        "shader/static/simple.vert.spv", "shader/static/simple.frag.spv"
-    );
-    material_off->addTexture(texture, { .max_anisotropy = 0.f });
-    render_data.emplace_back(material_off->createRenderData());
 
     auto quad_vertices = std::vector<wg::SimpleVertex>{
         { .position = { -50.0f, -50.0f, 0.f }, .color = { 0.f, 0.f, 0.f }, .tex_coord = { 0.f, 100.f } },
@@ -58,11 +52,18 @@ int main(int, char**) {
     }
     
     auto create_render_target = [&](
-        const std::shared_ptr<wg::Material>& material,
+        float max_anisotropy,
         const std::shared_ptr<wg::Window>& window
     ) -> std::weak_ptr<wg::RenderTarget> {
         
         std::vector<std::shared_ptr<wg::IRenderData>> window_render_data;
+
+        auto material = wg::Material::Create(
+            fmt::format("default material anisotropy {}", max_anisotropy),
+            "shader/static/simple.vert.spv", "shader/static/simple.frag.spv"
+        );
+        material->addTexture(texture, { .max_anisotropy = max_anisotropy });
+        window_render_data.emplace_back(material->createRenderData());
         
         auto quad_component = wg::MeshComponent::Create("quad");
         quad_component->setTransform(wg::Transform());
@@ -86,18 +87,18 @@ int main(int, char**) {
         return render_target->weak_from_this();
     };
     
-    auto render_target_on = create_render_target(material_on, window_on);
-    auto render_target_off = create_render_target(material_off, window_off);
-    window_on.reset();
-    window_off.reset();
+    std::vector<std::weak_ptr<wg::RenderTarget>> weak_render_targets;
+    for (size_t i = 0; i < windows.size(); ++i) {
+        weak_render_targets.emplace_back(create_render_target(max_anisotropies[i], windows[i]));
+    }
+    windows.clear();
 
     app.loop(
         [&](float time) {
-            if (auto render_target = render_target_on.lock()) {
-                gfx->render(render_target);
-            }
-            if (auto render_target = render_target_off.lock()) {
-                gfx->render(render_target);
+            for (auto&& weak_render_target : weak_render_targets) {
+                if (auto render_target = weak_render_target.lock()) {
+                    gfx->render(render_target);
+                }
             }
         }
     );

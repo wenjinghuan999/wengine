@@ -175,6 +175,11 @@ void Window::SubPlotLayout(const Monitor& monitor, std::vector<std::shared_ptr<W
     }
 }
 
+void Window::setTitle(const std::string& title) {
+    GLFWwindow* glfw_window = impl_->glfw_window;
+    glfwSetWindowTitle(glfw_window, title.c_str());
+}
+
 App::App(std::string name, std::tuple<int, int, int> version)
     : name_(std::move(name)), version_(std::move(version)) {
 

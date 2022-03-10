@@ -111,6 +111,7 @@ public:
 
     [[nodiscard]] bool valid() const;
     [[nodiscard]] const GfxFeaturesManager& features_manager() const { return features_manager_; }
+    [[nodiscard]] const GfxSetup& setup() const { return setup_; }
     
     void loadGlobalSetupFromConfig();
 

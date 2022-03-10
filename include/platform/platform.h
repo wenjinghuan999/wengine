@@ -51,6 +51,8 @@ public:
     void setPositionToCenter(const Monitor& monitor);
     static void SubPlotLayout(const Monitor& monitor, std::vector<std::shared_ptr<Window>> windows, int n_rows, int n_cols);
     
+    void setTitle(const std::string& title);
+    
     void setOnWindowClosed(std::function<void()> on_window_closed) { on_window_closed_ = std::move(on_window_closed); }
 
 protected:

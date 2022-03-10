@@ -153,12 +153,17 @@ void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_d
         enableFeature(gfx_features::msaa);
         
         setup.msaa_samples = 1;
-        for (int i = 1; i <= 64; i <<= 1) {
-            if (msaa_samples >= i) {
-                setup.msaa_samples = i;
-            } else {
-                break;
+        for (int i = 1; i <= 64 && i <= msaa_samples; i <<= 1) {
+            auto vk_samples = static_cast<vk::SampleCountFlagBits>(i);
+            if (vk_samples & device_properties.limits.framebufferColorSampleCounts) {
+                if (vk_samples & device_properties.limits.framebufferDepthSampleCounts) {
+                    setup.msaa_samples = i;
+                }
             }
+        }
+        
+        if (setup.msaa_samples != msaa_samples) {
+            logger().warn("Setting MSAA to {} failed, use MSAA = {} instead.", msaa_samples, setup.msaa_samples);
         }
     }
 

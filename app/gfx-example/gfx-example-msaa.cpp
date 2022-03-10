@@ -7,15 +7,22 @@
 #include "engine/texture.h"
 #include "common/config.h"
 
+#include <array>
+#include <fmt/format.h>
+
 int main(int, char**) {
     wg::App app("wegnine-gfx-example-msaa", std::make_tuple(0, 0, 1));
 
-    int width = 800, height = 600;
-    auto window_on = app.createWindow(width, height, "msaa 4x");
-    auto window_off = app.createWindow(width, height, "msaa off");
-    wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), { window_on, window_off }, 1, 2);
+    int width = 400, height = 300;
+    std::vector<std::shared_ptr<wg::Window>> windows;
 
-    auto create_render_target = [&](
+    auto msaa_samples = std::array{ 64, 4, 2, 1 };
+    for (int samples : msaa_samples) {
+        windows.push_back(app.createWindow(width, height, fmt::format("msaa {}x", samples)));
+    }
+    wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), windows, 2, 2);
+    
+    auto create_gfx_and_render_target = [&](
         const std::shared_ptr<wg::Window>& window
     ) -> std::pair<std::weak_ptr<wg::Gfx>, std::weak_ptr<wg::RenderTarget>> {
 
@@ -25,6 +32,8 @@ int main(int, char**) {
         gfx->createWindowSurface(window);
         gfx->selectBestPhysicalDevice();
         gfx->createLogicalDevice();
+        
+        window->setTitle(fmt::format("msaa {}x", gfx->setup().msaa_samples));
 
         auto texture = wg::Texture::Load("resources/img/statue.png");
         render_data.emplace_back(texture->createRenderData());
@@ -55,7 +64,7 @@ int main(int, char**) {
         auto render_target = gfx->createRenderTarget(window);
 
         auto renderer = wg::SceneRenderer::Create();
-        renderer->setCamera({ glm::vec3(-2.0f, -3.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f) });
+        renderer->setCamera({ glm::vec3(-1.0f, -1.5f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f) });
         renderer->setRenderTarget(render_target);
         renderer->addComponent(quad_component);
         render_data.emplace_back(renderer->createRenderData());
@@ -68,24 +77,21 @@ int main(int, char**) {
         app.registerWindowData(window, render_target);
         return std::make_pair(gfx->weak_from_this(), render_target->weak_from_this());
     };
-
-    wg::EngineConfig::Get().set("gfx-msaa-samples", 4);
-    auto gfx_and_render_target_on = create_render_target(window_on);
-    wg::EngineConfig::Get().set("gfx-msaa-samples", 0);
-    auto gfx_and_render_target_off = create_render_target(window_off);
-    window_on.reset();
-    window_off.reset();
+    
+    std::vector<std::pair<std::weak_ptr<wg::Gfx>, std::weak_ptr<wg::RenderTarget>>> gfx_and_render_targets;
+    for (size_t i = 0; i < msaa_samples.size(); ++i) {
+        wg::EngineConfig::Get().set("gfx-msaa-samples", msaa_samples[i]);
+        gfx_and_render_targets.emplace_back(create_gfx_and_render_target(windows[i]));
+    }
+    windows.clear();
 
     app.loop(
         [&](float time) {
-            if (auto gfx = gfx_and_render_target_on.first.lock()) {
-                if (auto render_target = gfx_and_render_target_on.second.lock()) {
-                    gfx->render(render_target);
-                }
-            }
-            if (auto gfx = gfx_and_render_target_off.first.lock()) {
-                if (auto render_target = gfx_and_render_target_off.second.lock()) {
-                    gfx->render(render_target);
+            for (auto&& gfx_and_render_target : gfx_and_render_targets) {
+                if (auto gfx = gfx_and_render_target.first.lock()) {
+                    if (auto render_target = gfx_and_render_target.second.lock()) {
+                        gfx->render(render_target);
+                    }
                 }
             }
         }

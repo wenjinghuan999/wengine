@@ -136,8 +136,7 @@ void Gfx::Impl::copyBuffer(const QueueInfoRef& transfer_queue, vk::Buffer src, v
 
 vk::SharingMode Gfx::Impl::getTransferQueue(QueueInfoRef& out_transfer_queue) const {
     bool transfer_queue_different_family = false;
-    auto& gfx_features_manager = GfxFeaturesManager::Get();
-    if (gfx_features_manager.feature_enabled(gfx_features::separate_transfer)) {
+    if (gfx->features_manager().feature_enabled(gfx_features::separate_transfer)) {
         // Use 0 for now
         out_transfer_queue = gfx->logical_device_->impl_->queue_references[gfx_queues::transfer][0];
         uint32_t graphics_family_index = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0].queue_family_index;

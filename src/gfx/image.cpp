@@ -449,7 +449,7 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
     
     auto get_compatible_address_mode = [this](image_sampler::AddressMode address_mode) {
         if (address_mode == image_sampler::mirror_clamp_to_edge) {
-            if (!GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_mirror_clamp_to_edge)) {
+            if (!gfx->features_manager().feature_enabled(gfx_features::sampler_mirror_clamp_to_edge)) {
                 logger().warn("Sampler address mode mirror_clamp_to_edge can not be applied because feature \"gfx-sampler-mirror-clamp-to-edge\" is not enabled. Use mirrored_repeat instead.");
                 return image_sampler::mirrored_repeat;
             }
@@ -482,7 +482,7 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
 
 image_sampler::Filter Gfx::Impl::getCompatibleFilter(image_sampler::Filter filter, gfx_formats::Format format) const {
     if (filter == image_sampler::cubic) {
-        if (!GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_filter_cubic)) {
+        if (!gfx->features_manager().feature_enabled(gfx_features::sampler_filter_cubic)) {
             logger().warn("Cubic filter not available because feature \"gfx-sampler-filter-cubic\" is not enabled. Use linear instead.");
             return image_sampler::linear;
         }
@@ -497,7 +497,7 @@ image_sampler::Filter Gfx::Impl::getCompatibleFilter(image_sampler::Filter filte
 }
 
 vk::SampleCountFlagBits Gfx::Impl::getMaxSampleCount(vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect) const {
-    if (GfxFeaturesManager::Get().feature_enabled(gfx_features::msaa)) {
+    if (gfx->features_manager().feature_enabled(gfx_features::msaa)) {
         auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
         
         auto sample_counts = static_cast<vk::SampleCountFlags>(VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM);
@@ -534,7 +534,7 @@ vk::SampleCountFlagBits Gfx::Impl::getMaxSampleCount(vk::ImageUsageFlags usage, 
 }
 
 float Gfx::Impl::getMaxAnisotropy() const {
-    if (GfxFeaturesManager::Get().feature_enabled(gfx_features::sampler_anisotropy)) {
+    if (gfx->features_manager().feature_enabled(gfx_features::sampler_anisotropy)) {
         auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
         float engine_max_anisotropy = EngineConfig::Get().get<float>("gfx-max-sampler-anisotropy");
         engine_max_anisotropy = std::min<float>(engine_max_anisotropy, device_properties.limits.maxSamplerAnisotropy);

@@ -66,8 +66,7 @@ gfx_formats::Format Surface::depth_format() const {
 void Gfx::createWindowSurface(const std::shared_ptr<Window>& window) {
     auto surface = Surface::Create(window);
 
-    auto& gfxFeaturesManager = GfxFeaturesManager::Get();
-    if (!gfxFeaturesManager.enableFeature(gfx_features::window_surface)) {
+    if (!features_manager_.enableFeature(gfx_features::window_surface)) {
         logger().warn(
             "Failed to enable feature {}. Surface creation may fail.", gfx_features::FEATURE_NAMES[gfx_features::window_surface]
         );

@@ -50,3 +50,9 @@ add_executable(gfx-example-msaa
 
 target_link_libraries(gfx-example-msaa
     PRIVATE gfx-examples-interface)
+
+add_executable(gfx-example-sample-shading
+    gfx-example-sample-shading.cpp)
+
+target_link_libraries(gfx-example-sample-shading
+    PRIVATE gfx-examples-interface)

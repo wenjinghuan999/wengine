@@ -27,6 +27,7 @@ const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL] = {
     "sampler_filter_cubic",
     "sampler_mirror_clamp_to_edge",
     "msaa",
+    "sample_shading",
     "_must_enable_if_valid",
     "_debug_utils"
 };
@@ -233,6 +234,17 @@ private:
                 return device_properties.limits.framebufferColorSampleCounts > vk::SampleCountFlagBits::e1;
             },
         };
+    case wg::gfx_features::sample_shading:
+        return {
+            .check_properties_and_features_func = [](
+                const vk::PhysicalDeviceProperties& device_properties, const vk::PhysicalDeviceFeatures& device_features
+            ) -> bool {
+                return device_features.sampleRateShading;
+            },
+            .set_feature_func = [](vk::PhysicalDeviceFeatures& device_features) {
+                device_features.sampleRateShading = true;
+            }
+        };
     case wg::gfx_features::_must_enable_if_valid:
         // VUID-VkDeviceCreateInfo-pProperties-04451
         // https://vulkan.lunarg.com/doc/view/1.2.198.1/mac/1.2-extensions/vkspec.html#VUID-VkDeviceCreateInfo-pProperties-04451
@@ -367,18 +379,17 @@ Gfx::Gfx(const App& app)
         .apiVersion         = VK_API_VERSION_1_0
     };
 
-    GfxFeaturesManager& gfx_features_manager = GfxFeaturesManager::Get();
-    GfxFeaturesManager::AddFeatureImpl(gfx_features::_must_enable_if_valid, gfx_features_manager.instance_enabled_);
-    GfxFeaturesManager::AddFeatureImpl(gfx_features::_must_enable_if_valid, gfx_features_manager.defaults_);
+    GfxFeaturesManager::AddFeatureImpl(gfx_features::_must_enable_if_valid, features_manager_.instance_enabled_);
+    GfxFeaturesManager::AddFeatureImpl(gfx_features::_must_enable_if_valid, features_manager_.defaults_);
 #ifndef NDEBUG
     // Adding debug layers and extensions
-    GfxFeaturesManager::AddFeatureImpl(gfx_features::_debug_utils, gfx_features_manager.instance_enabled_);
-    GfxFeaturesManager::AddFeatureImpl(gfx_features::_debug_utils, gfx_features_manager.defaults_);
+    GfxFeaturesManager::AddFeatureImpl(gfx_features::_debug_utils, features_manager_.instance_enabled_);
+    GfxFeaturesManager::AddFeatureImpl(gfx_features::_debug_utils, features_manager_.defaults_);
 #endif
 
     for (int feature_id = 0; feature_id < gfx_features::NUM_FEATURES; ++feature_id) {
         GfxFeaturesManager::AddFeatureImpl(
-            static_cast<gfx_features::FeatureId>(feature_id), gfx_features_manager.instance_enabled_
+            static_cast<gfx_features::FeatureId>(feature_id), features_manager_.instance_enabled_
         );
         // TODO: add to default
     }
@@ -386,7 +397,7 @@ Gfx::Gfx(const App& app)
     VulkanFeatures enabled_features;
 
     // Required features must be available
-    for (auto feature_id : gfx_features_manager.required_) {
+    for (auto feature_id : features_manager_.required_) {
         VulkanFeatures feature = GetVulkanFeatures(feature_id);
         if (!available_features.checkInstanceAvailable(feature)) {
             logger().error("Gfx feature {} is required but not available on instance.", gfx_features::FEATURE_NAMES[feature_id]);
@@ -396,19 +407,19 @@ Gfx::Gfx(const App& app)
     }
 
     // Instance features are enabled if available
-    for (auto feature_id : gfx_features_manager.instance_enabled_) {
+    for (auto feature_id : features_manager_.instance_enabled_) {
         VulkanFeatures feature = GetVulkanFeatures(feature_id);
         if (!available_features.checkInstanceAvailable(feature)) {
             logger().info("Gfx feature {} is not available on instance.", gfx_features::FEATURE_NAMES[feature_id]);
-            GfxFeaturesManager::RemoveFeatureImpl(feature_id, gfx_features_manager.instance_enabled_);
-            GfxFeaturesManager::RemoveFeatureImpl(feature_id, gfx_features_manager.defaults_);
+            GfxFeaturesManager::RemoveFeatureImpl(feature_id, features_manager_.instance_enabled_);
+            GfxFeaturesManager::RemoveFeatureImpl(feature_id, features_manager_.defaults_);
         } else {
             enabled_features.append(feature);
         }
     }
 
     logger().info("Enabled engine features:");
-    for (auto feature_id : gfx_features_manager.instance_enabled_) {
+    for (auto feature_id : features_manager_.instance_enabled_) {
         logger().info(" - {}", gfx_features::FEATURE_NAMES[feature_id]);
     }
 
@@ -485,9 +496,8 @@ bool Gfx::physical_device_valid() const {
 }
 
 void Gfx::selectBestPhysicalDevice(int hint_index) {
-    const auto& gfx_features_manager = GfxFeaturesManager::Get();
-    auto features_required = gfx_features_manager.features_required();
-    auto queues_required = gfx_features_manager.queues_required();
+    auto features_required = features_manager_.features_required();
+    auto queues_required = features_manager_.queues_required();
 
     auto rateDevice = [this, &features_required, &queues_required]
         (const PhysicalDevice& device, int hint_score) {
@@ -874,28 +884,27 @@ void Gfx::createLogicalDevice() {
     }
 
     VulkanFeatures enabled_features;
-    GfxFeaturesManager& gfx_features_manager = GfxFeaturesManager::Get();
-    gfx_features_manager.enableFeaturesByConfig(physical_device());
+    features_manager_.enableFeaturesByConfig(physical_device());
 
-    for (auto feature_id : gfx_features_manager.instance_enabled_) {
+    for (auto feature_id : features_manager_.instance_enabled_) {
         VulkanFeatures feature = GetVulkanFeatures(feature_id);
         const bool enabled =
-            GfxFeaturesManager::ContainsImpl(feature_id, gfx_features_manager.user_enabled_) ||
+            GfxFeaturesManager::ContainsImpl(feature_id, features_manager_.user_enabled_) ||
                 (
-                    !GfxFeaturesManager::ContainsImpl(feature_id, gfx_features_manager.user_disabled_) &&
-                        GfxFeaturesManager::ContainsImpl(feature_id, gfx_features_manager.defaults_)
+                    !GfxFeaturesManager::ContainsImpl(feature_id, features_manager_.user_disabled_) &&
+                        GfxFeaturesManager::ContainsImpl(feature_id, features_manager_.defaults_)
                 );
 
         if (enabled && !available_features.checkDeviceAvailable(feature)) {
             logger().info("Gfx feature {} is not available on device.", gfx_features::FEATURE_NAMES[feature_id]);
         } else if (enabled) {
-            GfxFeaturesManager::AddFeatureImpl(feature_id, gfx_features_manager.features_enabled_);
+            GfxFeaturesManager::AddFeatureImpl(feature_id, features_manager_.features_enabled_);
             enabled_features.append(feature);
         }
     }
 
     logger().info("Enabled device features:");
-    for (auto feature_id : gfx_features_manager.features_enabled_) {
+    for (auto feature_id : features_manager_.features_enabled_) {
         logger().info(" - {}", gfx_features::FEATURE_NAMES[feature_id]);
     }
 
@@ -1120,6 +1129,10 @@ void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_d
 
     if (config.get<int>("gfx-msaa-samples") > 1) {
         enableFeature(gfx_features::msaa);
+    }
+    
+    if (config.get<float>("gfx-sample-shading-rate") > 0) {
+        enableFeature(gfx_features::sample_shading);
     }
 }
 

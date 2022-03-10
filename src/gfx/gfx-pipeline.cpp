@@ -168,10 +168,15 @@ void Gfx::createPipelineResources(
         return vk::SampleCountFlagBits::e64;
     }();
     
+    float sample_shading_rate = []() {
+        float rate = EngineConfig::Get().get<float>("gfx-sample-shading-rate");
+        return std::max(std::min(rate, 1.f), 0.f);
+    }();
+    
     resources->multisample_create_info = vk::PipelineMultisampleStateCreateInfo{
         .rasterizationSamples  = sample_count,
-        .sampleShadingEnable   = false,
-        .minSampleShading      = 1.f,
+        .sampleShadingEnable   = sample_shading_rate > 0.f,
+        .minSampleShading      = sample_shading_rate,
         .pSampleMask           = nullptr,
         .alphaToCoverageEnable = false,
         .alphaToOneEnable      = false

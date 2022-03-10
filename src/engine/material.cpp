@@ -43,6 +43,7 @@ std::shared_ptr<IRenderData> Material::createRenderData() {
 
     render_data_->pipeline = GfxPipeline::Create();
     render_data_->pipeline->setVertexFactory(createVertexFactory());
+    render_data_->pipeline->setPipelineState(createPipelineState());
     render_data_->pipeline->setUniformLayout(createUniformLayout());
     render_data_->pipeline->setSamplerLayout(createSamplerLayout());
     render_data_->pipeline->addShader(vert_shader);
@@ -60,6 +61,12 @@ GfxVertexFactory Material::createVertexFactory() const {
         { .attribute = wg::vertex_attributes::position, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 0 },
         { .attribute = wg::vertex_attributes::color, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 1 },
         { .attribute = wg::vertex_attributes::tex_coord, .format = wg::gfx_formats::R32G32Sfloat, .location = 2 },
+    };
+}
+
+GfxPipelineState Material::createPipelineState() const {
+    return {
+        .min_sample_shading = config_.min_sample_shading
     };
 }
 

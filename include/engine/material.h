@@ -30,11 +30,19 @@ struct CombinedTextureSampler {
     std::shared_ptr<Sampler> sampler;
 };
 
+struct MaterialConfig {
+    float min_sample_shading = 0.f;
+};
+
 class Material : public IGfxObject, public std::enable_shared_from_this<Material> {
 public:
     static std::shared_ptr<Material> Create(const std::string& name, 
         const std::string& vert_shader_filename, const std::string& frag_shader_filename);
     ~Material() override = default;
+
+    [[nodiscard]] const std::string& name() const { return name_; }
+    [[nodiscard]] const MaterialConfig& config() const { return config_; }
+    [[nodiscard]] MaterialConfig& config() { return config_; }
     
     void addTexture(const std::shared_ptr<Texture>& texture, SamplerConfig sampler_config = {}) {
         std::shared_ptr<Sampler> sampler = Sampler::Create(texture->image());
@@ -44,7 +52,6 @@ public:
     void clearTextures() { textures_.clear(); }
     [[nodiscard]] const std::vector<CombinedTextureSampler>& textures() const { return textures_; }
     
-    [[nodiscard]] const std::string& name() const { return name_; }
     std::shared_ptr<IRenderData> createRenderData() override;
     const std::shared_ptr<MaterialRenderData>& render_data() const { return render_data_; }
     
@@ -52,6 +59,7 @@ protected:
     std::string name_;
     std::string vert_shader_filename_;
     std::string frag_shader_filename_;
+    MaterialConfig config_;
     std::vector<CombinedTextureSampler> textures_;
     std::shared_ptr<MaterialRenderData> render_data_;
     
@@ -59,6 +67,7 @@ protected:
     Material(const std::string& name,
         const std::string& vert_shader_filename, const std::string& frag_shader_filename);
     GfxVertexFactory createVertexFactory() const;
+    GfxPipelineState createPipelineState() const;
     GfxUniformLayout createUniformLayout() const;
     GfxSamplerLayout createSamplerLayout() const;
 };

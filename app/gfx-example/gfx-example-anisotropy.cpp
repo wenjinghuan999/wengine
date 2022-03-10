@@ -14,6 +14,8 @@ int main(int, char**) {
     auto window_on = app.createWindow(width, height, "anisotropy 8.0");
     auto window_off = app.createWindow(width, height, "anisotropy off");
     wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), { window_on, window_off }, 1, 2);
+    
+    wg::EngineConfig::Get().set("gfx-max-sampler-anisotropy", 8.f);
 
     auto gfx = wg::Gfx::Create(app);
 
@@ -27,8 +29,6 @@ int main(int, char**) {
     auto texture = wg::Texture::Load("resources/img/chessboard.png");
     render_data.emplace_back(texture->createRenderData());
 
-    wg::EngineConfig::Get().set("gfx-max-sampler-anisotropy", 8.f);
-    
     auto material_on = wg::Material::Create(
         "default material",
         "shader/static/simple.vert.spv", "shader/static/simple.frag.spv"

@@ -34,8 +34,8 @@ protected:
     friend class Gfx;
 };
 
-class GfxPipelineState {
-
+struct GfxPipelineState {
+    float min_sample_shading = 0.f;
 };
 
 struct UniformDescription {

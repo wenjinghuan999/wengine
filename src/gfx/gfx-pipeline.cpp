@@ -158,25 +158,15 @@ void Gfx::createPipelineResources(
         .lineWidth               = 1.f,
     };
 
-    auto sample_count = []() {
-        int msaa_samples = EngineConfig::Get().get<int>("gfx-msaa-samples");
-        for (int i = 1; i <= 64; i <<= 1) {
-            if (msaa_samples <= i) {
-                return static_cast<vk::SampleCountFlagBits>(i);
-            }
-        }
-        return vk::SampleCountFlagBits::e64;
-    }();
-    
-    float sample_shading_rate = []() {
-        float rate = EngineConfig::Get().get<float>("gfx-sample-shading-rate");
-        return std::max(std::min(rate, 1.f), 0.f);
-    }();
+    float min_sample_shading = 0.f;
+    if (features_manager_.feature_enabled(gfx_features::sample_shading)) {
+        min_sample_shading = pipeline->pipeline_state_.min_sample_shading;
+    }
     
     resources->multisample_create_info = vk::PipelineMultisampleStateCreateInfo{
-        .rasterizationSamples  = sample_count,
-        .sampleShadingEnable   = sample_shading_rate > 0.f,
-        .minSampleShading      = sample_shading_rate,
+        .rasterizationSamples  = static_cast<vk::SampleCountFlagBits>(setup_.msaa_samples),
+        .sampleShadingEnable   = min_sample_shading > 0.f,
+        .minSampleShading      = min_sample_shading,
         .pSampleMask           = nullptr,
         .alphaToCoverageEnable = false,
         .alphaToOneEnable      = false

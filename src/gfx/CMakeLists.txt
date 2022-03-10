@@ -1,6 +1,7 @@
 add_library(wengine-gfx
     gfx.cpp
     draw-command.cpp
+    gfx-features.cpp
     gfx-constants.cpp
     gfx-buffer.cpp
     gfx-pipeline.cpp

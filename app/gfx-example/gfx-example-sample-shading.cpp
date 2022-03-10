@@ -8,7 +8,6 @@
 #include "common/config.h"
 
 int main(int, char**) {
-    wg::EngineConfig::Get().set("gfx-sample-shading-rate", 1.f);
     wg::App app("wegnine-gfx-example-sample-shading", std::make_tuple(0, 0, 1));
 
     int width = 800, height = 600;
@@ -41,6 +40,7 @@ int main(int, char**) {
             "grid material",
             "shader/static/grid.vert.spv", "shader/static/grid.frag.spv"
         );
+        material->config().min_sample_shading = 1.f;
         render_data.emplace_back(material->createRenderData());
         
         auto quad_component = wg::MeshComponent::Create("quad");
@@ -66,9 +66,9 @@ int main(int, char**) {
         return std::make_pair(gfx->weak_from_this(), render_target->weak_from_this());
     };
 
-    wg::EngineConfig::Get().set("gfx-sample-shading-rate", 1.f);
+    wg::EngineConfig::Get().set("gfx-enable-sample-shading", true);
     auto gfx_and_render_target_on = create_render_target(window_on);
-    wg::EngineConfig::Get().set("gfx-sample-shading-rate", 0.f);
+    wg::EngineConfig::Get().set("gfx-enable-sample-shading", false);
     auto gfx_and_render_target_off = create_render_target(window_off);
     window_on.reset();
     window_off.reset();

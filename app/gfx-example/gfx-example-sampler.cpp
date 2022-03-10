@@ -8,14 +8,14 @@
 #include "common/config.h"
 
 int main(int, char**) {
-    wg::EngineConfig::Get().set("gfx-sampler-filter-cubic", true);
-    wg::EngineConfig::Get().set("gfx-sampler-mirror-clamp-to-edge", true);
-    
     wg::App app("wegnine-gfx-example-sampler", std::make_tuple(0, 0, 1));
     
     auto window_filter = app.createWindow(800, 300, "nearest vs linear filter");
     auto window_address_mode = app.createWindow(800, 600, "repeat, mirrored repeat, clamp to edge, clamp to border, mirror clamp to edge");
     wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), { window_filter, window_address_mode }, 2, 3);
+
+    wg::EngineConfig::Get().set("gfx-enable-sampler-filter-cubic", true);
+    wg::EngineConfig::Get().set("gfx-enable-sampler-mirror-clamp-to-edge", true);
 
     auto gfx = wg::Gfx::Create(app);
 

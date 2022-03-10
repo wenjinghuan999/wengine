@@ -8,7 +8,6 @@
 #include "common/config.h"
 
 int main(int, char**) {
-    wg::EngineConfig::Get().set("gfx-msaa-samples", 4);
     wg::App app("wegnine-gfx-example-msaa", std::make_tuple(0, 0, 1));
 
     int width = 800, height = 600;
@@ -79,13 +78,11 @@ int main(int, char**) {
 
     app.loop(
         [&](float time) {
-            wg::EngineConfig::Get().set("gfx-msaa-samples", 4);
             if (auto gfx = gfx_and_render_target_on.first.lock()) {
                 if (auto render_target = gfx_and_render_target_on.second.lock()) {
                     gfx->render(render_target);
                 }
             }
-            wg::EngineConfig::Get().set("gfx-msaa-samples", 0);
             if (auto gfx = gfx_and_render_target_off.first.lock()) {
                 if (auto render_target = gfx_and_render_target_off.second.lock()) {
                     gfx->render(render_target);

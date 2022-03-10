@@ -14,27 +14,6 @@
 #include "platform/platform.h"
 #include "platform/inc/window-private.h"
 #include "gfx-private.h"
-#include "common/config.h"
-
-namespace wg {
-
-namespace gfx_features {
-
-const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL] = {
-    "window_surface",
-    "separate_transfer",
-    "sampler_anisotropy",
-    "sampler_filter_cubic",
-    "sampler_mirror_clamp_to_edge",
-    "msaa",
-    "sample_shading",
-    "_must_enable_if_valid",
-    "_debug_utils"
-};
-
-} // namespace gfx_features
-
-} // namespace wg
 
 namespace {
 
@@ -55,214 +34,104 @@ inline void AppendRawStrings(std::vector<const char*>& to, const std::vector<con
     }
 }
 
-struct VulkanFeatures {
-    std::vector<const char*> instance_layers;
-    std::vector<const char*> instance_extensions;
-    std::vector<const char*> device_layers;
-    std::vector<const char*> device_extensions;
-    vk::PhysicalDeviceFeatures device_features;
-    std::array<int, wg::gfx_queues::NUM_QUEUES> device_queues{};
+} // unnamed namespace
 
-    using CheckPropertiesAndFeaturesFunc = std::function<bool(const vk::PhysicalDeviceProperties&, const vk::PhysicalDeviceFeatures&)>;
-    CheckPropertiesAndFeaturesFunc check_properties_and_features_func;
+namespace wg {
 
-    using SetFeaturesFunc = std::function<void(vk::PhysicalDeviceFeatures&)>;
-    SetFeaturesFunc set_feature_func;
+VulkanFeatures& VulkanFeatures::append(const VulkanFeatures& other) {
+    AppendRawStrings(instance_layers, other.instance_layers);
+    AppendRawStrings(instance_extensions, other.instance_extensions);
+    AppendRawStrings(device_layers, other.device_layers);
+    AppendRawStrings(device_extensions, other.device_extensions);
+    if (other.set_feature_func) {
+        other.set_feature_func(device_features);
+    }
+    for (int i = 0; i < device_queues.size(); ++i) {
+        device_queues[i] += other.device_queues[i];
+    }
+    return *this;
+}
 
-public:
-    VulkanFeatures& append(const VulkanFeatures& other) {
-        AppendRawStrings(instance_layers, other.instance_layers);
-        AppendRawStrings(instance_extensions, other.instance_extensions);
-        AppendRawStrings(device_layers, other.device_layers);
-        AppendRawStrings(device_extensions, other.device_extensions);
-        if (other.set_feature_func) {
-            other.set_feature_func(device_features);
+void AvailableVulkanFeatures::getInstanceFeatures(const vk::raii::Context& context) {
+    instance_layers = context.enumerateInstanceLayerProperties();
+    instance_extensions = context.enumerateInstanceExtensionProperties();
+}
+
+void AvailableVulkanFeatures::getDeviceFeatures(
+    const vk::raii::PhysicalDevice& device,
+    std::array<int, wg::gfx_queues::NUM_QUEUES> num_queues_total
+) {
+    device_layers = device.enumerateDeviceLayerProperties();
+    device_extensions = device.enumerateDeviceExtensionProperties();
+    device_properties = device.getProperties();
+    device_features = device.getFeatures();
+    device_queues = num_queues_total;
+}
+
+bool AvailableVulkanFeatures::checkInstanceAvailable(const VulkanFeatures& feature) const {
+    return std::all_of(
+        feature.instance_layers.begin(), feature.instance_layers.end(),
+        [this](const char* layer_name) {
+            return CheckLayerContains(instance_layers, layer_name);
         }
-        for (int i = 0; i < device_queues.size(); ++i) {
-            device_queues[i] += other.device_queues[i];
+    ) && std::all_of(
+        feature.instance_extensions.begin(), feature.instance_extensions.end(),
+        [this](const char* extension_name) {
+            return CheckExtensionContains(instance_extensions, extension_name);
         }
-        return *this;
-    }
-};
+    );
+}
 
-struct AvailableVulkanFeatures {
-    std::vector<vk::LayerProperties> instance_layers;
-    std::vector<vk::ExtensionProperties> instance_extensions;
-    std::vector<vk::LayerProperties> device_layers;
-    std::vector<vk::ExtensionProperties> device_extensions;
-    vk::PhysicalDeviceProperties device_properties;
-    vk::PhysicalDeviceFeatures device_features;
-    std::array<int, wg::gfx_queues::NUM_QUEUES> device_queues{};
-
-public:
-    void getInstanceFeatures(const vk::raii::Context& context) {
-        instance_layers = context.enumerateInstanceLayerProperties();
-        instance_extensions = context.enumerateInstanceExtensionProperties();
-    }
-    void getDeviceFeatures(
-        const vk::raii::PhysicalDevice& device,
-        std::array<int, wg::gfx_queues::NUM_QUEUES> num_queues_total
-    ) {
-        device_layers = device.enumerateDeviceLayerProperties();
-        device_extensions = device.enumerateDeviceExtensionProperties();
-        device_properties = device.getProperties();
-        device_features = device.getFeatures();
-        device_queues = num_queues_total;
-    }
-    [[nodiscard]] bool checkInstanceAvailable(const VulkanFeatures& feature) const {
-        return std::all_of(
-            feature.instance_layers.begin(), feature.instance_layers.end(),
+bool AvailableVulkanFeatures::checkDeviceAvailable(const VulkanFeatures& feature) const {
+    bool layers_and_extensions_available =
+        std::all_of(
+            feature.device_layers.begin(), feature.device_layers.end(),
             [this](const char* layer_name) {
-                return CheckLayerContains(instance_layers, layer_name);
+                return CheckLayerContains(device_layers, layer_name);
             }
         ) && std::all_of(
-            feature.instance_extensions.begin(), feature.instance_extensions.end(),
+            feature.device_extensions.begin(), feature.device_extensions.end(),
             [this](const char* extension_name) {
-                return CheckExtensionContains(instance_extensions, extension_name);
+                return CheckExtensionContains(device_extensions, extension_name);
             }
         );
+    if (!layers_and_extensions_available) {
+        return false;
     }
-    [[nodiscard]] bool checkDeviceAvailable(const VulkanFeatures& feature) const {
-        bool layers_and_extensions_available =
-            std::all_of(
-                feature.device_layers.begin(), feature.device_layers.end(),
-                [this](const char* layer_name) {
-                    return CheckLayerContains(device_layers, layer_name);
-                }
-            ) && std::all_of(
-                feature.device_extensions.begin(), feature.device_extensions.end(),
-                [this](const char* extension_name) {
-                    return CheckExtensionContains(device_extensions, extension_name);
-                }
-            );
-        if (!layers_and_extensions_available) {
+    for (int i = 0; i < wg::gfx_queues::NUM_QUEUES; ++i) {
+        if (device_queues[i] < feature.device_queues[i]) {
             return false;
         }
-        for (int i = 0; i < wg::gfx_queues::NUM_QUEUES; ++i) {
-            if (device_queues[i] < feature.device_queues[i]) {
-                return false;
-            }
+    }
+    if (feature.check_properties_and_features_func) {
+        if (!feature.check_properties_and_features_func(device_properties, device_features)) {
+            return false;
         }
-        if (feature.check_properties_and_features_func) {
-            if (!feature.check_properties_and_features_func(device_properties, device_features)) {
-                return false;
-            }
-        }
-        return true;
     }
-
-private:
-    static bool CheckLayerContains(const std::vector<vk::LayerProperties>& layers, const char* layer_name) {
-        return std::find_if(
-            layers.begin(), layers.end(),
-            [layer_name](const vk::LayerProperties& layer) {
-                return static_cast<std::string_view>(layer.layerName) == std::string_view(layer_name);
-            }
-        ) != layers.end();
-    }
-    static bool CheckExtensionContains(const std::vector<vk::ExtensionProperties>& extensions, const char* extension_name) {
-        return std::find_if(
-            extensions.begin(), extensions.end(),
-            [extension_name](const vk::ExtensionProperties& extension) {
-                return static_cast<std::string_view>(extension.extensionName) == std::string_view(extension_name);
-            }
-        ) != extensions.end();
-    }
-};
-
-[[nodiscard]] VulkanFeatures GetGlfwRequiredFeatures() {
-    uint32_t glfw_extension_count = 0;
-    const char** glfw_extension_names = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
-    VulkanFeatures glfw_features;
-    glfw_features.instance_extensions = std::vector<const char*>(glfw_extension_names, glfw_extension_names + glfw_extension_count);
-
-    static bool first_time = true;
-    if (first_time) {
-        logger().debug("GLFW requires {} extensions:", glfw_extension_count);
-        for (const char* extension_name : glfw_features.instance_extensions) {
-            logger().debug(" - {}", extension_name);
-        }
-        first_time = false;
-    }
-
-    return glfw_features;
+    return true;
 }
 
-[[nodiscard]] VulkanFeatures GetVulkanFeatures(wg::gfx_features::FeatureId feature) {
-    switch (feature) {
-    case wg::gfx_features::window_surface:
-        return []() {
-            auto vk_features = GetGlfwRequiredFeatures();
-            vk_features.device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-            vk_features.device_queues[wg::gfx_queues::graphics] = 1;
-            vk_features.device_queues[wg::gfx_queues::present] = 1;
-            return vk_features;
-        }();
-    case wg::gfx_features::separate_transfer:
-        return []() {
-            auto vk_features = VulkanFeatures();
-            vk_features.device_queues[wg::gfx_queues::transfer] = 1;
-            return vk_features;
-        }();
-    case wg::gfx_features::sampler_anisotropy:
-        return {
-            .device_features = {
-                .samplerAnisotropy = true
-            },
-            .check_properties_and_features_func = [](
-                const vk::PhysicalDeviceProperties& device_properties, const vk::PhysicalDeviceFeatures& device_features
-            ) -> bool {
-                return device_features.samplerAnisotropy;
-            },
-            .set_feature_func = [](vk::PhysicalDeviceFeatures& device_features) {
-                device_features.samplerAnisotropy = true;
-            }
-        };
-    case wg::gfx_features::sampler_filter_cubic:
-        return {
-            .device_extensions = { VK_EXT_FILTER_CUBIC_EXTENSION_NAME }
-        };
-    case wg::gfx_features::sampler_mirror_clamp_to_edge:
-        return {
-            .device_extensions = { VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME },
-        };
-    case wg::gfx_features::msaa:
-        return {
-            .check_properties_and_features_func = [](
-                const vk::PhysicalDeviceProperties& device_properties, const vk::PhysicalDeviceFeatures& device_features
-            ) -> bool {
-                return device_properties.limits.framebufferColorSampleCounts > vk::SampleCountFlagBits::e1;
-            },
-        };
-    case wg::gfx_features::sample_shading:
-        return {
-            .check_properties_and_features_func = [](
-                const vk::PhysicalDeviceProperties& device_properties, const vk::PhysicalDeviceFeatures& device_features
-            ) -> bool {
-                return device_features.sampleRateShading;
-            },
-            .set_feature_func = [](vk::PhysicalDeviceFeatures& device_features) {
-                device_features.sampleRateShading = true;
-            }
-        };
-    case wg::gfx_features::_must_enable_if_valid:
-        // VUID-VkDeviceCreateInfo-pProperties-04451
-        // https://vulkan.lunarg.com/doc/view/1.2.198.1/mac/1.2-extensions/vkspec.html#VUID-VkDeviceCreateInfo-pProperties-04451
-        return {
-            .instance_extensions = { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME },
-            .device_extensions = { VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME }
-        };
-#ifndef NDEBUG
-    case wg::gfx_features::_debug_utils:
-        return {
-            .instance_layers = { "VK_LAYER_KHRONOS_validation" },
-            .instance_extensions = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME }
-        };
-#endif
-    default:
-        return {};
-    }
+bool AvailableVulkanFeatures::CheckLayerContains(const std::vector<vk::LayerProperties>& layers, const char* layer_name) {
+    return std::find_if(
+        layers.begin(), layers.end(),
+        [layer_name](const vk::LayerProperties& layer) {
+            return static_cast<std::string_view>(layer.layerName) == std::string_view(layer_name);
+        }
+    ) != layers.end();
 }
+
+bool AvailableVulkanFeatures::CheckExtensionContains(const std::vector<vk::ExtensionProperties>& extensions, const char* extension_name) {
+    return std::find_if(
+        extensions.begin(), extensions.end(),
+        [extension_name](const vk::ExtensionProperties& extension) {
+            return static_cast<std::string_view>(extension.extensionName) == std::string_view(extension_name);
+        }
+    ) != extensions.end();
+}
+
+} // namespace wg
+
+namespace {
 
 #ifndef NDEBUG
 VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessageHandler(
@@ -333,6 +202,8 @@ Gfx::Gfx(const App& app)
     impl_->gfx = this;
     logger().info("Initializing gfx.");
 
+    loadGlobalSetupFromConfig();
+
     auto instance_version = impl_->context.enumerateInstanceVersion();
     logger().info(
         "Instance version: {}.{}.{}", VK_API_VERSION_MAJOR(instance_version),
@@ -398,7 +269,7 @@ Gfx::Gfx(const App& app)
 
     // Required features must be available
     for (auto feature_id : features_manager_.required_) {
-        VulkanFeatures feature = GetVulkanFeatures(feature_id);
+        VulkanFeatures feature = VulkanFeatures::GetVulkanFeatures(feature_id);
         if (!available_features.checkInstanceAvailable(feature)) {
             logger().error("Gfx feature {} is required but not available on instance.", gfx_features::FEATURE_NAMES[feature_id]);
         }
@@ -408,7 +279,7 @@ Gfx::Gfx(const App& app)
 
     // Instance features are enabled if available
     for (auto feature_id : features_manager_.instance_enabled_) {
-        VulkanFeatures feature = GetVulkanFeatures(feature_id);
+        VulkanFeatures feature = VulkanFeatures::GetVulkanFeatures(feature_id);
         if (!available_features.checkInstanceAvailable(feature)) {
             logger().info("Gfx feature {} is not available on instance.", gfx_features::FEATURE_NAMES[feature_id]);
             GfxFeaturesManager::RemoveFeatureImpl(feature_id, features_manager_.instance_enabled_);
@@ -884,10 +755,10 @@ void Gfx::createLogicalDevice() {
     }
 
     VulkanFeatures enabled_features;
-    features_manager_.enableFeaturesByConfig(physical_device());
+    features_manager_.enableFeaturesByConfig(physical_device(), setup_);
 
     for (auto feature_id : features_manager_.instance_enabled_) {
-        VulkanFeatures feature = GetVulkanFeatures(feature_id);
+        VulkanFeatures feature = VulkanFeatures::GetVulkanFeatures(feature_id);
         const bool enabled =
             GfxFeaturesManager::ContainsImpl(feature_id, features_manager_.user_enabled_) ||
                 (
@@ -1102,40 +973,6 @@ std::vector<gfx_features::FeatureId> GfxFeaturesManager::features_enabled() cons
     return features_enabled_;
 }
 
-void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_device) {
-    EngineConfig& config = EngineConfig::Get();
-
-    if (config.get<bool>("gfx-separate-transfer")) {
-        enableFeature(gfx_features::separate_transfer);
-    }
-
-    auto device_properties = physical_device.impl_->vk_physical_device.getProperties();
-    float max_sampler_anisotropy = config.get<float>("gfx-max-sampler-anisotropy");
-    if (max_sampler_anisotropy > 0.f) {
-        enableFeature(gfx_features::sampler_anisotropy);
-        if (max_sampler_anisotropy > device_properties.limits.maxSamplerAnisotropy) {
-            max_sampler_anisotropy = device_properties.limits.maxSamplerAnisotropy;
-            config.set("gfx-max-sampler-anisotropy", max_sampler_anisotropy);
-        }
-    }
-
-    if (config.get<bool>("gfx-sampler-filter-cubic")) {
-        enableFeature(gfx_features::sampler_filter_cubic);
-    }
-
-    if (config.get<bool>("gfx-sampler-mirror-clamp-to-edge")) {
-        enableFeature(gfx_features::sampler_mirror_clamp_to_edge);
-    }
-
-    if (config.get<int>("gfx-msaa-samples") > 1) {
-        enableFeature(gfx_features::msaa);
-    }
-    
-    if (config.get<float>("gfx-sample-shading-rate") > 0) {
-        enableFeature(gfx_features::sample_shading);
-    }
-}
-
 bool GfxFeaturesManager::feature_enabled(gfx_features::FeatureId feature_id) const {
     return std::find(features_enabled_.begin(), features_enabled_.end(), feature_id) != features_enabled_.end();
 }
@@ -1184,7 +1021,7 @@ void GfxFeaturesManager::GetQueuesImpl(
 ) {
 
     for (auto&& feature_id : features) {
-        auto feature = GetVulkanFeatures(feature_id);
+        auto feature = VulkanFeatures::GetVulkanFeatures(feature_id);
         for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {
             queues[i] += feature.device_queues[i];
         }

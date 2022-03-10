@@ -42,6 +42,11 @@ extern const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL];
 
 }
 
+struct GfxSetup {
+    float max_sampler_anisotropy = 0.f;
+    int msaa_samples = 1;
+};
+
 class GfxFeaturesManager {
 public:
     // Enable device feature
@@ -59,7 +64,7 @@ public:
     // Queues enabled
     [[nodiscard]] std::array<int, gfx_queues::NUM_QUEUES> queues_enabled() const;
     // Enable features configured by config file
-    void enableFeaturesByConfig(const PhysicalDevice& physical_device);
+    void enableFeaturesByConfig(const PhysicalDevice& physical_device, GfxSetup& setup);
 
 protected:
     // Features required by engine (initialized by Gfx)
@@ -106,6 +111,8 @@ public:
 
     [[nodiscard]] bool valid() const;
     [[nodiscard]] const GfxFeaturesManager& features_manager() const { return features_manager_; }
+    
+    void loadGlobalSetupFromConfig();
 
     // Surface
     void createWindowSurface(const std::shared_ptr<Window>& window);
@@ -191,6 +198,7 @@ protected:
     friend struct Impl;
     std::unique_ptr<Impl> impl_;
     GfxFeaturesManager features_manager_;
+    GfxSetup setup_;
     std::vector<std::unique_ptr<PhysicalDevice>> physical_devices_;
     int current_physical_device_index_{ -1 };
     std::unique_ptr<LogicalDevice> logical_device_;

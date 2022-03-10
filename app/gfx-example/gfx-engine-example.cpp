@@ -1,5 +1,6 @@
 #include "platform/platform.h"
 #include "gfx/gfx.h"
+#include "common/config.h"
 #include "engine/material.h"
 #include "engine/mesh.h"
 #include "engine/mesh-component.h"

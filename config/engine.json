@@ -1,5 +1,8 @@
 {
     "gfx-separate-transfer": true,
     "gfx-max-sampler-anisotropy": 8.0,
-    "gfx-msaa-samples": 4
+    "gfx-msaa-samples": 4,
+    "gfx-enable-sampler-filter-cubic": false,
+    "gfx-enable-sampler-mirror-clamp-to-edge": true,
+    "gfx-enable-sample-shading": false
 }

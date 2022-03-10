@@ -442,7 +442,7 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
     gfx->waitDeviceIdle();
 
     auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
-    float max_anisotropy = std::min(config.max_anisotropy, getMaxAnisotropy());
+    float max_anisotropy = std::min(config.max_anisotropy, gfx->setup_.max_sampler_anisotropy);
     bool integer_format = gfx_formats::IsIntegerFormat(gfx_formats::FromVkFormat(image_resources.format));
     auto mag_filter = getCompatibleFilter(config.mag_filter, gfx_formats::FromVkFormat(image_resources.format));
     auto min_filter = getCompatibleFilter(config.min_filter, gfx_formats::FromVkFormat(image_resources.format));
@@ -531,16 +531,6 @@ vk::SampleCountFlagBits Gfx::Impl::getMaxSampleCount(vk::ImageUsageFlags usage, 
         }
     }
     return vk::SampleCountFlagBits::e1;
-}
-
-float Gfx::Impl::getMaxAnisotropy() const {
-    if (gfx->features_manager().feature_enabled(gfx_features::sampler_anisotropy)) {
-        auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
-        float engine_max_anisotropy = EngineConfig::Get().get<float>("gfx-max-sampler-anisotropy");
-        engine_max_anisotropy = std::min<float>(engine_max_anisotropy, device_properties.limits.maxSamplerAnisotropy);
-        return engine_max_anisotropy;
-    }
-    return 0.f;
 }
 
 void Gfx::commitImage(const std::shared_ptr<Image>& image) {

@@ -92,7 +92,6 @@ struct Gfx::Impl {
 
     [[nodiscard]] image_sampler::Filter getCompatibleFilter(image_sampler::Filter filter, gfx_formats::Format format) const;
     [[nodiscard]] vk::SampleCountFlagBits getMaxSampleCount(vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect) const;
-    [[nodiscard]] float getMaxAnisotropy() const;
 };
 
 struct PhysicalDevice::Impl {
@@ -145,6 +144,48 @@ struct LogicalDevice::Impl {
 
     explicit Impl(vk::raii::Device vk_device)
         : vk_device(std::move(vk_device)) {}
+};
+
+struct VulkanFeatures {
+    std::vector<const char*> instance_layers;
+    std::vector<const char*> instance_extensions;
+    std::vector<const char*> device_layers;
+    std::vector<const char*> device_extensions;
+    vk::PhysicalDeviceFeatures device_features;
+    std::array<int, wg::gfx_queues::NUM_QUEUES> device_queues{};
+
+    using CheckPropertiesAndFeaturesFunc = std::function<bool(const vk::PhysicalDeviceProperties&, const vk::PhysicalDeviceFeatures&)>;
+    CheckPropertiesAndFeaturesFunc check_properties_and_features_func;
+
+    using SetFeaturesFunc = std::function<void(vk::PhysicalDeviceFeatures&)>;
+    SetFeaturesFunc set_feature_func;
+
+public:
+    VulkanFeatures& append(const VulkanFeatures& other);
+    [[nodiscard]] static VulkanFeatures GetVulkanFeatures(wg::gfx_features::FeatureId feature);
+};
+
+struct AvailableVulkanFeatures {
+    std::vector<vk::LayerProperties> instance_layers;
+    std::vector<vk::ExtensionProperties> instance_extensions;
+    std::vector<vk::LayerProperties> device_layers;
+    std::vector<vk::ExtensionProperties> device_extensions;
+    vk::PhysicalDeviceProperties device_properties;
+    vk::PhysicalDeviceFeatures device_features;
+    std::array<int, wg::gfx_queues::NUM_QUEUES> device_queues{};
+
+public:
+    void getInstanceFeatures(const vk::raii::Context& context);
+    void getDeviceFeatures(
+        const vk::raii::PhysicalDevice& device,
+        std::array<int, wg::gfx_queues::NUM_QUEUES> num_queues_total
+    );
+    [[nodiscard]] bool checkInstanceAvailable(const VulkanFeatures& feature) const;
+    [[nodiscard]] bool checkDeviceAvailable(const VulkanFeatures& feature) const;
+
+private:
+    static bool CheckLayerContains(const std::vector<vk::LayerProperties>& layers, const char* layer_name);
+    static bool CheckExtensionContains(const std::vector<vk::ExtensionProperties>& extensions, const char* extension_name);
 };
 
 } // namespace wg

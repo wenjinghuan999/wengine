@@ -235,8 +235,31 @@ struct App::Impl {
         if (app_and_window != windows_map().end()) {
             if (auto app = app_and_window->second.first.lock()) {
                 app->onKey(
-                    app_and_window->second.second, static_cast<keys::Key>(key), static_cast<key_actions::KeyAction>(action),
-                    static_cast<key_mods::KeyMods>(mods)
+                    app_and_window->second.second, static_cast<keys::Key>(key), static_cast<input_actions::InputAction>(action),
+                    static_cast<input_mods::InputMods>(mods)
+                );
+            }
+        }
+    }
+    
+    static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+        auto app_and_window = windows_map().find(window);
+        if (app_and_window != windows_map().end()) {
+            if (auto app = app_and_window->second.first.lock()) {
+                app->onMouseButton(
+                    app_and_window->second.second, static_cast<mouse_buttons::MouseButton>(button), static_cast<input_actions::InputAction>(action),
+                    static_cast<input_mods::InputMods>(mods)
+                );
+            }
+        }
+    }
+    
+    static void CursorPosCallback(GLFWwindow* window, double x, double y) {
+        auto app_and_window = windows_map().find(window);
+        if (app_and_window != windows_map().end()) {
+            if (auto app = app_and_window->second.first.lock()) {
+                app->onCursorPos(
+                    app_and_window->second.second, x, y
                 );
             }
         }
@@ -257,6 +280,8 @@ std::shared_ptr<Window> App::createWindow(
 
     App::Impl::windows_map()[window->impl_->glfw_window] = std::make_pair(weak_from_this(), window->weak_from_this());
     glfwSetKeyCallback(window->impl_->glfw_window, App::Impl::KeyCallback);
+    glfwSetMouseButtonCallback(window->impl_->glfw_window, App::Impl::MouseButtonCallback);
+    glfwSetCursorPosCallback(window->impl_->glfw_window, App::Impl::CursorPosCallback);
     
     return window;
 }
@@ -274,16 +299,36 @@ void App::registerWindowData(const std::shared_ptr<Window>& window, std::any dat
     window_data_[window->weak_from_this()].emplace_back(std::move(data));
 }
 
-void App::onKey(const std::weak_ptr<Window>& weak_window, keys::Key key, key_actions::KeyAction action, key_mods::KeyMods mods) {
-    // Global keys
+void App::onKey(const std::weak_ptr<Window>& weak_window, keys::Key key, input_actions::InputAction action, input_mods::InputMods mods) {
+    // Global
     if (key == keys::escape) {
         should_exit = true;
     }
     
-    // Window keys
+    // Window
     if (auto window = weak_window.lock()) {
         if (window->on_key_) {
             window->on_key_(key, action, mods);
+        }
+    }
+}
+
+void App::onMouseButton(
+    const std::weak_ptr<Window>& weak_window, mouse_buttons::MouseButton button, input_actions::InputAction action, input_mods::InputMods mods
+) {
+    // Window
+    if (auto window = weak_window.lock()) {
+        if (window->on_mouse_button_) {
+            window->on_mouse_button_(button, action, mods);
+        }
+    }
+}
+
+void App::onCursorPos(const std::weak_ptr<Window>& weak_window, double x, double y) {
+    // Window
+    if (auto window = weak_window.lock()) {
+        if (window->on_cursor_pos) {
+            window->on_cursor_pos(x, y);
         }
     }
 }

@@ -128,21 +128,39 @@ enum Key {
     menu = 348,
 };
 
-} // namespace platform_keys
+} // namespace keys
 
-namespace key_actions {
+namespace mouse_buttons {
 
-enum KeyAction {
+enum MouseButton {
+    _1 = 0,
+    _2 = 1,
+    _3 = 2,
+    _4 = 3,
+    _5 = 4,
+    _6 = 5,
+    _7 = 6,
+    _8 = 7,
+    left = _1,
+    right = _2,
+    middle = _3,
+};
+
+} // namespace mouse_buttons
+
+namespace input_actions {
+
+enum InputAction {
     release = 0,
     press = 1,
     repeat = 2
 };
 
-} // namespace platform_key_actions
+} // namespace input_actions
 
-namespace key_mods {
+namespace input_mods {
 
-enum KeyMod {
+enum InputMod {
     shift = 0x01,
     control = 0x02,
     alt = 0x04,
@@ -151,8 +169,8 @@ enum KeyMod {
     num_lock = 0x20
 };
 
-using KeyMods = uint32_t;
+using InputMods = uint32_t;
 
-} // namespace platform_key_mods
+} // namespace input_mods
 
 } // namespace wg

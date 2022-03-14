@@ -59,7 +59,9 @@ public:
 protected:
     std::string title_;
     std::function<void()> on_window_closed_;
-    std::function<void(keys::Key key, key_actions::KeyAction action, key_mods::KeyMods mods)> on_key_;
+    std::function<void(keys::Key key, input_actions::InputAction action, input_mods::InputMods mods)> on_key_;
+    std::function<void(mouse_buttons::MouseButton button, input_actions::InputAction action, input_mods::InputMods mods)> on_mouse_button_;
+    std::function<void(double x, double y)> on_cursor_pos;
 
 protected:
     friend class App;
@@ -97,7 +99,9 @@ public:
     void registerWindowData(const std::shared_ptr<Window>& window, std::any data);
 
 public:
-    void onKey(const std::weak_ptr<Window>& weak_window, keys::Key key, key_actions::KeyAction action, key_mods::KeyMods mods);
+    void onKey(const std::weak_ptr<Window>& weak_window, keys::Key key, input_actions::InputAction action, input_mods::InputMods mods);
+    void onMouseButton(const std::weak_ptr<Window>& weak_window, mouse_buttons::MouseButton button, input_actions::InputAction action, input_mods::InputMods mods);
+    void onCursorPos(const std::weak_ptr<Window>& weak_window, double x, double y);
 
 protected:
     App(std::string name, std::tuple<int, int, int> version);

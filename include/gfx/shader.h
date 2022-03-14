@@ -14,7 +14,7 @@ enum ShaderStage {
     frag = 2
 };
 
-typedef uint32_t ShaderStages;
+using ShaderStages = uint32_t;
 
 } // namespace shader_stages
 

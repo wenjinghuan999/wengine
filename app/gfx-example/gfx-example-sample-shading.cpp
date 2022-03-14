@@ -11,14 +11,14 @@
 #include <fmt/format.h>
 
 int main(int, char**) {
-    wg::App app("wegnine-gfx-example-sample-shading", std::make_tuple(0, 0, 1));
+    auto app = wg::App::Create("wegnine-gfx-example-sample-shading", std::make_tuple(0, 0, 1));
 
     int width = 400, height = 300;
     std::vector<std::shared_ptr<wg::Window>> windows;
 
     auto min_sample_shadings = std::array{ 1.f, 0.5f, 0.2f, 0.f };
     for (float rate : min_sample_shadings) {
-        windows.push_back(app.createWindow(width, height, fmt::format("min sample shading {}", rate)));
+        windows.push_back(app->createWindow(width, height, fmt::format("min sample shading {}", rate)));
     }
     wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), windows, 2, 2);
 
@@ -77,9 +77,9 @@ int main(int, char**) {
         for (auto&& data : window_render_data) {
             data->createGfxResources(*gfx);
         }
-        app.registerWindowData(window, gfx);
-        app.registerWindowData(window, window_render_data);
-        app.registerWindowData(window, render_target);
+        app->registerWindowData(window, gfx);
+        app->registerWindowData(window, window_render_data);
+        app->registerWindowData(window, render_target);
         return render_target->weak_from_this();
     };
 
@@ -89,7 +89,7 @@ int main(int, char**) {
     }
     windows.clear();
 
-    app.loop(
+    app->loop(
         [&](float time) {
             for (auto&& weak_render_target : weak_render_targets) {
                 if (auto render_target = weak_render_target.lock()) {

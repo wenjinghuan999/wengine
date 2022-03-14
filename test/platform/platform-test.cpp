@@ -50,10 +50,10 @@ template <> struct fmt::formatter<wg::Size2D> {
 };
 
 TEST_CASE("glfw") {
-    wg::App app("wegnine-gfx-example-anisotropy", std::make_tuple(0, 0, 1));
+    auto app = wg::App::Create("wegnine-gfx-example-anisotropy", std::make_tuple(0, 0, 1));
 
     int width = 800, height = 600;
-    auto window = app.createWindow(width, height, "wengine platform test");
+    auto window = app->createWindow(width, height, "wengine platform test");
 
     auto monitor = wg::Monitor::GetPrimary();
     auto monitor_work_area_size = monitor.work_area_size();

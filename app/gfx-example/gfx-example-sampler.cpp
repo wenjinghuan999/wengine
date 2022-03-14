@@ -8,10 +8,10 @@
 #include "common/config.h"
 
 int main(int, char**) {
-    wg::App app("wegnine-gfx-example-sampler", std::make_tuple(0, 0, 1));
+    auto app = wg::App::Create("wegnine-gfx-example-sampler", std::make_tuple(0, 0, 1));
     
-    auto window_filter = app.createWindow(800, 300, "nearest vs linear filter");
-    auto window_address_mode = app.createWindow(800, 600, "repeat, mirrored repeat, clamp to edge, clamp to border, mirror clamp to edge");
+    auto window_filter = app->createWindow(800, 300, "nearest vs linear filter");
+    auto window_address_mode = app->createWindow(800, 600, "repeat, mirrored repeat, clamp to edge, clamp to border, mirror clamp to edge");
     wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), { window_filter, window_address_mode }, 2, 3);
 
     wg::EngineConfig::Get().set("gfx-enable-sampler-filter-cubic", true);
@@ -225,15 +225,15 @@ int main(int, char**) {
     auto weak_render_target_filter = render_target_filter->weak_from_this();
     auto weak_render_target_address_mode = render_target_address_mode->weak_from_this();
     
-    app.registerWindowData(window_filter, std::move(render_data_filter));
-    app.registerWindowData(window_filter, std::move(render_target_filter));
+    app->registerWindowData(window_filter, std::move(render_data_filter));
+    app->registerWindowData(window_filter, std::move(render_target_filter));
     window_filter.reset();
     
-    app.registerWindowData(window_address_mode, std::move(render_data_address_mode));
-    app.registerWindowData(window_address_mode, std::move(render_target_address_mode));
+    app->registerWindowData(window_address_mode, std::move(render_data_address_mode));
+    app->registerWindowData(window_address_mode, std::move(render_target_address_mode));
     window_address_mode.reset();
 
-    app.loop(
+    app->loop(
         [&](float time) {
             if (auto render_target = weak_render_target_filter.lock()) {
                 gfx->render(render_target);

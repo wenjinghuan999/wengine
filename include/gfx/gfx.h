@@ -106,7 +106,7 @@ protected:
 
 class Gfx : public std::enable_shared_from_this<Gfx> {
 public:
-    static std::shared_ptr<Gfx> Create(const App& app);
+    static std::shared_ptr<Gfx> Create(const std::shared_ptr<App>& app);
     ~Gfx();
 
     [[nodiscard]] bool valid() const;
@@ -205,7 +205,7 @@ protected:
     std::unique_ptr<LogicalDevice> logical_device_;
 
 protected:
-    explicit Gfx(const App& app);
+    explicit Gfx(const std::shared_ptr<App>& app);
 };
 
 class PhysicalDevice : public IMovable {

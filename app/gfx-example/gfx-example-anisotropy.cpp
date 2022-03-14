@@ -11,14 +11,14 @@
 #include <fmt/format.h>
 
 int main(int, char**) {
-    wg::App app("wegnine-gfx-example-anisotropy", std::make_tuple(0, 0, 1));
+    auto app = wg::App::Create("wegnine-gfx-example-anisotropy", std::make_tuple(0, 0, 1));
     
     int width = 400, height = 300;
     std::vector<std::shared_ptr<wg::Window>> windows;
     
     auto max_anisotropies = std::array{ 8.f, 4.f, 2.f, 0.f };
     for (float max_anisotropy : max_anisotropies) {
-        windows.emplace_back(app.createWindow(width, height, fmt::format("max anisotropy {}", max_anisotropy)));
+        windows.emplace_back(app->createWindow(width, height, fmt::format("max anisotropy {}", max_anisotropy)));
     }
     wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), windows, 2, 2);
     
@@ -82,8 +82,8 @@ int main(int, char**) {
         for (auto&& data : window_render_data) {
             data->createGfxResources(*gfx);
         }
-        app.registerWindowData(window, window_render_data);
-        app.registerWindowData(window, render_target);
+        app->registerWindowData(window, window_render_data);
+        app->registerWindowData(window, render_target);
         return render_target->weak_from_this();
     };
     
@@ -93,7 +93,7 @@ int main(int, char**) {
     }
     windows.clear();
 
-    app.loop(
+    app->loop(
         [&](float time) {
             for (auto&& weak_render_target : weak_render_targets) {
                 if (auto render_target = weak_render_target.lock()) {

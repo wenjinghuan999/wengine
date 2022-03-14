@@ -8,8 +8,8 @@
 #include "engine/texture.h"
 
 int main(int, char**) {
-    wg::App app("wegnine-gfx-engine-example", std::make_tuple(0, 0, 1));
-    auto window = app.createWindow(800, 600, "WEngine gfx engine example", wg::Monitor::GetPrimary(), wg::window_mode::windowed);
+    auto app = wg::App::Create("wegnine-gfx-engine-example", std::make_tuple(0, 0, 1));
+    auto window = app->createWindow(800, 600, "WEngine gfx engine example", wg::Monitor::GetPrimary(), wg::window_mode::windowed);
     window->setPositionToCenter(wg::Monitor::GetPrimary());
 
     auto gfx = wg::Gfx::Create(app);
@@ -90,7 +90,7 @@ int main(int, char**) {
     );
     renderer->updateComponentTransform(quad_component);
 
-    app.loop(
+    app->loop(
         [&](float time) {
             auto transform = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
             bunny_component->setTransform(

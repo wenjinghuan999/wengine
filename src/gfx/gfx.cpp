@@ -192,11 +192,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugMessageHandler(
 
 namespace wg {
 
-std::shared_ptr<Gfx> Gfx::Create(const App& app) {
+std::shared_ptr<Gfx> Gfx::Create(const std::shared_ptr<App>& app) {
     return std::shared_ptr<Gfx>(new Gfx(app));
 }
 
-Gfx::Gfx(const App& app)
+Gfx::Gfx(const std::shared_ptr<App>& app)
     : impl_(std::make_unique<Gfx::Impl>()) {
 
     impl_->gfx = this;
@@ -242,8 +242,8 @@ Gfx::Gfx(const App& app)
     const EngineConstants& engine_constants = EngineConstants::Get();
 
     vk::ApplicationInfo application_info{
-        .pApplicationName   = app.name().c_str(),
-        .applicationVersion = VK_MAKE_VERSION(app.major_version(), app.minor_version(), app.patch_version()),
+        .pApplicationName   = app->name().c_str(),
+        .applicationVersion = VK_MAKE_VERSION(app->major_version(), app->minor_version(), app->patch_version()),
         .pEngineName        = engine_constants.name().c_str(),
         .engineVersion      = VK_MAKE_VERSION(engine_constants.major_version(),
             engine_constants.minor_version(), engine_constants.patch_version()),

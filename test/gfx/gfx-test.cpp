@@ -156,7 +156,7 @@ struct LocalPacked{
 };
 
 TEST_CASE("gfx raw" * doctest::timeout(10)) {
-    wg::App app("wegnine-gfx-example", std::make_tuple(0, 0, 1));
+    auto app = wg::App::Create("wegnine-gfx-example", std::make_tuple(0, 0, 1));
     
     // Prepare data
     // config
@@ -183,7 +183,7 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     CHECK(LocalPacked::checkSame(LocalPacked::image, "resources/image.png"));
     
     // Begin test
-    auto window = app.createWindow(800, 600, "WEngine gfx example");
+    auto window = app->createWindow(800, 600, "WEngine gfx example");
     window->setPositionToCenter(wg::Monitor::GetPrimary());
 
     auto gfx = wg::Gfx::Create(app);
@@ -306,7 +306,7 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     gfx->submitDrawCommands(render_target);
 
     gfx->render(render_target);
-    app.wait();
+    app->wait();
     
     quad_model_uniform_buffer->setUniformObject(
         {

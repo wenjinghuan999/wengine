@@ -204,11 +204,8 @@ void App::loop(const std::function<void(float)>& func) {
         for (auto it = windows_.begin(); it != windows_.end();) {
             auto& window = *it;
             GLFWwindow* glfw_window = window->impl_->glfw_window;
-            if (glfwWindowShouldClose(glfw_window)) {
-                if (window->on_window_closed_) {
-                    window->on_window_closed_();
-                }
-                window_data_.erase(window->weak_from_this());
+            if (should_exit || glfwWindowShouldClose(glfw_window)) {
+                destroyWindow(window);
                 it = windows_.erase(it);
             } else {
                 ++it;
@@ -232,17 +229,63 @@ void App::wait() {
     glfwPollEvents();
 }
 
+struct App::Impl {
+    static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+        auto app_and_window = windows_map().find(window);
+        if (app_and_window != windows_map().end()) {
+            if (auto app = app_and_window->second.first.lock()) {
+                app->onKey(
+                    app_and_window->second.second, static_cast<keys::Key>(key), static_cast<key_actions::KeyAction>(action),
+                    static_cast<key_mods::KeyMods>(mods)
+                );
+            }
+        }
+    }
+    
+    static std::map<GLFWwindow*, std::pair<std::weak_ptr<App>, std::weak_ptr<Window>>>& windows_map() {
+        static std::map<GLFWwindow*, std::pair<std::weak_ptr<App>, std::weak_ptr<Window>>> windows_map_;
+        return windows_map_;
+    }
+};
+
 std::shared_ptr<Window> App::createWindow(
     int width, int height, const std::string& title,
     const std::optional<Monitor>& monitor, window_mode::WindowMode mode
 ) {
     std::shared_ptr<Window> window(new Window(width, height, title, monitor, mode));
     windows_.push_back(window);
+
+    App::Impl::windows_map()[window->impl_->glfw_window] = std::make_pair(weak_from_this(), window->weak_from_this());
+    glfwSetKeyCallback(window->impl_->glfw_window, App::Impl::KeyCallback);
+    
     return window;
+}
+
+void App::destroyWindow(const std::shared_ptr<Window>& window) {
+    GLFWwindow* glfw_window = window->impl_->glfw_window;
+    if (window->on_window_closed_) {
+        window->on_window_closed_();
+    }
+    App::Impl::windows_map().erase(glfw_window);
+    window_data_.erase(window->weak_from_this());
 }
 
 void App::registerWindowData(const std::shared_ptr<Window>& window, std::any data) {
     window_data_[window->weak_from_this()].emplace_back(std::move(data));
+}
+
+void App::onKey(const std::weak_ptr<Window>& weak_window, keys::Key key, key_actions::KeyAction action, key_mods::KeyMods mods) {
+    // Global keys
+    if (key == keys::escape) {
+        should_exit = true;
+    }
+    
+    // Window keys
+    if (auto window = weak_window.lock()) {
+        if (window->on_key_) {
+            window->on_key_(key, action, mods);
+        }
+    }
 }
 
 } // namespace wg

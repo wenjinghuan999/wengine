@@ -11,14 +11,14 @@
 #include <fmt/format.h>
 
 int main(int, char**) {
-    wg::App app("wegnine-gfx-example-msaa", std::make_tuple(0, 0, 1));
+    auto app = wg::App::Create("wegnine-gfx-example-msaa", std::make_tuple(0, 0, 1));
 
     int width = 400, height = 300;
     std::vector<std::shared_ptr<wg::Window>> windows;
 
     auto msaa_samples = std::array{ 64, 4, 2, 1 };
     for (int samples : msaa_samples) {
-        windows.push_back(app.createWindow(width, height, fmt::format("msaa {}x", samples)));
+        windows.push_back(app->createWindow(width, height, fmt::format("msaa {}x", samples)));
     }
     wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), windows, 2, 2);
     
@@ -72,9 +72,9 @@ int main(int, char**) {
         for (auto&& data : render_data) {
             data->createGfxResources(*gfx);
         }
-        app.registerWindowData(window, gfx);
-        app.registerWindowData(window, render_data);
-        app.registerWindowData(window, render_target);
+        app->registerWindowData(window, gfx);
+        app->registerWindowData(window, render_data);
+        app->registerWindowData(window, render_target);
         return std::make_pair(gfx->weak_from_this(), render_target->weak_from_this());
     };
     
@@ -85,7 +85,7 @@ int main(int, char**) {
     }
     windows.clear();
 
-    app.loop(
+    app->loop(
         [&](float time) {
             for (auto&& gfx_and_render_target : gfx_and_render_targets) {
                 if (auto gfx = gfx_and_render_target.first.lock()) {

@@ -39,7 +39,7 @@ struct LocalPacked {
 };
 
 TEST_CASE("gfx engine" * doctest::timeout(10)) {
-    wg::App app("wegnine-gfx-engine-example", std::make_tuple(0, 0, 1));
+    auto app = wg::App::Create("wegnine-gfx-engine-example", std::make_tuple(0, 0, 1));
 
     // Prepare data
     // config
@@ -69,7 +69,7 @@ TEST_CASE("gfx engine" * doctest::timeout(10)) {
     CHECK(std::filesystem::exists("resources/model.obj"));
 
     // Begin test
-    auto window = app.createWindow(800, 600, "WEngine gfx engine example");
+    auto window = app->createWindow(800, 600, "WEngine gfx engine example");
     window->setPositionToCenter(wg::Monitor::GetPrimary());
 
     auto gfx = wg::Gfx::Create(app);
@@ -166,7 +166,7 @@ TEST_CASE("gfx engine" * doctest::timeout(10)) {
     }
 
     gfx->render(render_target);
-    app.wait();
+    app->wait();
 
     quad_component->setTransform(
         wg::Transform{

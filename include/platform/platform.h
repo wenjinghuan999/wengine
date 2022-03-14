@@ -2,6 +2,7 @@
 
 #include "common/common.h"
 #include "common/math.h"
+#include "platform/platform-constants.h"
 
 #include <functional>
 #include <string>
@@ -58,6 +59,7 @@ public:
 protected:
     std::string title_;
     std::function<void()> on_window_closed_;
+    std::function<void(keys::Key key, key_actions::KeyAction action, key_mods::KeyMods mods)> on_key_;
 
 protected:
     friend class App;
@@ -71,10 +73,12 @@ protected:
     std::unique_ptr<Impl> impl_;
 };
 
-class App : public IMovable {
+class App : public std::enable_shared_from_this<App> {
 public:
-    App(std::string name, std::tuple<int, int, int> version);
-    ~App() override;
+    static std::shared_ptr<App> Create(std::string name, std::tuple<int, int, int> version) {
+        return std::shared_ptr<App>(new App(std::move(name), std::move(version)));
+    }
+    ~App();
 
     void loop(const std::function<void(float)>& func);
     void wait();
@@ -89,13 +93,20 @@ public:
         int width, int height, const std::string& title,
         const std::optional<Monitor>& monitor = {}, window_mode::WindowMode mode = window_mode::windowed
     );
+    void destroyWindow(const std::shared_ptr<Window>& window);
     void registerWindowData(const std::shared_ptr<Window>& window, std::any data);
 
+public:
+    void onKey(const std::weak_ptr<Window>& weak_window, keys::Key key, key_actions::KeyAction action, key_mods::KeyMods mods);
+
 protected:
+    App(std::string name, std::tuple<int, int, int> version);
+    struct Impl;
     std::vector<std::shared_ptr<Window>> windows_;
     std::map<std::weak_ptr<Window>, std::vector<std::any>, std::owner_less<std::weak_ptr<Window>>> window_data_;
     const std::string name_;
     const std::tuple<int, int, int> version_;
+    bool should_exit = false;
 };
 
 }

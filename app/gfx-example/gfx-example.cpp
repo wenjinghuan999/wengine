@@ -7,8 +7,8 @@
 #include "gfx/gfx-buffer.h"
 
 int main(int, char**) {
-    wg::App app("wegnine-gfx-example", std::make_tuple(0, 0, 1));
-    auto window = app.createWindow(800, 600, "WEngine gfx example");
+    auto app = wg::App::Create("wegnine-gfx-example", std::make_tuple(0, 0, 1));
+    auto window = app->createWindow(800, 600, "WEngine gfx example");
     window->setPositionToCenter(wg::Monitor::GetPrimary());
 
     auto gfx = wg::Gfx::Create(app);
@@ -115,7 +115,7 @@ int main(int, char**) {
     );
     renderer->markUniformDirty(quad_draw_command, wg::uniform_attributes::model);
     
-    app.loop(
+    app->loop(
         [&](float time) {
             auto transform = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
             triangle_model_uniform_buffer->setUniformObject(

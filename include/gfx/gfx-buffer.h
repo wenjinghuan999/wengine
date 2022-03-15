@@ -2,6 +2,7 @@
 
 #include "common/common.h"
 #include "common/math.h"
+#include "gfx/gfx-constants.h"
 
 #include <glm/gtx/hash.hpp>
 

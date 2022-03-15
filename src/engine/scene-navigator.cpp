@@ -120,10 +120,10 @@ void SceneNavigator::tick(float time) {
     }
     
     const float damping_time = 0.5f;
-    const float accelerate_time = 0.2f;
+    const float accelerate_time = 0.25f;
     const float stop_speed = 0.1f;
     const float damp = 2.f / damping_time;
-    const float acceleration = 2.f / accelerate_time;
+    const float acceleration = 1.f / accelerate_time;
     
     float current_speed = glm::length(velocity_);
     if (force_direction == glm::vec3(0.f)) {
@@ -134,6 +134,12 @@ void SceneNavigator::tick(float time) {
             velocity_ = velocity_ * (new_speed / current_speed);
         }
     } else {
+        auto project = glm::dot(velocity_, force_direction);
+        auto perp = velocity_ - project * force_direction;
+        if (project < 0.f) {
+            project = 0.f;
+        }
+        velocity_ = project * force_direction + perp * (1.f - time * damp);
         velocity_ += acceleration * time * max_speed_ * force_direction;
         float new_speed = glm::length(velocity_);
         if (new_speed > max_speed_) {

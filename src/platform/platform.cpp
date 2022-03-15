@@ -180,6 +180,10 @@ void Window::setTitle(const std::string& title) {
     glfwSetWindowTitle(glfw_window, title.c_str());
 }
 
+input_actions::InputAction Window::getKeyState(keys::Key key) {
+    return App::GetKeyState(shared_from_this(), key);
+}
+
 App::App(std::string name, std::tuple<int, int, int> version)
     : name_(std::move(name)), version_(std::move(version)) {
 
@@ -214,6 +218,9 @@ void App::loop(const std::function<void(float)>& func) {
                 destroyWindow(window);
                 it = windows_.erase(it);
             } else {
+                if (window->tick_) {
+                    window->tick_(duration);
+                }
                 ++it;
             }
         }
@@ -333,6 +340,10 @@ void App::onCursorPos(const std::weak_ptr<Window>& weak_window, float x, float y
             window->on_cursor_pos_(x, y);
         }
     }
+}
+
+input_actions::InputAction App::GetKeyState(const std::shared_ptr<Window>& window, keys::Key key) {
+    return static_cast<input_actions::InputAction>(glfwGetKey(window->impl_->glfw_window, static_cast<int>(key)));
 }
 
 } // namespace wg

@@ -6,6 +6,7 @@
 #include "engine/mesh-component.h"
 #include "engine/scene-renderer.h"
 #include "engine/texture.h"
+#include "engine/scene-navigator.h"
 
 int main(int, char**) {
     auto app = wg::App::Create("wegnine-gfx-engine-example", std::make_tuple(0, 0, 1));
@@ -67,7 +68,7 @@ int main(int, char**) {
     auto framebuffer_size = window->extent();
     renderer->setCamera(
         {
-            .position = glm::vec3(0.0f, -5.0f, 5.0f), 
+            .position = glm::vec3(0.0f, -5.0f, 5.0f),
             .center = glm::vec3(0.0f, 0.0f, 0.0f),
             .up = glm::vec3(0.0f, 0.0f, 1.0f),
             .aspect = static_cast<float>(framebuffer_size.x()) / static_cast<float>(framebuffer_size.y())
@@ -90,9 +91,12 @@ int main(int, char**) {
     );
     renderer->updateComponentTransform(quad_component);
 
+    auto navigator = wg::SceneNavigator::Create(renderer, window);
+    window->setTick(navigator->tick_func());
+    window->setOnKey(navigator->on_key_func());
+
     auto time = 0.f;
     app->loop(
-        [&](float time) {
         [&](float duration) {
             time += duration;
             auto transform = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -101,7 +105,7 @@ int main(int, char**) {
                     .transform = transform
                 }
             );
-
+            
             renderer->updateComponentTransform(bunny_component);
 
             gfx->render(render_target);

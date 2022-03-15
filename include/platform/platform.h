@@ -55,6 +55,16 @@ public:
     void setTitle(const std::string& title);
     
     void setOnWindowClosed(std::function<void()> on_window_closed) { on_window_closed_ = std::move(on_window_closed); }
+    void setOnKey(std::function<void(keys::Key key, input_actions::InputAction action, input_mods::InputMods mods)> on_key) { on_key_ = std::move(on_key); }
+    void setOnMouseButton(
+        std::function<void(mouse_buttons::MouseButton button, input_actions::InputAction action, input_mods::InputMods mods)> on_mouse_button
+    ) {
+        on_mouse_button_ = std::move(on_mouse_button);
+    }
+    void setOnCursorPos(std::function<void(float x, float y)> on_cursor_pos) { on_cursor_pos_ = std::move(on_cursor_pos); }
+    void setTick(std::function<void(float time)> tick) { tick_ = std::move(tick); }
+    
+    [[nodiscard]] input_actions::InputAction getKeyState(keys::Key key);
 
 protected:
     std::string title_;
@@ -62,6 +72,7 @@ protected:
     std::function<void(keys::Key key, input_actions::InputAction action, input_mods::InputMods mods)> on_key_;
     std::function<void(mouse_buttons::MouseButton button, input_actions::InputAction action, input_mods::InputMods mods)> on_mouse_button_;
     std::function<void(float x, float y)> on_cursor_pos_;
+    std::function<void(float time)> tick_;
 
 protected:
     friend class App;
@@ -102,6 +113,8 @@ public:
     void onKey(const std::weak_ptr<Window>& weak_window, keys::Key key, input_actions::InputAction action, input_mods::InputMods mods);
     void onMouseButton(const std::weak_ptr<Window>& weak_window, mouse_buttons::MouseButton button, input_actions::InputAction action, input_mods::InputMods mods);
     void onCursorPos(const std::weak_ptr<Window>& weak_window, float x, float y);
+    
+    static input_actions::InputAction GetKeyState(const std::shared_ptr<Window>& window, keys::Key key);
 
 protected:
     App(std::string name, std::tuple<int, int, int> version);

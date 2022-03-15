@@ -46,6 +46,7 @@ public:
 
     [[nodiscard]] const std::string& title() const { return title_; }
     [[nodiscard]] Size2D extent() const;
+    [[nodiscard]] Size2D content_size() const;
     [[nodiscard]] Size2D total_size() const;
     
     void setPosition(Size2D position);
@@ -65,6 +66,8 @@ public:
     void setTick(std::function<void(float time)> tick) { tick_ = std::move(tick); }
     
     [[nodiscard]] input_actions::InputAction getKeyState(keys::Key key);
+    [[nodiscard]] input_actions::InputAction getMouseButtonState(mouse_buttons::MouseButton button);
+    [[nodiscard]] std::pair<float, float> getCursorPos();
 
 protected:
     std::string title_;
@@ -115,6 +118,8 @@ public:
     void onCursorPos(const std::weak_ptr<Window>& weak_window, float x, float y);
     
     static input_actions::InputAction GetKeyState(const std::shared_ptr<Window>& window, keys::Key key);
+    static input_actions::InputAction GetMouseButtonState(const std::shared_ptr<Window>& window, mouse_buttons::MouseButton button);
+    static std::pair<float, float> GetCursorPos(const std::shared_ptr<Window>& window);
 
 protected:
     App(std::string name, std::tuple<int, int, int> version);

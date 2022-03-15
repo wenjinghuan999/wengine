@@ -94,6 +94,8 @@ int main(int, char**) {
     auto navigator = wg::SceneNavigator::Create(renderer, window);
     window->setTick(navigator->tick_func());
     window->setOnKey(navigator->on_key_func());
+    window->setOnMouseButton(navigator->on_mouse_button_func());
+    window->setOnCursorPos(navigator->on_cursor_pos_func());
 
     auto time = 0.f;
     app->loop(

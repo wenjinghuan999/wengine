@@ -39,6 +39,8 @@ protected:
     Camera camera_{};
     glm::vec3 velocity_{ 0.f, 0.f, 0.f };
     float max_speed_{ 4.f };
+    std::pair<float, float> last_cursor_pos_{ 0.f, 0.f };
+    bool last_cursor_pos_valid_{ false };
 
 protected:
     explicit SceneNavigator(const std::shared_ptr<SceneRenderer>& scene_renderer, const std::shared_ptr<Window>& window);

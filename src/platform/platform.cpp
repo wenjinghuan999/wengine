@@ -94,6 +94,15 @@ Size2D Window::extent() const {
     return { width, height };
 }
 
+Size2D Window::content_size() const {
+    GLFWwindow* glfw_window = impl_->glfw_window;
+
+    int width = 0, height = 0;
+    glfwGetWindowSize(glfw_window, &width, &height);
+
+    return { width, height };
+}
+
 Size2D Window::total_size() const {
     GLFWwindow* glfw_window = impl_->glfw_window;
 
@@ -182,6 +191,14 @@ void Window::setTitle(const std::string& title) {
 
 input_actions::InputAction Window::getKeyState(keys::Key key) {
     return App::GetKeyState(shared_from_this(), key);
+}
+
+input_actions::InputAction Window::getMouseButtonState(mouse_buttons::MouseButton button) {
+    return App::GetMouseButtonState(shared_from_this(), button);
+}
+
+std::pair<float, float> Window::getCursorPos() {
+    return App::GetCursorPos(shared_from_this());
 }
 
 App::App(std::string name, std::tuple<int, int, int> version)
@@ -344,6 +361,16 @@ void App::onCursorPos(const std::weak_ptr<Window>& weak_window, float x, float y
 
 input_actions::InputAction App::GetKeyState(const std::shared_ptr<Window>& window, keys::Key key) {
     return static_cast<input_actions::InputAction>(glfwGetKey(window->impl_->glfw_window, static_cast<int>(key)));
+}
+
+input_actions::InputAction App::GetMouseButtonState(const std::shared_ptr<Window>& window, mouse_buttons::MouseButton button) {
+    return static_cast<input_actions::InputAction>(glfwGetMouseButton(window->impl_->glfw_window, static_cast<int>(button)));
+}
+
+std::pair<float, float> App::GetCursorPos(const std::shared_ptr<Window>& window) {
+    double x, y;
+    glfwGetCursorPos(window->impl_->glfw_window, &x, &y);
+    return std::make_pair(static_cast<float>(x), static_cast<float>(y));
 }
 
 } // namespace wg

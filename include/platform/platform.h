@@ -61,7 +61,7 @@ protected:
     std::function<void()> on_window_closed_;
     std::function<void(keys::Key key, input_actions::InputAction action, input_mods::InputMods mods)> on_key_;
     std::function<void(mouse_buttons::MouseButton button, input_actions::InputAction action, input_mods::InputMods mods)> on_mouse_button_;
-    std::function<void(double x, double y)> on_cursor_pos;
+    std::function<void(float x, float y)> on_cursor_pos_;
 
 protected:
     friend class App;
@@ -101,7 +101,7 @@ public:
 public:
     void onKey(const std::weak_ptr<Window>& weak_window, keys::Key key, input_actions::InputAction action, input_mods::InputMods mods);
     void onMouseButton(const std::weak_ptr<Window>& weak_window, mouse_buttons::MouseButton button, input_actions::InputAction action, input_mods::InputMods mods);
-    void onCursorPos(const std::weak_ptr<Window>& weak_window, double x, double y);
+    void onCursorPos(const std::weak_ptr<Window>& weak_window, float x, float y);
 
 protected:
     App(std::string name, std::tuple<int, int, int> version);

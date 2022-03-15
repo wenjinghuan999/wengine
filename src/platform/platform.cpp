@@ -259,7 +259,7 @@ struct App::Impl {
         if (app_and_window != windows_map().end()) {
             if (auto app = app_and_window->second.first.lock()) {
                 app->onCursorPos(
-                    app_and_window->second.second, x, y
+                    app_and_window->second.second, static_cast<float>(x), static_cast<float>(y)
                 );
             }
         }
@@ -324,11 +324,11 @@ void App::onMouseButton(
     }
 }
 
-void App::onCursorPos(const std::weak_ptr<Window>& weak_window, double x, double y) {
+void App::onCursorPos(const std::weak_ptr<Window>& weak_window, float x, float y) {
     // Window
     if (auto window = weak_window.lock()) {
-        if (window->on_cursor_pos) {
-            window->on_cursor_pos(x, y);
+        if (window->on_cursor_pos_) {
+            window->on_cursor_pos_(x, y);
         }
     }
 }

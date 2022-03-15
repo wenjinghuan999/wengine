@@ -198,9 +198,15 @@ std::string App::version_string() const {
 
 void App::loop(const std::function<void(float)>& func) {
     logger().info("Event loop start.");
-    static auto startTime = std::chrono::high_resolution_clock::now();
+    auto lastTime = std::chrono::high_resolution_clock::now();
 
     while (!windows_.empty()) {
+        wait();
+        
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float duration = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
+        lastTime = currentTime;
+        
         for (auto it = windows_.begin(); it != windows_.end();) {
             auto& window = *it;
             GLFWwindow* glfw_window = window->impl_->glfw_window;
@@ -215,11 +221,7 @@ void App::loop(const std::function<void(float)>& func) {
             break;
         }
 
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-        func(time);
-        
-        wait();
+        func(duration);
     }
 
     logger().info("Event loop end.");

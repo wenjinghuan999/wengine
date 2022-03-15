@@ -115,8 +115,10 @@ int main(int, char**) {
     );
     renderer->markUniformDirty(quad_draw_command, wg::uniform_attributes::model);
     
+    float time = 0.f;
     app->loop(
-        [&](float time) {
+        [&](float duration) {
+            time += duration;
             auto transform = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
             triangle_model_uniform_buffer->setUniformObject(
                 {

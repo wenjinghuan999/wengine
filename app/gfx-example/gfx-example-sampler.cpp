@@ -234,7 +234,7 @@ int main(int, char**) {
     window_address_mode.reset();
 
     app->loop(
-        [&](float time) {
+        [&](float duration) {
             if (auto render_target = weak_render_target_filter.lock()) {
                 gfx->render(render_target);
             }

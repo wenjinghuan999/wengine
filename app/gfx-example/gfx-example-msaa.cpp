@@ -86,7 +86,7 @@ int main(int, char**) {
     windows.clear();
 
     app->loop(
-        [&](float time) {
+        [&](float duration) {
             for (auto&& gfx_and_render_target : gfx_and_render_targets) {
                 if (auto gfx = gfx_and_render_target.first.lock()) {
                     if (auto render_target = gfx_and_render_target.second.lock()) {

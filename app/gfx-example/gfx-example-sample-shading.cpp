@@ -90,7 +90,7 @@ int main(int, char**) {
     windows.clear();
 
     app->loop(
-        [&](float time) {
+        [&](float duration) {
             for (auto&& weak_render_target : weak_render_targets) {
                 if (auto render_target = weak_render_target.lock()) {
                     gfx->render(render_target);

@@ -72,7 +72,7 @@ void SceneNavigator::onCursorPos(float x, float y) {
 
         auto look = camera_.center - camera_.position;
         auto forward = glm::normalize(look);
-        auto right = glm::cross(forward, camera_.up);
+        auto right = glm::normalize(glm::cross(forward, camera_.up));
         auto up = glm::cross(right, forward);
 
         if (window->getMouseButtonState(mouse_buttons::right) == input_actions::press
@@ -81,9 +81,9 @@ void SceneNavigator::onCursorPos(float x, float y) {
             float dy = (y - last_cursor_pos_.second) * glm::pi<float>() / sy;
 
             auto angle_z = glm::acos(glm::dot(glm::vec3(0, 0, 1), forward));
-            dy = std::max(std::min(dy, angle_z - 1e-3f), angle_z + 1e-3f - glm::pi<float>());
+            dy = std::min(std::max(dy, -angle_z + 1e-3f), glm::pi<float>() - angle_z - 1e-3f);
 
-            auto transform = glm::rotate(glm::rotate(glm::mat4(1.f), dx, glm::vec3(0, 0, 1)), dy, right);
+            auto transform = glm::rotate(glm::rotate(glm::mat4(1.f), dx, glm::vec3(0, 0, 1)), -dy, right);
             camera_.position = camera_.center - glm::mat3(transform) * look;
 
             setCameraToRenderer();

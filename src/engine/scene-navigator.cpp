@@ -27,10 +27,12 @@ void SceneNavigator::onKey(keys::Key key, input_actions::InputAction action, inp
         switch (key) {
         case keys::equal:
             max_speed_ *= 2.f;
+            camera_.center = camera_.position + (camera_.center - camera_.position) * 2.f;
             break;
         case keys::minus:
             max_speed_ /= 2.f;
             max_speed_ = std::max(max_speed_, 1.f);
+            camera_.center = camera_.position + (camera_.center - camera_.position) / 2.f;
             break;
         default:
             break;
@@ -39,11 +41,16 @@ void SceneNavigator::onKey(keys::Key key, input_actions::InputAction action, inp
 }
 
 void SceneNavigator::onMouseButton(mouse_buttons::MouseButton button, input_actions::InputAction action, input_mods::InputMods mods) {
-    if (button == mouse_buttons::right) {
-        if (action == input_actions::press) {
-            if (auto window = weak_window_.lock()) {
-                last_cursor_pos_ = window->getCursorPos();
-                last_cursor_pos_valid_ = true;
+    if (action == input_actions::press) {
+        if (auto window = weak_window_.lock()) {
+            last_cursor_pos_ = window->getCursorPos();
+            last_cursor_pos_valid_ = true;
+        }
+    } else {
+        if (auto window = weak_window_.lock()) {
+            if (window->getMouseButtonState(mouse_buttons::left) == input_actions::press
+                || window->getMouseButtonState(mouse_buttons::right) == input_actions::press
+                || window->getMouseButtonState(mouse_buttons::middle) == input_actions::press) {
                 return;
             }
         }
@@ -61,20 +68,40 @@ void SceneNavigator::onCursorPos(float x, float y) {
         auto size = window->content_size();
         auto sx = static_cast<float>(size.x());
         auto sy = static_cast<float>(size.y());
-        float dx = (x - last_cursor_pos_.first) * glm::pi<float>() / sx;
-        float dy = (y - last_cursor_pos_.second) * glm::pi<float>() / sy;
-        
+
         auto look = camera_.center - camera_.position;
         auto forward = glm::normalize(look);
         auto right = glm::cross(forward, camera_.up);
-        
-        auto angle_z = glm::acos(glm::dot(camera_.up, forward));
-        dy = std::min(std::max(dy, -angle_z + 1e-3f), glm::pi<float>() - angle_z - 1e-3f);
-        
-        auto transform = glm::rotate(glm::rotate(glm::mat4(1.f), -dx, camera_.up), -dy, right);
-        camera_.center = camera_.position + glm::mat3(transform) * look;
-        
-        setCameraToRenderer();
+        auto up = glm::cross(right, forward);
+
+        if (window->getMouseButtonState(mouse_buttons::right) == input_actions::press) {
+            float dx = (x - last_cursor_pos_.first) * glm::pi<float>() / sx;
+            float dy = (y - last_cursor_pos_.second) * glm::pi<float>() / sy;
+
+            auto angle_z = glm::acos(glm::dot(camera_.up, forward));
+            dy = std::min(std::max(dy, -angle_z + 1e-3f), glm::pi<float>() - angle_z - 1e-3f);
+
+            auto transform = glm::rotate(glm::rotate(glm::mat4(1.f), -dx, camera_.up), -dy, right);
+            camera_.center = camera_.position + glm::mat3(transform) * look;
+
+            setCameraToRenderer();
+        } else if (window->getMouseButtonState(mouse_buttons::middle) == input_actions::press) {
+            float x0 = x / sx - 0.5f;
+            float y0 = y / sy - 0.5f;
+            float x1 = last_cursor_pos_.first / sx - 0.5f;
+            float y1 = last_cursor_pos_.second / sy - 0.5f;
+            float fy = 2.f * glm::length(look) * glm::tan(glm::radians(camera_.fov_y / 2.f));
+            float fx = fy * camera_.aspect;
+            
+            auto p0 = right * x0 * fx - up * y0 * fy;
+            auto p1 = right * x1 * fx - up * y1 * fy;
+            auto t = p1 - p0;
+
+            camera_.center += t;
+            camera_.position += t;
+
+            setCameraToRenderer();
+        }
     }
     
     last_cursor_pos_ = std::make_pair(x, y);

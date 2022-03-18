@@ -41,6 +41,7 @@ protected:
     float max_speed_{ 4.f };
     std::pair<float, float> last_cursor_pos_{ 0.f, 0.f };
     bool last_cursor_pos_valid_{ false };
+    input_mods::InputMods last_mods_{ input_mods::none };
 
 protected:
     explicit SceneNavigator(const std::shared_ptr<SceneRenderer>& scene_renderer, const std::shared_ptr<Window>& window);

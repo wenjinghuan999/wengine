@@ -38,6 +38,7 @@ void SceneNavigator::onKey(keys::Key key, input_actions::InputAction action, inp
             break;
         }
     }
+    last_mods_ = mods;
 }
 
 void SceneNavigator::onMouseButton(mouse_buttons::MouseButton button, input_actions::InputAction action, input_mods::InputMods mods) {
@@ -74,7 +75,19 @@ void SceneNavigator::onCursorPos(float x, float y) {
         auto right = glm::cross(forward, camera_.up);
         auto up = glm::cross(right, forward);
 
-        if (window->getMouseButtonState(mouse_buttons::right) == input_actions::press) {
+        if (window->getMouseButtonState(mouse_buttons::right) == input_actions::press
+            && input_mods::IsModActivated(last_mods_, input_mods::alt)) {
+            float dx = (x - last_cursor_pos_.first) * glm::pi<float>() / sx;
+            float dy = (y - last_cursor_pos_.second) * glm::pi<float>() / sy;
+
+            auto angle_z = glm::acos(glm::dot(glm::vec3(0, 0, 1), forward));
+            dy = std::max(std::min(dy, angle_z - 1e-3f), angle_z + 1e-3f - glm::pi<float>());
+
+            auto transform = glm::rotate(glm::rotate(glm::mat4(1.f), dx, glm::vec3(0, 0, 1)), dy, right);
+            camera_.position = camera_.center - glm::mat3(transform) * look;
+
+            setCameraToRenderer();
+        } else if (window->getMouseButtonState(mouse_buttons::right) == input_actions::press) {
             float dx = (x - last_cursor_pos_.first) * glm::pi<float>() / sx;
             float dy = (y - last_cursor_pos_.second) * glm::pi<float>() / sy;
 

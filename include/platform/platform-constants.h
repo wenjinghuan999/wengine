@@ -161,6 +161,7 @@ enum InputAction {
 namespace input_mods {
 
 enum InputMod {
+    none = 0x00,
     shift = 0x01,
     control = 0x02,
     alt = 0x04,
@@ -170,6 +171,10 @@ enum InputMod {
 };
 
 using InputMods = uint32_t;
+
+inline bool IsModActivated(InputMods mods, InputMod mod) {
+    return (mods & static_cast<uint32_t>(mod)) != 0;
+}
 
 } // namespace input_mods
 

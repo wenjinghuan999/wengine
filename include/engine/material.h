@@ -66,10 +66,7 @@ protected:
     std::shared_ptr<MaterialRenderData> render_data_;
 
 protected:
-    Material(
-        const std::string& name,
-        const std::string& vert_shader_filename, const std::string& frag_shader_filename
-    );
+    Material(std::string name, std::string vert_shader_filename, std::string frag_shader_filename);
     GfxVertexFactory createVertexFactory() const;
     GfxPipelineState createPipelineState() const;
     GfxUniformLayout createUniformLayout() const;

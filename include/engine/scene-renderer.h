@@ -78,7 +78,7 @@ protected:
     friend class Gfx;
     friend class RenderTarget;
     SceneRenderer() = default;
-    CameraUniform createUniformObject();
+    CameraUniform createUniformObject() const;
 };
 
 } // namespace wg

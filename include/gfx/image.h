@@ -74,7 +74,7 @@ public:
 
 protected:
     std::string filename_;
-    image_file_formats::ImageFileFormat file_format_;
+    image_file_formats::ImageFileFormat file_format_{ image_file_formats::none };
     int width_{ 0 };
     int height_{ 0 };
     int mip_levels_{ 1 };

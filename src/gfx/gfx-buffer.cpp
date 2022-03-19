@@ -54,7 +54,7 @@ std::shared_ptr<UniformBufferBase> UniformBufferBase::Create(uniform_attributes:
 }
 
 void Gfx::Impl::singleTimeCommand(
-    const QueueInfoRef& queue, std::function<void(vk::CommandBuffer&)> func,
+    const QueueInfoRef& queue, const std::function<void(vk::CommandBuffer&)>& func,
     std::vector<vk::Semaphore> wait_semaphores, std::vector<vk::PipelineStageFlags> wait_stages, std::vector<vk::Semaphore> signal_semaphores
 ) {
     auto command_buffer_allocate_info = vk::CommandBufferAllocateInfo{

@@ -169,7 +169,7 @@ void Gfx::finishDrawCommand(const std::shared_ptr<DrawCommand>& draw_command) {
         uint32_t binding = [impl, &vb_index_to_binding, &description]() {
             auto it = vb_index_to_binding.find(description.vertex_buffer_index);
             if (it == vb_index_to_binding.end()) {
-                uint32_t new_binding = static_cast<uint32_t>(impl->vertex_bindings.size());
+                auto new_binding = static_cast<uint32_t>(impl->vertex_bindings.size());
                 vb_index_to_binding[description.vertex_buffer_index] = new_binding;
                 impl->vertex_bindings.emplace_back(
                     vk::VertexInputBindingDescription{

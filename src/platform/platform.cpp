@@ -123,7 +123,7 @@ void Window::setPosition(Size2D position) {
 
 void Window::setPositionToCenter(const Monitor& monitor) {
     GLFWwindow* glfw_window = impl_->glfw_window;
-    GLFWmonitor* glfw_monitor = reinterpret_cast<GLFWmonitor*>(monitor.impl_);
+    auto glfw_monitor = reinterpret_cast<GLFWmonitor*>(monitor.impl_);
 
     int width, height;
     glfwGetWindowSize(glfw_window, &width, &height);

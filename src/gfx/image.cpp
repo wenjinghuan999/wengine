@@ -37,7 +37,7 @@ bool Image::load(const std::string& filename, gfx_formats::Format image_format, 
     int desired_channels = gfx_formats::GetChannels(image_format);
     int width = 0, height = 0, channels = 0;
     stbi_uc* pixels = stbi_load(filename.c_str(), &width, &height, &channels, desired_channels);
-    size_t n_pixels = static_cast<size_t>(width * height * desired_channels);
+    auto n_pixels = static_cast<size_t>(width * height * desired_channels);
 
     if (!pixels) {
         logger().error("Unable to load image {}", filename);
@@ -58,7 +58,7 @@ bool Image::load(const std::string& filename, gfx_formats::Format image_format, 
     case gfx_formats::R32G32B32A32Sfloat:
         raw_data_.resize(n_pixels * sizeof(float));
         for (int i = 0; i < n_pixels; ++i) {
-            float* ptr = reinterpret_cast<float*>(raw_data_.data());
+            auto ptr = reinterpret_cast<float*>(raw_data_.data());
             ptr[i] = static_cast<float>(pixels[i]) / 255.f;
         }
         break;

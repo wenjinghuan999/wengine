@@ -65,16 +65,16 @@ std::shared_ptr<Mesh> Mesh::CreateFromObjFile(
     auto& attrib = reader.GetAttrib();
     auto& shapes = reader.GetShapes();
     auto& materials = reader.GetMaterials();
-    for (size_t s = 0; s < shapes.size(); s++) {
+    for (const auto& shape : shapes) {
         // Loop over faces(polygon)
         size_t index_offset = 0;
-        for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
-            auto fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+        for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) {
+            auto fv = size_t(shape.mesh.num_face_vertices[f]);
 
             // Loop over vertices in the face.
             for (size_t v = 0; v < fv; v++) {
                 // access to vertex
-                tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
+                tinyobj::index_t idx = shape.mesh.indices[index_offset + v];
                 tinyobj::real_t vx = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
                 tinyobj::real_t vy = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
                 tinyobj::real_t vz = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
@@ -119,7 +119,7 @@ std::shared_ptr<Mesh> Mesh::CreateFromObjFile(
             index_offset += fv;
 
             // per-face material
-            auto material = shapes[s].mesh.material_ids[f];
+            auto material = shape.mesh.material_ids[f];
         }
     }
 

@@ -19,11 +19,14 @@ namespace {
 
 namespace wg {
 
-std::map<GLFWwindow*, std::function<void(int, int)>> Surface::Impl::glfw_window_to_resized_func_map;
+std::map<GLFWwindow*, std::function<void(int, int)>>& Surface::Impl::glfw_window_to_resized_func_map() {
+    static std::map<GLFWwindow*, std::function<void(int, int)>> func_map;
+    return func_map;
+}
 
 void Surface::Impl::SetFrameBufferSizeCallback(GLFWwindow* window, int width, int height) {
-    auto it = glfw_window_to_resized_func_map.find(window);
-    if (it != glfw_window_to_resized_func_map.end()) {
+    auto it = glfw_window_to_resized_func_map().find(window);
+    if (it != glfw_window_to_resized_func_map().end()) {
         it->second(width, height);
     }
 }
@@ -37,13 +40,13 @@ Surface::Surface(const std::shared_ptr<Window>& window)
 
 Surface::~Surface() {
     if (auto window = window_.lock()) {
-        Surface::Impl::glfw_window_to_resized_func_map.erase(window->impl_->glfw_window);
+        Surface::Impl::glfw_window_to_resized_func_map().erase(window->impl_->glfw_window);
     }
 }
 
 Size2D Surface::extent() const {
     if (auto* resources = impl_->resources.data()) {
-        return Size2D(resources->vk_extent.width, resources->vk_extent.height);
+        return Size2D(static_cast<int>(resources->vk_extent.width), static_cast<int>(resources->vk_extent.height));
     }
     return {};
 }
@@ -87,7 +90,7 @@ void Gfx::createWindowSurface(const std::shared_ptr<Window>& window) {
     surface->impl_->window_surface_resources = impl_->window_surface_resources_.store(std::move(window_surface_resources));
 
     glfwSetFramebufferSizeCallback(window->impl_->glfw_window, Surface::Impl::SetFrameBufferSizeCallback);
-    Surface::Impl::glfw_window_to_resized_func_map[window->impl_->glfw_window] =
+    Surface::Impl::glfw_window_to_resized_func_map()[window->impl_->glfw_window] =
         [weak_surface = std::weak_ptr<Surface>(surface)](int, int) {
             if (auto s = weak_surface.lock()) {
                 s->resized_ = true;

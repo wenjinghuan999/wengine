@@ -55,7 +55,7 @@ protected:
 protected:
     friend class Gfx;
     friend class RenderTarget;
-    RenderTargetSurface(std::string name, const std::shared_ptr<Surface>& surface);
+    RenderTargetSurface(std::string name, std::shared_ptr<Surface> surface);
     void recreateSurfaceResources(Gfx& gfx);
 };
 

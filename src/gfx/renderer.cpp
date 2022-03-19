@@ -165,7 +165,7 @@ void Gfx::commitFramebufferUniformBuffers(
 
     size_t image_count = resources->framebuffer_resources.size();
     int start_index = image_index >= 0 ? image_index : 0;
-    int end_index = image_index >= 0 ? image_index + 1U : static_cast<int>(image_count);
+    int end_index = image_index >= 0 ? image_index + 1 : static_cast<int>(image_count);
     for (int i = start_index; i < end_index; ++i) {
         auto& framebuffer_resources = resources->framebuffer_resources[i];
         for (auto&&[attribute, cpu_uniform] : renderer->uniform_buffers_) {

@@ -1,3 +1,5 @@
+#include <utility>
+
 #include "engine/material.h"
 
 #include "common/logger.h"
@@ -31,9 +33,8 @@ std::shared_ptr<Material> Material::Create(
 }
 
 Material::Material(
-    const std::string& name,
-    const std::string& vert_shader_filename, const std::string& frag_shader_filename
-) : name_(name), vert_shader_filename_(vert_shader_filename), frag_shader_filename_(frag_shader_filename) {
+    std::string name, std::string vert_shader_filename, std::string frag_shader_filename
+) : name_(std::move(name)), vert_shader_filename_(std::move(vert_shader_filename)), frag_shader_filename_(std::move(frag_shader_filename)) {
 }
 
 std::shared_ptr<IRenderData> Material::createRenderData() {

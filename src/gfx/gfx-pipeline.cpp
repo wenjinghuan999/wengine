@@ -220,7 +220,7 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     const std::shared_ptr<DrawCommand>& draw_command
 ) {
     logger().info(
-        "Creating resources of draw command \"{}\" for render target \"{}\".",
+        R"(Creating resources of draw command "{}" for render target "{}".)",
         draw_command->name(), render_target->name()
     );
     auto& pipeline = draw_command->pipeline_;
@@ -272,12 +272,12 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
         scissors.emplace_back(
             vk::Rect2D{
                 .offset = {
-                    static_cast<int32_t>(scissor.x * width),
-                    static_cast<int32_t>(scissor.y * height)
+                    static_cast<int32_t>(scissor.x * static_cast<float>(width)),
+                    static_cast<int32_t>(scissor.y * static_cast<float>(height))
                 },
                 .extent = {
-                    static_cast<uint32_t>(scissor.width * width),
-                    static_cast<uint32_t>(scissor.height * height)
+                    static_cast<uint32_t>(scissor.width * static_cast<float>(width)),
+                    static_cast<uint32_t>(scissor.height * static_cast<float>(height))
                 }
             }
         );
@@ -312,7 +312,7 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     size_t image_count = resources->framebuffer_resources.size();
     std::vector<vk::DescriptorPoolSize> descriptor_pool_sizes;
     if (*pipeline_resources->set_layout) {
-        uint32_t uniform_descriptors_count =
+        auto uniform_descriptors_count =
             static_cast<uint32_t>(pipeline->uniform_layout().descriptions().size() * image_count);
         if (uniform_descriptors_count > 0) {
             descriptor_pool_sizes.emplace_back(
@@ -322,7 +322,7 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 }
             );
         }
-        uint32_t sampler_descriptors_count =
+        auto sampler_descriptors_count =
             static_cast<uint32_t>(pipeline->sampler_layout().descriptions().size() * image_count);
         if (sampler_descriptors_count > 0) {
             descriptor_pool_sizes.emplace_back(
@@ -447,11 +447,10 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 .descriptorType  = vk::DescriptorType::eUniformBuffer
             }
                 .setBufferInfo(buffer_infos[j]);
-            write_descriptor_sets.emplace_back(std::move(write_description_set));
+            write_descriptor_sets.emplace_back(write_description_set);
         }
 
-        for (size_t j = 0; j < pipeline->sampler_layout_.descriptions_.size(); ++j) {
-            auto& description = pipeline->sampler_layout_.descriptions_[j];
+        for (auto&& description : pipeline->sampler_layout_.descriptions_) {
             std::vector<vk::DescriptorImageInfo> image_info;
             if (draw_command_resources.samplers.find(description.binding) == draw_command_resources.samplers.end()) {
                 image_infos.emplace_back(std::move(image_info));
@@ -488,7 +487,7 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 .descriptorType  = vk::DescriptorType::eCombinedImageSampler,
             }
                 .setImageInfo(image_infos[j]);
-            write_descriptor_sets.emplace_back(std::move(write_description_set));
+            write_descriptor_sets.emplace_back(write_description_set);
         }
 
         logical_device_->impl_->vk_device.updateDescriptorSets(write_descriptor_sets, {});
@@ -545,7 +544,7 @@ void Gfx::commitDrawCommandUniformBuffers(
 
     size_t image_count = resources->framebuffer_resources.size();
     int start_index = image_index >= 0 ? image_index : 0;
-    int end_index = image_index >= 0 ? image_index + 1U : static_cast<int>(image_count);
+    int end_index = image_index >= 0 ? image_index + 1 : static_cast<int>(image_count);
     for (int i = start_index; i < end_index; ++i) {
         auto& draw_command_resources = resources->draw_command_resources[draw_command_index][i];
         for (auto&&[attribute, cpu_uniform] : draw_command->uniform_buffers_) {

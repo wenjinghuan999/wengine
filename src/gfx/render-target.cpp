@@ -1,3 +1,5 @@
+#include <utility>
+
 #include "gfx/render-target.h"
 
 #include "common/logger.h"
@@ -37,8 +39,8 @@ std::shared_ptr<RenderTarget> Gfx::createRenderTarget(const std::shared_ptr<Wind
     return std::shared_ptr<RenderTarget>(new RenderTargetSurface(window->title(), surface));
 }
 
-RenderTargetSurface::RenderTargetSurface(std::string name, const std::shared_ptr<Surface>& surface)
-    : RenderTarget(std::move(name)), surface_(surface) {
+RenderTargetSurface::RenderTargetSurface(std::string name, std::shared_ptr<Surface> surface)
+    : RenderTarget(std::move(name)), surface_(std::move(surface)) {
 
     impl_ = std::make_unique<Impl>();
     impl_->get_image_views = [weak_surface = std::weak_ptr<Surface>(surface_)]() {

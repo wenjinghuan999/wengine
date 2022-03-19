@@ -56,7 +56,7 @@ bool Shader::loadStatic(const std::string& filename, const std::string& entry) {
     size_t file_size = (size_t) file.tellg();
     impl_->raw_data.resize((file_size + sizeof(uint32_t) - 1) / sizeof(uint32_t));
     file.seekg(0);
-    file.read(reinterpret_cast<char*>(impl_->raw_data.data()), file_size);
+    file.read(reinterpret_cast<char*>(impl_->raw_data.data()), static_cast<std::streamsize>(file_size));
 
     return true;
 }

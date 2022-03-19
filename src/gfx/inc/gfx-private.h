@@ -34,7 +34,7 @@ struct Gfx::Impl {
     Gfx* gfx;
 
     void singleTimeCommand(
-        const QueueInfoRef& queue, std::function<void(vk::CommandBuffer&)> func,
+        const QueueInfoRef& queue, const std::function<void(vk::CommandBuffer&)>& func,
         std::vector<vk::Semaphore> wait_semaphores = {}, std::vector<vk::PipelineStageFlags> wait_stages = {}, 
         std::vector<vk::Semaphore> signal_semaphores = {}
     );
@@ -106,7 +106,7 @@ struct PhysicalDevice::Impl {
 
     explicit Impl(vk::raii::PhysicalDevice vk_physical_device);
 
-    int findMemoryTypeIndex(vk::MemoryRequirements requirements, vk::MemoryPropertyFlags property_flags);
+    [[nodiscard]] int findMemoryTypeIndex(vk::MemoryRequirements requirements, vk::MemoryPropertyFlags property_flags) const;
     bool allocateQueues(
         std::array<int, gfx_queues::NUM_QUEUES> required_queues,
         const std::vector<vk::SurfaceKHR>& surfaces,
@@ -117,10 +117,10 @@ struct PhysicalDevice::Impl {
         const std::vector<std::bitset<gfx_queues::NUM_QUEUES>>& real_queue_supports,
         std::vector<std::map<gfx_queues::QueueId, int>>& out_allocated_queue_counts
     );
-    bool checkQueueSupport(
+    [[nodiscard]] bool checkQueueSupport(
         uint32_t queue_family_index, gfx_queues::QueueId queue_id,
         const std::vector<vk::SurfaceKHR>& surfaces
-    );
+    ) const;
 
 protected:
     Impl() = default;

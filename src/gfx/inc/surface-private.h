@@ -33,7 +33,7 @@ struct Surface::Impl {
     vk::SampleCountFlagBits sample_count = vk::SampleCountFlagBits::e1;
 
     static void SetFrameBufferSizeCallback(GLFWwindow* window, int width, int height);
-    static std::map<GLFWwindow*, std::function<void(int, int)>> glfw_window_to_resized_func_map;
+    static std::map<GLFWwindow*, std::function<void(int, int)>>& glfw_window_to_resized_func_map();
 };
 
 } // namespace wg

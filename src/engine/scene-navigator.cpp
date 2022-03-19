@@ -192,6 +192,7 @@ void SceneNavigator::tick(float time) {
 
 void SceneNavigator::setCameraToRenderer() {
     if (auto scene_renderer = weak_scene_renderer_.lock()) {
+        camera_.aspect = scene_renderer->camera().aspect;
         scene_renderer->setCamera(camera_);
     }
 }

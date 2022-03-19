@@ -12,7 +12,7 @@ namespace {
     return *logger_;
 }
 
-}
+} // unnamed namespace
 
 namespace wg {
 
@@ -72,12 +72,12 @@ VulkanFeatures VulkanFeatures::GetVulkanFeatures(wg::gfx_features::FeatureId fea
                 .samplerAnisotropy = true
             },
             .check_properties_and_features_func = [](
-                const vk::PhysicalDeviceProperties& device_properties, const vk::PhysicalDeviceFeatures& device_features
+                const vk::PhysicalDeviceProperties& properties, const vk::PhysicalDeviceFeatures& features
             ) -> bool {
-                return device_features.samplerAnisotropy;
+                return features.samplerAnisotropy;
             },
-            .set_feature_func = [](vk::PhysicalDeviceFeatures& device_features) {
-                device_features.samplerAnisotropy = true;
+            .set_feature_func = [](vk::PhysicalDeviceFeatures& features) {
+                features.samplerAnisotropy = true;
             }
         };
     case wg::gfx_features::sampler_filter_cubic:
@@ -91,20 +91,20 @@ VulkanFeatures VulkanFeatures::GetVulkanFeatures(wg::gfx_features::FeatureId fea
     case wg::gfx_features::msaa:
         return {
             .check_properties_and_features_func = [](
-                const vk::PhysicalDeviceProperties& device_properties, const vk::PhysicalDeviceFeatures& device_features
+                const vk::PhysicalDeviceProperties& properties, const vk::PhysicalDeviceFeatures& features
             ) -> bool {
-                return device_properties.limits.framebufferColorSampleCounts > vk::SampleCountFlagBits::e1;
+                return properties.limits.framebufferColorSampleCounts > vk::SampleCountFlagBits::e1;
             },
         };
     case wg::gfx_features::sample_shading:
         return {
             .check_properties_and_features_func = [](
-                const vk::PhysicalDeviceProperties& device_properties, const vk::PhysicalDeviceFeatures& device_features
+                const vk::PhysicalDeviceProperties& properties, const vk::PhysicalDeviceFeatures& features
             ) -> bool {
-                return device_features.sampleRateShading;
+                return features.sampleRateShading;
             },
-            .set_feature_func = [](vk::PhysicalDeviceFeatures& device_features) {
-                device_features.sampleRateShading = true;
+            .set_feature_func = [](vk::PhysicalDeviceFeatures& features) {
+                features.sampleRateShading = true;
             }
         };
     case wg::gfx_features::_must_enable_if_valid:
@@ -151,7 +151,7 @@ void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_d
     auto msaa_samples = config.get<int>("gfx-msaa-samples");
     if (msaa_samples > 1) {
         enableFeature(gfx_features::msaa);
-        
+
         setup.msaa_samples = 1;
         for (int i = 1; i <= 64 && i <= msaa_samples; i <<= 1) {
             auto vk_samples = static_cast<vk::SampleCountFlagBits>(i);
@@ -161,7 +161,7 @@ void GfxFeaturesManager::enableFeaturesByConfig(const PhysicalDevice& physical_d
                 }
             }
         }
-        
+
         if (setup.msaa_samples != msaa_samples) {
             logger().warn("Setting MSAA to {} failed, use MSAA = {} instead.", msaa_samples, setup.msaa_samples);
         }

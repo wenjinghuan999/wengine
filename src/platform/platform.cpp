@@ -1,5 +1,7 @@
 #include "platform.inc"
+
 #include "platform/platform.h"
+
 #include "common/logger.h"
 #include "window-private.h"
 
@@ -24,7 +26,7 @@ Monitor Monitor::GetPrimary() {
 
 Size2D Monitor::position() const {
     auto* glfw_monitor = reinterpret_cast<GLFWmonitor*>(impl_);
-    
+
     int x_pos, y_pos, width, height;
     glfwGetMonitorWorkarea(glfw_monitor, &x_pos, &y_pos, &width, &height);
     return { x_pos, y_pos };
@@ -32,7 +34,7 @@ Size2D Monitor::position() const {
 
 Size2D Monitor::work_area_size() const {
     auto* glfw_monitor = reinterpret_cast<GLFWmonitor*>(impl_);
-    
+
     int x_pos, y_pos, width, height;
     glfwGetMonitorWorkarea(glfw_monitor, &x_pos, &y_pos, &width, &height);
     return { width, height };
@@ -56,11 +58,11 @@ Window::Window(
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    
+
     if (mode == window_mode::windowed) {
         impl_->glfw_window = glfwCreateWindow(width, height, title_.c_str(), nullptr, nullptr);
     } else if (mode == window_mode::windowed_fullscreen) {
-        const GLFWvidmode* video_mode = glfwGetVideoMode(glfw_monitor); 
+        const GLFWvidmode* video_mode = glfwGetVideoMode(glfw_monitor);
         glfwWindowHint(GLFW_RED_BITS, video_mode->redBits);
         glfwWindowHint(GLFW_GREEN_BITS, video_mode->greenBits);
         glfwWindowHint(GLFW_BLUE_BITS, video_mode->blueBits);
@@ -129,10 +131,10 @@ void Window::setPositionToCenter(const Monitor& monitor) {
     glfwGetWindowFrameSize(glfw_window, &left, &top, &right, &bottom);
     int work_area_x_pos, work_area_y_pos, work_area_width, work_area_height;
     glfwGetMonitorWorkarea(glfw_monitor, &work_area_x_pos, &work_area_y_pos, &work_area_width, &work_area_height);
-    
+
     int pos_x = work_area_x_pos + (work_area_width - width - left - right) / 2;
     int pos_y = work_area_y_pos + (work_area_height - height - left - right) / 2;
-    
+
     glfwSetWindowPos(glfw_window, pos_x, pos_y);
 }
 
@@ -152,7 +154,7 @@ void Window::SubPlotLayout(const Monitor& monitor, std::vector<std::shared_ptr<W
     auto* glfw_monitor = reinterpret_cast<GLFWmonitor*>(monitor.impl_);
     int work_area_x_pos, work_area_y_pos, work_area_width, work_area_height;
     glfwGetMonitorWorkarea(glfw_monitor, &work_area_x_pos, &work_area_y_pos, &work_area_width, &work_area_height);
-    
+
     float margin_w = std::min((static_cast<float>(work_area_width) - total_width) / static_cast<float>(n_cols - 1), 10.f);
     total_width += margin_w * static_cast<float>(n_cols - 1);
     total_width = std::min(total_width, static_cast<float>(work_area_width));
@@ -223,11 +225,11 @@ void App::loop(const std::function<void(float)>& func) {
 
     while (!windows_.empty()) {
         wait();
-        
+
         auto currentTime = std::chrono::high_resolution_clock::now();
         float duration = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - lastTime).count();
         lastTime = currentTime;
-        
+
         for (auto it = windows_.begin(); it != windows_.end();) {
             auto& window = *it;
             GLFWwindow* glfw_window = window->impl_->glfw_window;
@@ -267,7 +269,7 @@ struct App::Impl {
             }
         }
     }
-    
+
     static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
         auto app_and_window = windows_map().find(window);
         if (app_and_window != windows_map().end()) {
@@ -279,7 +281,7 @@ struct App::Impl {
             }
         }
     }
-    
+
     static void CursorPosCallback(GLFWwindow* window, double x, double y) {
         auto app_and_window = windows_map().find(window);
         if (app_and_window != windows_map().end()) {
@@ -290,7 +292,7 @@ struct App::Impl {
             }
         }
     }
-    
+
     static std::map<GLFWwindow*, std::pair<std::weak_ptr<App>, std::weak_ptr<Window>>>& windows_map() {
         static std::map<GLFWwindow*, std::pair<std::weak_ptr<App>, std::weak_ptr<Window>>> windows_map_;
         return windows_map_;
@@ -308,7 +310,7 @@ std::shared_ptr<Window> App::createWindow(
     glfwSetKeyCallback(window->impl_->glfw_window, App::Impl::KeyCallback);
     glfwSetMouseButtonCallback(window->impl_->glfw_window, App::Impl::MouseButtonCallback);
     glfwSetCursorPosCallback(window->impl_->glfw_window, App::Impl::CursorPosCallback);
-    
+
     return window;
 }
 
@@ -330,7 +332,7 @@ void App::onKey(const std::weak_ptr<Window>& weak_window, keys::Key key, input_a
     if (key == keys::escape) {
         should_exit = true;
     }
-    
+
     // Window
     if (auto window = weak_window.lock()) {
         if (window->on_key_) {

@@ -1,13 +1,12 @@
-#include <array>
-
-#include "gfx/gfx.h"
 #include "gfx/surface.h"
-#include "common/config.h"
 #include "common/logger.h"
+#include "gfx/gfx.h"
 #include "platform/inc/window-private.h"
 #include "gfx-private.h"
 #include "gfx-constants-private.h"
 #include "surface-private.h"
+
+#include <array>
 
 namespace {
 

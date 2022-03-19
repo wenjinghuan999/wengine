@@ -1,7 +1,8 @@
-#include "gfx/gfx.h"
 #include "gfx/gfx-pipeline.h"
+
 #include "common/config.h"
 #include "common/logger.h"
+#include "gfx/gfx.h"
 #include "gfx/gfx-buffer.h"
 #include "gfx-private.h"
 #include "draw-command-private.h"
@@ -95,7 +96,7 @@ void Gfx::createPipelineResources(
             );
         }
     }
-    
+
     // Sampler layout
     if (!pipeline->sampler_layout_.descriptions_.empty()) {
         for (auto&& description : pipeline->sampler_layout_.descriptions_) {
@@ -110,9 +111,9 @@ void Gfx::createPipelineResources(
             );
         }
     }
-    
+
     std::vector<vk::DescriptorSetLayout> set_layouts;
-    if (!layout_bindings.empty()){
+    if (!layout_bindings.empty()) {
         auto set_layout_create_info = vk::DescriptorSetLayoutCreateInfo{}
             .setBindings(layout_bindings);
         resources->set_layout =
@@ -162,7 +163,7 @@ void Gfx::createPipelineResources(
     if (features_manager_.feature_enabled(gfx_features::sample_shading)) {
         min_sample_shading = pipeline->pipeline_state_.min_sample_shading;
     }
-    
+
     resources->multisample_create_info = vk::PipelineMultisampleStateCreateInfo{
         .rasterizationSamples  = static_cast<vk::SampleCountFlagBits>(setup_.msaa_samples),
         .sampleShadingEnable   = min_sample_shading > 0.f,
@@ -311,24 +312,28 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     size_t image_count = resources->framebuffer_resources.size();
     std::vector<vk::DescriptorPoolSize> descriptor_pool_sizes;
     if (*pipeline_resources->set_layout) {
-        uint32_t uniform_descriptors_count = 
+        uint32_t uniform_descriptors_count =
             static_cast<uint32_t>(pipeline->uniform_layout().descriptions().size() * image_count);
         if (uniform_descriptors_count > 0) {
-            descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
-                .type = vk::DescriptorType::eUniformBuffer,
-                .descriptorCount = uniform_descriptors_count
-            });
+            descriptor_pool_sizes.emplace_back(
+                vk::DescriptorPoolSize{
+                    .type = vk::DescriptorType::eUniformBuffer,
+                    .descriptorCount = uniform_descriptors_count
+                }
+            );
         }
-        uint32_t sampler_descriptors_count = 
+        uint32_t sampler_descriptors_count =
             static_cast<uint32_t>(pipeline->sampler_layout().descriptions().size() * image_count);
         if (sampler_descriptors_count > 0) {
-            descriptor_pool_sizes.emplace_back(vk::DescriptorPoolSize{
-                .type = vk::DescriptorType::eCombinedImageSampler,
-                .descriptorCount = sampler_descriptors_count
-            });
+            descriptor_pool_sizes.emplace_back(
+                vk::DescriptorPoolSize{
+                    .type = vk::DescriptorType::eCombinedImageSampler,
+                    .descriptorCount = sampler_descriptors_count
+                }
+            );
         }
     }
-    
+
     auto descriptor_pool_create_info = vk::DescriptorPoolCreateInfo{
         .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
         .maxSets = static_cast<uint32_t>(image_count)
@@ -374,14 +379,14 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
             if (it == draw_command->samplers_.end()) {
                 logger().error("Cannot find sampler for binding {} in draw command {}", description.binding, draw_command->name());
             } else {
-                samplers[description.binding] = it->second;       
+                samplers[description.binding] = it->second;
             }
         }
         vk::DescriptorSet descriptor_set = nullptr;
-        if (!render_target_pipeline_resources.descriptor_sets.empty()){
+        if (!render_target_pipeline_resources.descriptor_sets.empty()) {
             descriptor_set = *render_target_pipeline_resources.descriptor_sets[i];
         }
-        
+
         resources->draw_command_resources.back().emplace_back(
             RenderTargetDrawCommandResources{
                 .pipeline        = *render_target_pipeline_resources.pipeline,
@@ -431,7 +436,7 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
             }
             buffer_infos.emplace_back(std::move(buffer_info));
         }
-        
+
         for (size_t j = 0; j < pipeline->uniform_layout_.descriptions_.size(); ++j) {
             auto& description = pipeline->uniform_layout_.descriptions_[j];
             auto write_description_set = vk::WriteDescriptorSet{
@@ -452,7 +457,7 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 image_infos.emplace_back(std::move(image_info));
                 continue;
             }
-            
+
             auto&& sampler = draw_command_resources.samplers[description.binding];
             if (auto* image_resources = sampler->image_->impl_->resources.data()) {
                 if (auto* sampler_resources = sampler->impl_->resources.data()) {
@@ -485,7 +490,7 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 .setImageInfo(image_infos[j]);
             write_descriptor_sets.emplace_back(std::move(write_description_set));
         }
-        
+
         logical_device_->impl_->vk_device.updateDescriptorSets(write_descriptor_sets, {});
     }
 }

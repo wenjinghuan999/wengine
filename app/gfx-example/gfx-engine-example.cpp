@@ -107,7 +107,7 @@ int main(int, char**) {
                     .transform = transform
                 }
             );
-            
+
             renderer->updateComponentTransform(bunny_component);
 
             gfx->render(render_target);

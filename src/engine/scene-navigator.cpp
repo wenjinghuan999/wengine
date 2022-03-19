@@ -14,12 +14,12 @@ namespace {
 namespace wg {
 
 std::shared_ptr<SceneNavigator> SceneNavigator::Create(
-    const std::shared_ptr <SceneRenderer>& scene_renderer, const std::shared_ptr <Window>& window
+    const std::shared_ptr<SceneRenderer>& scene_renderer, const std::shared_ptr<Window>& window
 ) {
     return std::shared_ptr<SceneNavigator>(new SceneNavigator(scene_renderer, window));
 }
 
-SceneNavigator::SceneNavigator(const std::shared_ptr <SceneRenderer>& scene_renderer, const std::shared_ptr <Window>& window)
+SceneNavigator::SceneNavigator(const std::shared_ptr<SceneRenderer>& scene_renderer, const std::shared_ptr<Window>& window)
     : weak_scene_renderer_(scene_renderer), weak_window_(window), camera_(scene_renderer->camera()), velocity_() {}
 
 void SceneNavigator::onKey(keys::Key key, input_actions::InputAction action, input_mods::InputMods mods) {
@@ -49,9 +49,9 @@ void SceneNavigator::onMouseButton(mouse_buttons::MouseButton button, input_acti
         }
     } else {
         if (auto window = weak_window_.lock()) {
-            if (window->getMouseButtonState(mouse_buttons::left) == input_actions::press
-                || window->getMouseButtonState(mouse_buttons::right) == input_actions::press
-                || window->getMouseButtonState(mouse_buttons::middle) == input_actions::press) {
+            if (window->getMouseButtonState(mouse_buttons::left) == input_actions::press ||
+                window->getMouseButtonState(mouse_buttons::right) == input_actions::press ||
+                window->getMouseButtonState(mouse_buttons::middle) == input_actions::press) {
                 return;
             }
         }
@@ -75,8 +75,8 @@ void SceneNavigator::onCursorPos(float x, float y) {
         auto right = glm::normalize(glm::cross(forward, camera_.up));
         auto up = glm::cross(right, forward);
 
-        if (window->getMouseButtonState(mouse_buttons::right) == input_actions::press
-            && input_mods::IsModActivated(last_mods_, input_mods::alt)) {
+        if (window->getMouseButtonState(mouse_buttons::right) == input_actions::press &&
+            input_mods::IsModActivated(last_mods_, input_mods::alt)) {
             float dx = (x - last_cursor_pos_.first) * glm::pi<float>() / sx;
             float dy = (y - last_cursor_pos_.second) * glm::pi<float>() / sy;
 
@@ -105,7 +105,7 @@ void SceneNavigator::onCursorPos(float x, float y) {
             float y1 = last_cursor_pos_.second / sy - 0.5f;
             float fy = 2.f * glm::length(look) * glm::tan(glm::radians(camera_.fov_y / 2.f));
             float fx = fy * camera_.aspect;
-            
+
             auto p0 = right * x0 * fx - up * y0 * fy;
             auto p1 = right * x1 * fx - up * y1 * fy;
             auto t = p1 - p0;
@@ -116,7 +116,7 @@ void SceneNavigator::onCursorPos(float x, float y) {
             setCameraToRenderer();
         }
     }
-    
+
     last_cursor_pos_ = std::make_pair(x, y);
 }
 
@@ -124,7 +124,7 @@ void SceneNavigator::tick(float time) {
     // update position
     camera_.position += velocity_ * time;
     camera_.center += velocity_ * time;
-    
+
     // update velocity
     auto force_direction = glm::vec3(0.f);
     if (auto window = weak_window_.lock()) {
@@ -143,7 +143,7 @@ void SceneNavigator::tick(float time) {
     }
     if (force_direction != glm::vec3(0.f)) {
         force_direction = glm::normalize(force_direction);
-        
+
         auto look_at_direction = camera_.center - camera_.position;
         auto look_at_direction_length = glm::length(look_at_direction);
         if (look_at_direction_length > 1e-4f) {
@@ -155,16 +155,16 @@ void SceneNavigator::tick(float time) {
         if (glm::length(glm::cross(look_at_direction, camera_.up)) > 1e-4f) {
             transform_inv = glm::mat3(glm::lookAt(camera_.position, camera_.center, camera_.up));
         }
-        
+
         force_direction = force_direction * transform_inv;
     }
-    
+
     const float damping_time = 0.5f;
     const float accelerate_time = 0.25f;
     const float stop_speed = 0.1f;
     const float damp = 2.f / damping_time;
     const float acceleration = 1.f / accelerate_time;
-    
+
     float current_speed = glm::length(velocity_);
     if (force_direction == glm::vec3(0.f)) {
         float new_speed = current_speed - current_speed * time * damp;
@@ -186,7 +186,7 @@ void SceneNavigator::tick(float time) {
             velocity_ = velocity_ * (max_speed_ / new_speed);
         }
     }
-    
+
     setCameraToRenderer();
 }
 

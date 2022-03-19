@@ -43,10 +43,10 @@ int main(int, char**) {
     gfx->createImageResources(image);
     auto sampler = wg::Sampler::Create(image);
     gfx->createSamplerResources(sampler);
-    
+
     auto sampler_layout = wg::GfxSamplerLayout{}
         .addDescription({ .binding = 2, .stages = wg::shader_stages::frag });
-    
+
     auto quad_vertices = std::vector<wg::SimpleVertex>{
         { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 1.f } },
         { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 1.f, 1.f } },
@@ -114,7 +114,7 @@ int main(int, char**) {
         }
     );
     renderer->markUniformDirty(quad_draw_command, wg::uniform_attributes::model);
-    
+
     float time = 0.f;
     app->loop(
         [&](float duration) {

@@ -12,16 +12,16 @@
 
 int main(int, char**) {
     auto app = wg::App::Create("wegnine-gfx-example-anisotropy", std::make_tuple(0, 0, 1));
-    
+
     int width = 400, height = 300;
     std::vector<std::shared_ptr<wg::Window>> windows;
-    
+
     auto max_anisotropies = std::array{ 8.f, 4.f, 2.f, 0.f };
     for (float max_anisotropy : max_anisotropies) {
         windows.emplace_back(app->createWindow(width, height, fmt::format("max anisotropy {}", max_anisotropy)));
     }
     wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), windows, 2, 2);
-    
+
     wg::EngineConfig::Get().set("gfx-max-sampler-anisotropy", 8.f);
 
     auto gfx = wg::Gfx::Create(app);
@@ -50,12 +50,12 @@ int main(int, char**) {
     for (auto&& data : render_data) {
         data->createGfxResources(*gfx);
     }
-    
+
     auto create_render_target = [&](
         float max_anisotropy,
         const std::shared_ptr<wg::Window>& window
     ) -> std::weak_ptr<wg::RenderTarget> {
-        
+
         std::vector<std::shared_ptr<wg::IRenderData>> window_render_data;
 
         auto material = wg::Material::Create(
@@ -64,7 +64,7 @@ int main(int, char**) {
         );
         material->addTexture(texture, { .max_anisotropy = max_anisotropy });
         window_render_data.emplace_back(material->createRenderData());
-        
+
         auto quad_component = wg::MeshComponent::Create("quad");
         quad_component->setTransform(wg::Transform());
         quad_component->setMaterial(material);
@@ -86,7 +86,7 @@ int main(int, char**) {
         app->registerWindowData(window, render_target);
         return render_target->weak_from_this();
     };
-    
+
     std::vector<std::weak_ptr<wg::RenderTarget>> weak_render_targets;
     for (size_t i = 0; i < windows.size(); ++i) {
         weak_render_targets.emplace_back(create_render_target(max_anisotropies[i], windows[i]));

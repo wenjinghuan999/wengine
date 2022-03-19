@@ -4,6 +4,7 @@
 #include <fmt/format.h>
 
 #include "platform.inc"
+
 #include "common/math.h"
 #include "common/logger.h"
 #include "platform/platform.h"
@@ -38,12 +39,13 @@ auto& logger() {
 
 } // unnamed namespace
 
-template <> struct fmt::formatter<wg::Size2D> {
+template <>
+struct fmt::formatter<wg::Size2D> {
     template <typename ParseContext>
     constexpr auto parse(ParseContext& ctx) {
         return ctx.begin();
     }
-        
+
     auto format(wg::Size2D c, format_context& ctx) {
         return fmt::format_to(ctx.out(), "({},{})", c.x(), c.y());
     }

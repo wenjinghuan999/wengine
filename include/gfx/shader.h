@@ -3,6 +3,7 @@
 #include "common/common.h"
 
 #include <memory>
+#include <string>
 
 namespace wg {
 
@@ -46,4 +47,4 @@ protected:
     std::unique_ptr<Impl> impl_;
 };
 
-}
+} // namespace wg

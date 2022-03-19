@@ -1,16 +1,18 @@
 #pragma once
 
-#include <algorithm>
-#include <iterator>
-#include <functional>
-
 #include "platform/inc/platform.inc"
-#include "gfx/gfx.h"
+
 #include "gfx/render-target.h"
+
+#include "gfx/gfx.h"
 #include "gfx/gfx-pipeline.h"
 #include "gfx/gfx-buffer.h"
 #include "common/owned-resources.h"
 #include "gfx-constants-private.h"
+
+#include <algorithm>
+#include <iterator>
+#include <functional>
 
 namespace wg {
 

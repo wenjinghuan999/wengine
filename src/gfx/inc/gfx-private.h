@@ -2,12 +2,8 @@
 
 #include "platform/inc/platform.inc"
 
-#include <array>
-#include <bitset>
-#include <vector>
-#include <tuple>
-
 #include "gfx/gfx.h"
+
 #include "common/owned-resources.h"
 #include "gfx/inc/surface-private.h"
 #include "gfx/inc/shader-private.h"
@@ -15,6 +11,11 @@
 #include "gfx/inc/render-target-private.h"
 #include "gfx/inc/gfx-buffer-private.h"
 #include "gfx/inc/image-private.h"
+
+#include <array>
+#include <bitset>
+#include <vector>
+#include <tuple>
 
 namespace wg {
 

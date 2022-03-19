@@ -1,10 +1,11 @@
-#include <fstream>
-
-#include "gfx/gfx.h"
 #include "gfx/shader.h"
+
 #include "common/logger.h"
+#include "gfx/gfx.h"
 #include "gfx-private.h"
 #include "shader-private.h"
+
+#include <fstream>
 
 namespace {
 

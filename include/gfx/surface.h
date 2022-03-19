@@ -1,11 +1,11 @@
 #pragma once
 
-#include <memory>
-
 #include "common/common.h"
 #include "common/math.h"
 #include "gfx/gfx-constants.h"
 #include "platform/platform.h"
+
+#include <memory>
 
 namespace wg {
 
@@ -35,4 +35,4 @@ protected:
     std::unique_ptr<Impl> impl_;
 };
 
-}
+} // namespace wg

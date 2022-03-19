@@ -3,6 +3,7 @@
 
 #include <fmt/format.h>
 
+#include "common/config.h"
 #include "platform/platform.h"
 #include "gfx/gfx.h"
 #include "engine/material.h"
@@ -10,8 +11,6 @@
 #include "engine/mesh-component.h"
 #include "engine/scene-renderer.h"
 #include "engine/texture.h"
-#include "common/logger.h"
-#include "common/config.h"
 
 #include <filesystem>
 #include <fstream>

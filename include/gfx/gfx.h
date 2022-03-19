@@ -40,7 +40,7 @@ enum FeatureId {
 
 extern const char* const FEATURE_NAMES[NUM_FEATURES_TOTAL];
 
-}
+} // namespace gfx_features
 
 struct GfxSetup {
     float max_sampler_anisotropy = 0.f;
@@ -112,7 +112,7 @@ public:
     [[nodiscard]] bool valid() const;
     [[nodiscard]] const GfxFeaturesManager& features_manager() const { return features_manager_; }
     [[nodiscard]] const GfxSetup& setup() const { return setup_; }
-    
+
     void loadGlobalSetupFromConfig();
 
     // Surface
@@ -182,7 +182,7 @@ public:
         const std::shared_ptr<GfxBufferBase>& cpu_buffer,
         const std::shared_ptr<GfxBufferBase>& gpu_buffer, bool hint_use_stage_buffer = false
     );
-    
+
     // Image
     void createImageResources(const std::shared_ptr<Image>& image);
     void commitImage(const std::shared_ptr<Image>& image);
@@ -190,7 +190,7 @@ public:
         const std::shared_ptr<Image>& cpu_image,
         const std::shared_ptr<Image>& gpu_image
     );
-    
+
     // Sampler
     void createSamplerResources(const std::shared_ptr<Sampler>& image);
 
@@ -235,4 +235,4 @@ protected:
     std::unique_ptr<Impl> impl_;
 };
 
-}
+} // namespace wg

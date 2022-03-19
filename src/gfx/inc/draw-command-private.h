@@ -1,11 +1,13 @@
 #pragma once
 
-#include <functional>
-
 #include "platform/inc/platform.inc"
+
 #include "gfx/draw-command.h"
+
 #include "gfx/gfx-pipeline.h"
 #include "gfx-pipeline-private.h"
+
+#include <functional>
 
 namespace wg {
 

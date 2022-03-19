@@ -9,7 +9,7 @@
 
 int main(int, char**) {
     auto app = wg::App::Create("wegnine-gfx-example-sampler", std::make_tuple(0, 0, 1));
-    
+
     auto window_filter = app->createWindow(800, 300, "nearest vs linear filter");
     auto window_address_mode = app->createWindow(800, 600, "repeat, mirrored repeat, clamp to edge, clamp to border, mirror clamp to edge");
     wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), { window_filter, window_address_mode }, 2, 3);
@@ -41,7 +41,7 @@ int main(int, char**) {
         { .mag_filter = wg::image_sampler::nearest, .min_filter = wg::image_sampler::nearest, .address_u = wg::image_sampler::clamp_to_edge, .address_v = wg::image_sampler::clamp_to_edge }
     );
     render_data_filter.emplace_back(material_nearest->createRenderData());
-    
+
     auto material_linear = wg::Material::Create(
         "linear",
         "shader/static/simple.vert.spv", "shader/static/simple.frag.spv"
@@ -71,7 +71,7 @@ int main(int, char**) {
         { .mag_filter = wg::image_sampler::nearest, .min_filter = wg::image_sampler::nearest, .address_u = wg::image_sampler::repeat, .address_v = wg::image_sampler::repeat }
     );
     render_data_address_mode.emplace_back(material_repeat->createRenderData());
-    
+
     auto material_mirrored_repeat = wg::Material::Create(
         "mirrored repeat",
         "shader/static/simple.vert.spv", "shader/static/simple.frag.spv"
@@ -81,7 +81,7 @@ int main(int, char**) {
         { .mag_filter = wg::image_sampler::nearest, .min_filter = wg::image_sampler::nearest, .address_u = wg::image_sampler::mirrored_repeat, .address_v = wg::image_sampler::mirrored_repeat }
     );
     render_data_address_mode.emplace_back(material_mirrored_repeat->createRenderData());
-    
+
     auto material_clamp_edge = wg::Material::Create(
         "clamp to edge",
         "shader/static/simple.vert.spv", "shader/static/simple.frag.spv"
@@ -91,7 +91,7 @@ int main(int, char**) {
         { .mag_filter = wg::image_sampler::nearest, .min_filter = wg::image_sampler::nearest, .address_u = wg::image_sampler::clamp_to_edge, .address_v = wg::image_sampler::clamp_to_edge }
     );
     render_data_address_mode.emplace_back(material_clamp_edge->createRenderData());
-    
+
     auto material_clamp_border = wg::Material::Create(
         "clamp to border",
         "shader/static/simple.vert.spv", "shader/static/simple.frag.spv"
@@ -101,7 +101,7 @@ int main(int, char**) {
         { .mag_filter = wg::image_sampler::nearest, .min_filter = wg::image_sampler::nearest, .address_u = wg::image_sampler::clamp_to_border, .address_v = wg::image_sampler::clamp_to_border }
     );
     render_data_address_mode.emplace_back(material_clamp_border->createRenderData());
-    
+
     auto material_mirror_clamp_edge = wg::Material::Create(
         "mirror clamp to edge",
         "shader/static/simple.vert.spv", "shader/static/simple.frag.spv"
@@ -111,7 +111,7 @@ int main(int, char**) {
         { .mag_filter = wg::image_sampler::nearest, .min_filter = wg::image_sampler::nearest, .address_u = wg::image_sampler::mirror_clamp_to_edge, .address_v = wg::image_sampler::mirror_clamp_to_edge }
     );
     render_data_address_mode.emplace_back(material_mirror_clamp_edge->createRenderData());
-    
+
     auto quad_filter_vertices = std::vector<wg::SimpleVertex>{
         { .position = { -0.5f, -0.5f, 0.f }, .color = { 0.f, 0.f, 0.f }, .tex_coord = { 0.f, 1.f } },
         { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 0.f, 0.f }, .tex_coord = { 1.f, 1.f } },
@@ -121,7 +121,7 @@ int main(int, char**) {
     auto quad_indices = std::vector<uint32_t>{ 0, 1, 2, 2, 3, 0 };
     auto quad_filter_mesh = wg::Mesh::CreateFromVertices("quad filter", quad_filter_vertices, quad_indices);
     render_data_filter.emplace_back(quad_filter_mesh->createRenderData());
-    
+
     auto quad_address_mode_vertices = std::vector<wg::SimpleVertex>{
         { .position = { -0.5f, -0.5f, 0.f }, .color = { 0.f, 0.f, 0.f }, .tex_coord = { -1.f, 2.f } },
         { .position = { 0.5f, -0.5f, 0.f }, .color = { 0.f, 0.f, 0.f }, .tex_coord = { 2.f, 2.f } },
@@ -136,13 +136,13 @@ int main(int, char**) {
     nearest_component->setMaterial(material_nearest);
     nearest_component->setMesh(quad_filter_mesh);
     render_data_filter.emplace_back(nearest_component->createRenderData());
-    
+
     auto linear_component = wg::MeshComponent::Create("linear");
     linear_component->setTransform(wg::Transform{ glm::translate(glm::mat4(1.f), glm::vec3{ 0.f, 0.f, 0.f }) });
     linear_component->setMaterial(material_linear);
     linear_component->setMesh(quad_filter_mesh);
     render_data_filter.emplace_back(linear_component->createRenderData());
-    
+
     auto cubic_component = wg::MeshComponent::Create("cubic");
     cubic_component->setTransform(wg::Transform{ glm::translate(glm::mat4(1.f), glm::vec3{ 1.1f, 0.f, 0.f }) });
     cubic_component->setMaterial(material_cubic);
@@ -171,25 +171,25 @@ int main(int, char**) {
     repeat_component->setMaterial(material_repeat);
     repeat_component->setMesh(quad_address_mode_mesh);
     render_data_address_mode.emplace_back(repeat_component->createRenderData());
-    
+
     auto mirrored_repeat_component = wg::MeshComponent::Create("mirrored repeat");
     mirrored_repeat_component->setTransform(wg::Transform{ glm::translate(glm::mat4(1.f), glm::vec3{ 0.f, 0.6f, 0.f }) });
     mirrored_repeat_component->setMaterial(material_mirrored_repeat);
     mirrored_repeat_component->setMesh(quad_address_mode_mesh);
     render_data_address_mode.emplace_back(mirrored_repeat_component->createRenderData());
-    
+
     auto clamp_edge_component = wg::MeshComponent::Create("clamp to edge");
     clamp_edge_component->setTransform(wg::Transform{ glm::translate(glm::mat4(1.f), glm::vec3{ 1.1f, 0.6f, 0.f }) });
     clamp_edge_component->setMaterial(material_clamp_edge);
     clamp_edge_component->setMesh(quad_address_mode_mesh);
     render_data_address_mode.emplace_back(clamp_edge_component->createRenderData());
-    
+
     auto clamp_border_component = wg::MeshComponent::Create("clamp to border");
     clamp_border_component->setTransform(wg::Transform{ glm::translate(glm::mat4(1.f), glm::vec3{ -1.1f, -0.6f, 0.f }) });
     clamp_border_component->setMaterial(material_clamp_border);
     clamp_border_component->setMesh(quad_address_mode_mesh);
     render_data_address_mode.emplace_back(clamp_border_component->createRenderData());
-    
+
     auto mirror_clamp_edge_component = wg::MeshComponent::Create("mirror clamp to edge");
     mirror_clamp_edge_component->setTransform(wg::Transform{ glm::translate(glm::mat4(1.f), glm::vec3{ 0.f, -0.6f, 0.f }) });
     mirror_clamp_edge_component->setMaterial(material_mirror_clamp_edge);
@@ -214,7 +214,7 @@ int main(int, char**) {
     renderer_address_mode->addComponent(clamp_border_component);
     renderer_address_mode->addComponent(mirror_clamp_edge_component);
     render_data_address_mode.emplace_back(renderer_address_mode->createRenderData());
-    
+
     for (auto&& data : render_data_filter) {
         data->createGfxResources(*gfx);
     }
@@ -224,11 +224,11 @@ int main(int, char**) {
 
     auto weak_render_target_filter = render_target_filter->weak_from_this();
     auto weak_render_target_address_mode = render_target_address_mode->weak_from_this();
-    
+
     app->registerWindowData(window_filter, std::move(render_data_filter));
     app->registerWindowData(window_filter, std::move(render_target_filter));
     window_filter.reset();
-    
+
     app->registerWindowData(window_address_mode, std::move(render_data_address_mode));
     app->registerWindowData(window_address_mode, std::move(render_target_address_mode));
     window_address_mode.reset();

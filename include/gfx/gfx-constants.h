@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+#include <string>
+
 namespace wg {
 
 namespace gfx_queues {
@@ -14,7 +17,7 @@ enum QueueId {
 
 extern const char* const QUEUE_NAMES[NUM_QUEUES];
 
-}
+} // namespace gfx_queues
 
 namespace gfx_formats {
 
@@ -298,7 +301,7 @@ auto ForEachFormat(Func func) -> std::enable_if_t<std::is_same_v<decltype(func(g
     }
 }
 
-}
+} // namespace gfx_formats
 
 class IRenderData {
 public:
@@ -315,7 +318,7 @@ public:
     static std::shared_ptr<DummyRenderData> Create() {
         return std::shared_ptr<DummyRenderData>(new DummyRenderData());
     }
-    
+
     void createGfxResources(class Gfx& gfx) override {}
 
 protected:

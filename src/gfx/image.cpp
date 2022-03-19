@@ -1,12 +1,12 @@
-﻿#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+﻿#include "gfx/image.h"
 
-#include "common/config.h"
-#include "gfx/gfx.h"
-#include "gfx/image.h"
 #include "common/logger.h"
+#include "gfx/gfx.h"
 #include "gfx-private.h"
 #include "image-private.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 namespace {
 
@@ -416,7 +416,7 @@ void Gfx::createSamplerResources(const std::shared_ptr<Sampler>& sampler) {
         return;
     }
     waitDeviceIdle();
-    
+
     if (!sampler->image_) {
         logger().error("Cannot create sampler resources because image is not available.");
         return;
@@ -446,11 +446,13 @@ void Gfx::Impl::createSampler(const ImageResources& image_resources, SamplerConf
     bool integer_format = gfx_formats::IsIntegerFormat(gfx_formats::FromVkFormat(image_resources.format));
     auto mag_filter = getCompatibleFilter(config.mag_filter, gfx_formats::FromVkFormat(image_resources.format));
     auto min_filter = getCompatibleFilter(config.min_filter, gfx_formats::FromVkFormat(image_resources.format));
-    
+
     auto get_compatible_address_mode = [this](image_sampler::AddressMode address_mode) {
         if (address_mode == image_sampler::mirror_clamp_to_edge) {
             if (!gfx->features_manager().feature_enabled(gfx_features::sampler_mirror_clamp_to_edge)) {
-                logger().warn("Sampler address mode mirror_clamp_to_edge can not be applied because feature \"gfx-sampler-mirror-clamp-to-edge\" is not enabled. Use mirrored_repeat instead.");
+                logger().warn(
+                    "Sampler address mode mirror_clamp_to_edge can not be applied because feature \"gfx-sampler-mirror-clamp-to-edge\" is not enabled. Use mirrored_repeat instead."
+                );
                 return image_sampler::mirrored_repeat;
             }
         }
@@ -499,7 +501,7 @@ image_sampler::Filter Gfx::Impl::getCompatibleFilter(image_sampler::Filter filte
 vk::SampleCountFlagBits Gfx::Impl::getMaxSampleCount(vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect) const {
     if (gfx->features_manager().feature_enabled(gfx_features::msaa)) {
         auto device_properties = gfx->physical_device().impl_->vk_physical_device.getProperties();
-        
+
         auto sample_counts = static_cast<vk::SampleCountFlags>(VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM);
         if ((usage & vk::ImageUsageFlagBits::eColorAttachment) && (aspect & vk::ImageAspectFlagBits::eColor)) {
             sample_counts &= device_properties.limits.framebufferColorSampleCounts;
@@ -519,7 +521,7 @@ vk::SampleCountFlagBits Gfx::Impl::getMaxSampleCount(vk::ImageUsageFlags usage, 
         if ((usage & vk::ImageUsageFlagBits::eSampled) && (aspect & vk::ImageAspectFlagBits::eStencil)) {
             sample_counts &= device_properties.limits.sampledImageStencilSampleCounts;
         }
-        
+
         if (sample_counts == static_cast<vk::SampleCountFlags>(VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM)) {
             return vk::SampleCountFlagBits::e1;
         }

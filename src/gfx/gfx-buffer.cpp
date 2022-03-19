@@ -1,6 +1,7 @@
-#include "gfx/gfx.h"
 #include "gfx/gfx-buffer.h"
+
 #include "common/logger.h"
+#include "gfx/gfx.h"
 #include "gfx-private.h"
 #include "gfx-buffer-private.h"
 
@@ -172,11 +173,11 @@ void Gfx::Impl::createReferenceBufferResources(
     gfx->waitDeviceIdle();
 
     auto resources = std::make_unique<GfxBufferResources>();
-    
+
     QueueInfoRef transfer_queue;
     resources->cpu_data_size = cpu_buffer->data_size();
     resources->sharing_mode = getTransferQueue(transfer_queue);
-    
+
     uint32_t graphics_family_index = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0].queue_family_index;
     std::vector<uint32_t> queue_family_indices = { graphics_family_index };
     if (graphics_family_index != transfer_queue.queue_family_index) {

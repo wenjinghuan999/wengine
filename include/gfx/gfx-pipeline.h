@@ -75,7 +75,6 @@ protected:
     friend class Gfx;
 };
 
-
 class GfxPipeline : public std::enable_shared_from_this<GfxPipeline> {
 public:
     static std::shared_ptr<GfxPipeline> Create();
@@ -110,4 +109,4 @@ protected:
     std::unique_ptr<Impl> impl_;
 };
 
-}
+} // namespace wg

@@ -1,9 +1,10 @@
-#include "gfx/gfx.h"
 #include "engine/mesh-component.h"
+
 #include "common/logger.h"
+#include "gfx/gfx.h"
 
 namespace {
-    
+
 [[nodiscard]] auto& logger() {
     static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
@@ -36,7 +37,7 @@ std::shared_ptr<IRenderData> MeshComponent::createRenderData() {
         }
         draw_command->addUniformBuffer(render_data_->model_uniform_buffer);
         for (size_t i = 0; i < material_render_data_->pipeline->sampler_layout().descriptions().size(); ++i) {
-            if (i < material_->textures().size()){
+            if (i < material_->textures().size()) {
                 auto&& description = material_render_data_->pipeline->sampler_layout().descriptions()[i];
                 auto&& sampler = material_->render_data()->samplers[i];
                 draw_command->addSampler(description.binding, sampler);

@@ -1,19 +1,20 @@
 #include "platform/inc/platform.inc"
 
+#include "gfx/gfx.h"
+
+#include "common/constants.h"
+#include "common/logger.h"
+#include "gfx/gfx-constants.h"
+#include "platform/platform.h"
+#include "platform/inc/window-private.h"
+#include "gfx-private.h"
+
 #include <algorithm>
 #include <map>
 #include <vector>
 #include <string_view>
 #include <tuple>
 #include <utility>
-
-#include "gfx/gfx.h"
-#include "common/logger.h"
-#include "common/constants.h"
-#include "gfx/gfx-constants.h"
-#include "platform/platform.h"
-#include "platform/inc/window-private.h"
-#include "gfx-private.h"
 
 namespace {
 
@@ -339,8 +340,7 @@ void Gfx::updatePhysicalDevices() {
         .enumeratePhysicalDevices();
 
     for (auto&& vk_physical_device : vk_physical_devices) {
-        std::string name = vk_physical_device.getProperties()
-            .deviceName;
+        std::string name = vk_physical_device.getProperties().deviceName;
 
         auto& physical_device = physical_devices_.emplace_back(std::make_unique<PhysicalDevice>(name));
         physical_device->impl_ = std::make_unique<PhysicalDevice::Impl>(std::move(vk_physical_device));
@@ -383,8 +383,7 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
 
         score += static_cast<int>(static_cast<uint32_t>(property.limits.sampledImageColorSampleCounts)) * 10;
 
-        score += static_cast<int>(property.limits
-            .maxImageDimension2D);
+        score += static_cast<int>(property.limits.maxImageDimension2D);
 
         if (features.geometryShader) {
             score += 100;
@@ -411,7 +410,7 @@ void Gfx::selectBestPhysicalDevice(int hint_index) {
             if (!resources) {
                 continue;
             }
-            
+
             for (uint32_t family_index = 0; family_index < device.impl_->num_queues.size(); ++family_index) {
                 if (device.impl_->vk_physical_device.getSurfaceSupportKHR(family_index, *resources->vk_surface)) {
                     has_any_family = true;
@@ -715,8 +714,7 @@ void Gfx::createLogicalDevice() {
     available_features.getDeviceFeatures(vk_physical_device, num_queues_total);
 
     logger().info(
-        "{} device layers available.", available_features.device_layers
-            .size()
+        "{} device layers available.", available_features.device_layers.size()
     );
     for (auto&& layer : available_features.device_layers) {
         logger().debug(
@@ -853,32 +851,19 @@ void Gfx::createLogicalDevice() {
     logical_device_->impl_ = std::make_unique<LogicalDevice::Impl>(std::move(vk_device));
 
     // Get all queues
-    logical_device_->impl_
-        ->allocated_queues
-        .resize(
-            physical_device().impl_
-                ->num_queues
-                .size()
-        );
+    logical_device_->impl_->allocated_queues.resize(physical_device().impl_->num_queues.size());
     for (auto&&[queue_family_index, queue_count] : queue_counts) {
         for (uint32_t queue_index_in_family = 0; queue_index_in_family < queue_count; ++queue_index_in_family) {
             auto queue_info = std::make_unique<QueueInfo>();
             queue_info->queue_family_index = queue_family_index;
             queue_info->queue_index_in_family = queue_index_in_family;
-            queue_info->vk_queue =
-                logical_device_->impl_
-                    ->vk_device
-                    .getQueue(queue_family_index, queue_index_in_family);
+            queue_info->vk_queue = logical_device_->impl_->vk_device.getQueue(queue_family_index, queue_index_in_family);
 
             auto command_pool_create_info = vk::CommandPoolCreateInfo{
                 .queueFamilyIndex = queue_family_index
             };
-            queue_info->vk_command_pool = logical_device_->impl_
-                ->vk_device
-                .createCommandPool(command_pool_create_info);
-
-            logical_device_->impl_
-                ->allocated_queues[queue_family_index].emplace_back(std::move(queue_info));
+            queue_info->vk_command_pool = logical_device_->impl_->vk_device.createCommandPool(command_pool_create_info);
+            logical_device_->impl_->allocated_queues[queue_family_index].emplace_back(std::move(queue_info));
         }
     }
 
@@ -890,20 +875,17 @@ void Gfx::createLogicalDevice() {
             uint32_t queue_index_in_family = kv.second;
 
             const auto& queue_info =
-                *logical_device_->impl_
-                    ->allocated_queues[queue_family_index][queue_index_in_family].get();
+                *logical_device_->impl_->allocated_queues[queue_family_index][queue_index_in_family].get();
 
             auto queue_info_ref = QueueInfoRef{
                 .queue_id = queue_id,
                 .queue_family_index = queue_family_index,
                 .queue_index_in_family = queue_index_in_family,
-                .vk_device = &logical_device_->impl_
-                    ->vk_device,
+                .vk_device = &logical_device_->impl_->vk_device,
                 .vk_queue = *queue_info.vk_queue,
                 .vk_command_pool = *queue_info.vk_command_pool
             };
-            logical_device_->impl_
-                ->queue_references[queue_id].emplace_back(queue_info_ref);
+            logical_device_->impl_->queue_references[queue_id].emplace_back(queue_info_ref);
         }
     }
 
@@ -913,20 +895,14 @@ void Gfx::createLogicalDevice() {
     for (auto& window_surface : impl_->window_resources_) {
         bool result = createSurfaceResources(window_surface.surface);
         if (!result) {
-            logger().error(
-                "Failed to create surface resources for window \"{}\".",
-                window_surface.surface
-                    ->window_title()
-            );
+            logger().error("Failed to create surface resources for window \"{}\".", window_surface.surface->window_title());
         }
     }
 }
 
 void Gfx::waitDeviceIdle() {
     if (logical_device_) {
-        logical_device_->impl_
-            ->vk_device
-            .waitIdle();
+        logical_device_->impl_->vk_device.waitIdle();
     }
 }
 
@@ -993,7 +969,6 @@ void GfxFeaturesManager::AddFeatureImpl(
     gfx_features::FeatureId feature,
     std::vector<gfx_features::FeatureId>& features
 ) {
-
     if (std::find(features.begin(), features.end(), feature) == features.end()) {
         features.push_back(feature);
     }
@@ -1003,7 +978,6 @@ void GfxFeaturesManager::RemoveFeatureImpl(
     gfx_features::FeatureId feature,
     std::vector<gfx_features::FeatureId>& features
 ) {
-
     features.erase(std::remove(features.begin(), features.end(), feature), features.end());
 }
 
@@ -1011,7 +985,6 @@ bool GfxFeaturesManager::ContainsImpl(
     gfx_features::FeatureId feature,
     const std::vector<gfx_features::FeatureId>& features
 ) {
-
     return std::find(features.begin(), features.end(), feature) != features.end();
 }
 
@@ -1019,7 +992,6 @@ void GfxFeaturesManager::GetQueuesImpl(
     std::array<int, gfx_queues::NUM_QUEUES>& queues,
     const std::vector<gfx_features::FeatureId>& features
 ) {
-
     for (auto&& feature_id : features) {
         auto feature = VulkanFeatures::GetVulkanFeatures(feature_id);
         for (int i = 0; i < gfx_queues::NUM_QUEUES; ++i) {

@@ -25,7 +25,7 @@ public:
     static constexpr bool is_float_v = std::is_floating_point_v<std::remove_cvref_t<T>>;
 
     template <typename T>
-    static constexpr bool is_int_v = !std::is_same_v<bool, std::remove_cvref_t<T>> && !is_float_v<std::remove_cvref_t<T>> && 
+    static constexpr bool is_int_v = !std::is_same_v<bool, std::remove_cvref_t<T>> && !is_float_v<std::remove_cvref_t<T>> &&
         std::is_convertible_v<std::remove_cvref_t<T>, int> && std::is_convertible_v<int, std::remove_cvref_t<T>>;
 
     template <typename T>
@@ -63,7 +63,9 @@ public:
     }
 
     template <typename T>
-    std::enable_if_t<is_string_v<T> || is_char_array_v<T> || std::is_same_v<std::remove_cvref_t<T>, char*> || std::is_same_v<std::remove_cvref_t<T>, const char*>, void>
+    std::enable_if_t<
+        is_string_v<T> || is_char_array_v<T> || std::is_same_v<std::remove_cvref_t<T>, char*> || std::is_same_v<std::remove_cvref_t<T>, const char*>,
+        void>
     set(const std::string& key, T&& value) {
         dirty_ = true;
         return ConfigHelper<std::string>().set(impl_.get(), key, static_cast<std::string>(value));

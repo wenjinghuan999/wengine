@@ -1,4 +1,5 @@
 #include "common/config.h"
+
 #include "nlohmann/json.hpp"
 
 #include <fstream>
@@ -89,4 +90,4 @@ template void Config::ConfigHelper<float>::set(Config::Impl*, const std::string&
 template void Config::ConfigHelper<bool>::set(Config::Impl*, const std::string&, const bool&);
 template void Config::ConfigHelper<std::string>::set(Config::Impl*, const std::string&, const std::string&);
 
-}// namespace wg
+} // namespace wg

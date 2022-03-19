@@ -1,11 +1,11 @@
 #pragma once
 
-#include <memory>
-#include <string>
-
 #include "common/common.h"
 #include "gfx/renderer.h"
 #include "engine/mesh-component.h"
+
+#include <memory>
+#include <string>
 
 namespace wg {
 
@@ -41,7 +41,7 @@ public:
     }
 
     void onFramebufferResized(int width, int height) override;
-    
+
     void setRenderTarget(const std::shared_ptr<RenderTarget>& render_target) { weak_render_target_ = render_target; }
 
     void addComponent(const std::shared_ptr<MeshComponent>& component) {
@@ -53,11 +53,13 @@ public:
 
     void setCamera(Camera camera);
     const Camera& camera() const { return camera_; }
-    
+
     void updateComponentTransform(const std::shared_ptr<MeshComponent>& component) {
-        component->render_data()->model_uniform_buffer->setUniformObject({
-            .model_mat = component->transform().transform
-        });
+        component->render_data()->model_uniform_buffer->setUniformObject(
+            {
+                .model_mat = component->transform().transform
+            }
+        );
         for (const auto& draw_command : component->render_data()->draw_commands) {
             markUniformDirty(draw_command, uniform_attributes::model);
         }
@@ -79,5 +81,4 @@ protected:
     CameraUniform createUniformObject();
 };
 
-
-}
+} // namespace wg

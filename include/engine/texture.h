@@ -1,13 +1,13 @@
 ﻿#pragma once
 
-#include <memory>
-#include <string>
-#include <vector>
-
 #include "common/common.h"
 #include "common/math.h"
 #include "gfx/gfx-constants.h"
 #include "gfx/image.h"
+
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace wg {
 
@@ -52,4 +52,4 @@ protected:
     );
 };
 
-}
+} // namespace wg

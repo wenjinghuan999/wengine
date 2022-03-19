@@ -1,6 +1,7 @@
-#include "gfx/gfx.h"
 #include "engine/material.h"
+
 #include "common/logger.h"
+#include "gfx/gfx.h"
 
 namespace {
 
@@ -48,7 +49,7 @@ std::shared_ptr<IRenderData> Material::createRenderData() {
     render_data_->pipeline->setSamplerLayout(createSamplerLayout());
     render_data_->pipeline->addShader(vert_shader);
     render_data_->pipeline->addShader(frag_shader);
-    
+
     for (auto&& texture : textures_) {
         render_data_->samplers.push_back(texture.sampler);
     }

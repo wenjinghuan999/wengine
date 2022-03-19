@@ -1,5 +1,6 @@
-#include "gfx/gfx.h"
 #include "gfx/draw-command.h"
+
+#include "gfx/gfx.h"
 #include "gfx/gfx-buffer.h"
 #include "common/logger.h"
 #include "gfx-private.h"

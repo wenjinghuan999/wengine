@@ -1,11 +1,11 @@
 ﻿#pragma once
 
-#include <memory>
-#include <string>
-
 #include "platform/platform.h"
 #include "engine/scene-renderer.h"
 #include "platform/platform-constants.h"
+
+#include <memory>
+#include <string>
 
 namespace wg {
 

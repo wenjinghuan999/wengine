@@ -41,7 +41,7 @@ int main(int, char**) {
     auto quad_indices = std::vector<uint32_t>{ 0, 1, 2, 2, 3, 0 };
     auto quad_mesh = wg::Mesh::CreateFromVertices("quad", quad_vertices, quad_indices);
     render_data.emplace_back(quad_mesh->createRenderData());
-    
+
     for (auto&& data : render_data) {
         data->createGfxResources(*gfx);
     }
@@ -52,14 +52,14 @@ int main(int, char**) {
     ) -> std::weak_ptr<wg::RenderTarget> {
 
         std::vector<std::shared_ptr<wg::IRenderData>> window_render_data;
-        
+
         auto material = wg::Material::Create(
             "grid material",
             "shader/static/grid.vert.spv", "shader/static/grid.frag.spv"
         );
         material->config().min_sample_shading = min_sample_shading;
         window_render_data.emplace_back(material->createRenderData());
-        
+
         auto quad_component = wg::MeshComponent::Create("quad");
         quad_component->setTransform(wg::Transform());
         quad_component->setMaterial(material);

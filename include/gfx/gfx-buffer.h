@@ -22,7 +22,7 @@ enum VertexAttribute {
     tex_coord = 3,
 };
 
-}
+} // namespace vertex_attributes
 
 namespace index_types {
 
@@ -31,7 +31,7 @@ enum IndexType {
     index_32
 };
 
-}
+} // namespace index_types
 
 namespace uniform_attributes {
 
@@ -48,7 +48,7 @@ enum UniformAttribute {
     NUM_UNIFORMS = DRAW_COMMAND_UNIFORMS_END
 };
 
-}
+} // namespace uniform_attributes
 
 struct VertexBufferDescription {
     vertex_attributes::VertexAttribute attribute{ vertex_attributes::none };
@@ -108,17 +108,15 @@ struct SimpleVertex {
             },
         };
     }
-    
+
     inline bool operator==(const SimpleVertex&) const = default;
 };
 
 } // namespace wg
 
-template<>
-struct std::hash<wg::SimpleVertex>
-{
-    std::size_t operator()(wg::SimpleVertex const& v) const noexcept
-    {
+template <>
+struct std::hash<wg::SimpleVertex> {
+    std::size_t operator()(wg::SimpleVertex const& v) const noexcept {
         std::size_t h = std::hash<glm::vec3>{}(v.position);
         h = (h << 1) ^ std::hash<glm::vec3>{}(v.color);
         h = (h << 1) ^ std::hash<glm::vec2>{}(v.tex_coord);
@@ -382,4 +380,4 @@ protected:
     void clearCpuData() override {}
 };
 
-}
+} // namespace wg

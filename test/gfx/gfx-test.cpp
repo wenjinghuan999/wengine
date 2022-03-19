@@ -3,14 +3,13 @@
 
 #include <fmt/format.h>
 
+#include "common/config.h"
+#include "common/logger.h"
 #include "gfx/gfx.h"
 #include "gfx-private.h"
-#include "common/logger.h"
-#include "common/config.h"
 
 #include <filesystem>
 #include <fstream>
-#include <sstream>
 
 namespace {
 
@@ -136,11 +135,11 @@ TEST_CASE("allocate queues" * doctest::timeout(1)) {
     }
 }
 
-struct LocalPacked{
+struct LocalPacked {
     static std::vector<uint8_t> vert_shader;
     static std::vector<uint8_t> frag_shader;
     static std::vector<uint8_t> image;
-    
+
     static void write(const std::vector<uint8_t>& content, const std::string& filename) {
         std::ofstream out(filename, std::ios::binary);
         out.write(reinterpret_cast<const char*>(content.data()), static_cast<std::streamsize>(content.size()));
@@ -157,7 +156,7 @@ struct LocalPacked{
 
 TEST_CASE("gfx raw" * doctest::timeout(10)) {
     auto app = wg::App::Create("wegnine-gfx-example", std::make_tuple(0, 0, 1));
-    
+
     // Prepare data
     // config
     std::filesystem::create_directories("config");
@@ -166,7 +165,7 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
         out << R"({"gfx-separate-transfer": true, "gfx-max-sampler-anisotropy": 8.0})";
     }
     CHECK(std::filesystem::exists("config/engine.json"));
-    
+
     // shader
     std::filesystem::create_directories("shader");
     LocalPacked::write(LocalPacked::vert_shader, "shader/simple.vert.spv");
@@ -175,13 +174,13 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     CHECK(LocalPacked::checkSame(LocalPacked::vert_shader, "shader/simple.vert.spv"));
     CHECK(std::filesystem::exists("shader/simple.frag.spv"));
     CHECK(LocalPacked::checkSame(LocalPacked::frag_shader, "shader/simple.frag.spv"));
-    
+
     // img
     std::filesystem::create_directories("resources");
     LocalPacked::write(LocalPacked::image, "resources/image.png");
     CHECK(std::filesystem::exists("resources/image.png"));
     CHECK(LocalPacked::checkSame(LocalPacked::image, "resources/image.png"));
-    
+
     // Begin test
     auto window = app->createWindow(800, 600, "WEngine gfx example");
     window->setPositionToCenter(wg::Monitor::GetPrimary());
@@ -196,7 +195,7 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     auto frag_shader = wg::Shader::Load("shader/simple.frag.spv", wg::shader_stages::frag);
     gfx->createShaderResources(vert_shader);
     gfx->createShaderResources(frag_shader);
-    
+
     CHECK(vert_shader->loaded());
     CHECK(vert_shader->valid());
     CHECK(frag_shader->loaded());
@@ -210,7 +209,7 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     camera_uniform_object.project_mat[1][1] *= -1;
     camera_uniform_buffer->setUniformObject(camera_uniform_object);
     CHECK(camera_uniform_buffer->has_cpu_data());
-    
+
     auto quad_model_uniform_buffer = wg::UniformBuffer<wg::ModelUniform>::Create();
     CHECK(!quad_model_uniform_buffer->has_cpu_data());
     auto triangle_model_uniform_buffer = wg::UniformBuffer<wg::ModelUniform>::Create();
@@ -307,7 +306,7 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
 
     gfx->render(render_target);
     app->wait();
-    
+
     quad_model_uniform_buffer->setUniformObject(
         {
             .model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -0.2f))
@@ -322,20 +321,20 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     renderer->markUniformDirty(triangle_draw_command, wg::uniform_attributes::model);
 
     gfx->render(render_target);
-    
+
     triangle_model_uniform_buffer->setUniformObject(
         {
             .model_mat = glm::mat4(1.0f)
         }
     );
     renderer->markUniformDirty(triangle_draw_command, wg::uniform_attributes::model);
-    
+
     gfx->render(render_target);
 }
 
 // Packed data
 std::vector<uint8_t> LocalPacked::vert_shader = {
-#include "../resources/simple.vert.inc" 
+#include "../resources/simple.vert.inc"
 };
 std::vector<uint8_t> LocalPacked::frag_shader = {
 #include "../resources/simple.frag.inc"

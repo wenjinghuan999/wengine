@@ -1,10 +1,10 @@
 ﻿#pragma once
 
-#include <map>
-#include <string>
-
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+
+#include <map>
+#include <string>
 
 namespace wg {
 
@@ -29,15 +29,15 @@ public:
         if (log_level_ != spdlog::level::info) {
             logger->set_level(log_level_);
         }
-        
+
         loggers[label] = logger;
         return logger;
     }
-    
+
     static void Disable() {
         log_level_ = spdlog::level::off;
     }
-    
+
 protected:
     static spdlog::level::level_enum log_level_;
 };

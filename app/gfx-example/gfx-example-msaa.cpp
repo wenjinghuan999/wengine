@@ -21,7 +21,7 @@ int main(int, char**) {
         windows.push_back(app->createWindow(width, height, fmt::format("msaa {}x", samples)));
     }
     wg::Window::SubPlotLayout(wg::Monitor::GetPrimary(), windows, 2, 2);
-    
+
     auto create_gfx_and_render_target = [&](
         const std::shared_ptr<wg::Window>& window
     ) -> std::pair<std::weak_ptr<wg::Gfx>, std::weak_ptr<wg::RenderTarget>> {
@@ -32,7 +32,7 @@ int main(int, char**) {
         gfx->createWindowSurface(window);
         gfx->selectBestPhysicalDevice();
         gfx->createLogicalDevice();
-        
+
         window->setTitle(fmt::format("msaa {}x", gfx->setup().msaa_samples));
 
         auto texture = wg::Texture::Load("resources/img/statue.png");
@@ -54,7 +54,7 @@ int main(int, char**) {
         );
         material->addTexture(texture);
         render_data.emplace_back(material->createRenderData());
-        
+
         auto quad_component = wg::MeshComponent::Create("quad");
         quad_component->setTransform(wg::Transform());
         quad_component->setMaterial(material);
@@ -77,7 +77,7 @@ int main(int, char**) {
         app->registerWindowData(window, render_target);
         return std::make_pair(gfx->weak_from_this(), render_target->weak_from_this());
     };
-    
+
     std::vector<std::pair<std::weak_ptr<wg::Gfx>, std::weak_ptr<wg::RenderTarget>>> gfx_and_render_targets;
     for (size_t i = 0; i < msaa_samples.size(); ++i) {
         wg::EngineConfig::Get().set("gfx-msaa-samples", msaa_samples[i]);

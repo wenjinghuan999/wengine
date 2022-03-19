@@ -44,7 +44,7 @@ public:
 
     DrawCommand& addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
     void clearUniformBuffers();
-    
+
     DrawCommand& addSampler(uint32_t binding, const std::shared_ptr<Sampler>& sampler);
     void clearSamplers();
 
@@ -82,4 +82,4 @@ protected:
     DrawCommand::Impl* getImpl() override;
 };
 
-}
+} // namespace wg

@@ -1,4 +1,5 @@
 #include "platform/inc/platform.inc"
+
 #include "gfx/gfx-constants.h"
 
 namespace wg {

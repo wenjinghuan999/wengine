@@ -1,8 +1,10 @@
 #pragma once
 
-#include <string>
-
 #include "common/singleton.h"
+
+#include "fmt/format.h"
+
+#include <string>
 
 namespace wg {
 

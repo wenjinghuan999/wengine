@@ -2,6 +2,7 @@
 
 #include "common/common.h"
 #include "gfx/gfx-constants.h"
+#include "gfx/gfx-buffer.h"
 
 #include <memory>
 #include <string>
@@ -110,7 +111,7 @@ public:
     SamplerConfig config() const { return config_; }
     void setConfig(SamplerConfig config) { config_ = config; }
     const std::shared_ptr<Image>& image() const { return image_; }
-    
+
 protected:
     std::shared_ptr<Image> image_;
     SamplerConfig config_;
@@ -122,4 +123,4 @@ protected:
     std::unique_ptr<Impl> impl_;
 };
 
-}
+} // namespace wg

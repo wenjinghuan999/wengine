@@ -1,6 +1,7 @@
-﻿#include "gfx/gfx.h"
-#include "engine/texture.h"
+﻿#include "engine/texture.h"
+
 #include "common/logger.h"
+#include "gfx/gfx.h"
 
 namespace {
 

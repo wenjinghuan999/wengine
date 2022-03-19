@@ -1,9 +1,10 @@
-#include "gfx/gfx.h"
 #include "engine/scene-renderer.h"
+
 #include "common/logger.h"
+#include "gfx/gfx.h"
 
 namespace {
-    
+
 [[nodiscard]] auto& logger() {
     static auto logger_ = wg::Logger::Get("gfx");
     return *logger_;
@@ -41,13 +42,13 @@ std::shared_ptr<IRenderData> SceneRenderer::createRenderData() {
             std::copy(draw_commands.begin(), draw_commands.end(), std::back_inserter(draw_commands_));
         }
     }
-    
+
     render_data_ = std::shared_ptr<SceneRendererRenderData>(new SceneRendererRenderData());
     render_data_->weak_render_target = weak_render_target_;
     render_data_->camera_uniform_buffer = UniformBuffer<CameraUniform>::Create();
     render_data_->camera_uniform_buffer->setUniformObject(createUniformObject());
     addUniformBuffer(render_data_->camera_uniform_buffer);
-    
+
     return render_data_;
 }
 

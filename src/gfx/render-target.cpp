@@ -1,14 +1,15 @@
+#include "gfx/render-target.h"
+
+#include "common/logger.h"
 #include "gfx/gfx.h"
 #include "gfx/gfx-constants.h"
 #include "gfx/surface.h"
-#include "gfx/render-target.h"
-#include "common/logger.h"
-#include "surface-private.h"
+#include "platform/inc/window-private.h"
 #include "gfx-private.h"
 #include "render-target-private.h"
 #include "gfx-constants-private.h"
 #include "draw-command-private.h"
-#include "platform/inc/window-private.h"
+#include "surface-private.h"
 
 namespace {
 
@@ -194,7 +195,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     auto image_count = image_views.size();
 
     const bool need_resolve = sample_count > vk::SampleCountFlagBits::e1;
-    
+
     auto resources = std::make_unique<RenderTargetResources>();
     resources->device = &logical_device_->impl_->vk_device;
 
@@ -236,9 +237,9 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     }
         .setColorAttachments(color_attachments)
         .setPDepthStencilAttachment(&depth_attachment_reference);
-    
+
     std::vector<vk::AttachmentDescription> attachments = { color_attachment, depth_attachment };
-    
+
     if (need_resolve) {
         auto resolve_attachment = vk::AttachmentDescription{
             .format         = gfx_formats::ToVkFormat(render_target->format()),
@@ -251,13 +252,13 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
             .finalLayout    = vk::ImageLayout::ePresentSrcKHR
         };
         attachments.push_back(resolve_attachment);
-        
+
         auto resolve_attachment_reference = vk::AttachmentReference{
             .attachment = 2,
             .layout     = vk::ImageLayout::eColorAttachmentOptimal
         };
         auto resolve_attachments = std::array{ resolve_attachment_reference };
-        
+
         subpass_description.setResolveAttachments(resolve_attachments);
     }
 
@@ -404,7 +405,7 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
 
     // Update uniforms
     for (auto it = renderer->dirty_framebuffer_uniforms_.begin();
-         it != renderer->dirty_framebuffer_uniforms_.end(); ) {
+         it != renderer->dirty_framebuffer_uniforms_.end();) {
         auto&&[attribute, mask] = *it;
         commitFramebufferUniformBuffers(render_target, attribute, image_index);
         mask |= (1 << image_index);
@@ -415,7 +416,7 @@ void Gfx::render(const std::shared_ptr<RenderTarget>& render_target) {
         }
     }
     for (auto it = renderer->dirty_draw_command_uniforms_.begin();
-         it != renderer->dirty_draw_command_uniforms_.end(); ) {
+         it != renderer->dirty_draw_command_uniforms_.end();) {
         auto&&[key, mask] = *it;
         auto&&[draw_command_index, attribute] = key;
         commitDrawCommandUniformBuffers(render_target, draw_command_index, attribute, image_index);

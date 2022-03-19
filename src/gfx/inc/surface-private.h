@@ -1,11 +1,13 @@
 #pragma once
 
-#include <functional>
-
 #include "platform/inc/platform.inc"
+
 #include "gfx/surface.h"
+
 #include "common/owned-resources.h"
 #include "image-private.h"
+
+#include <functional>
 
 namespace wg {
 

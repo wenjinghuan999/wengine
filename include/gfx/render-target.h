@@ -4,6 +4,7 @@
 #include "common/math.h"
 #include "platform/platform.h"
 #include "gfx/renderer.h"
+#include "gfx/surface.h"
 
 #include <memory>
 
@@ -12,7 +13,7 @@ namespace wg {
 class RenderTarget : public std::enable_shared_from_this<RenderTarget> {
 public:
     virtual ~RenderTarget() = default;
-    
+
     [[nodiscard]] const std::string& name() const { return name_; }
     [[nodiscard]] virtual Size2D extent() const = 0;
     [[nodiscard]] virtual gfx_formats::Format format() const = 0;
@@ -58,4 +59,4 @@ protected:
     void recreateSurfaceResources(Gfx& gfx);
 };
 
-}
+} // namespace wg

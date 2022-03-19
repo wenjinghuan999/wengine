@@ -1,7 +1,9 @@
 ﻿#pragma once
 
 #include "platform/inc/platform.inc"
+
 #include "gfx/image.h"
+
 #include "common/owned-resources.h"
 #include "gfx-buffer-private.h"
 #include "gfx-constants-private.h"
@@ -70,7 +72,7 @@ struct ImageResources {
     vk::raii::ImageView image_view{ nullptr };
     std::vector<vk::raii::Semaphore> ownership_transfer_semaphores;
     std::vector<vk::raii::Fence> ownership_transfer_fences;
-    
+
     uint32_t width{ 0 };
     uint32_t height{ 0 };
     uint32_t mip_levels{ 0 };

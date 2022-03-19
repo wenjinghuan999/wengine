@@ -1,14 +1,14 @@
 #pragma once
 
-#include <memory>
-#include <set>
-#include <vector>
-
 #include "common/common.h"
 #include "common/math.h"
 #include "gfx/draw-command.h"
 #include "gfx/gfx-buffer.h"
 #include "gfx/gfx-constants.h"
+
+#include <memory>
+#include <map>
+#include <vector>
 
 namespace wg {
 
@@ -17,7 +17,7 @@ public:
     ~Renderer() override = default;
     [[nodiscard]] virtual const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const = 0;
     virtual void onFramebufferResized(int width, int height) {}
-    
+
     Renderer& addUniformBuffer(const std::shared_ptr<UniformBufferBase>& uniform_buffer);
     void clearUniformBuffers();
     [[nodiscard]] bool valid() const;
@@ -47,7 +47,7 @@ public:
     [[nodiscard]] static std::shared_ptr<BasicRenderer> Create() {
         return std::shared_ptr<BasicRenderer>(new BasicRenderer());
     }
-    
+
     const std::vector<std::shared_ptr<DrawCommand>>& getDrawCommands() const override {
         return draw_commands_;
     }
@@ -57,7 +57,7 @@ public:
     void clearDrawCommands() {
         draw_commands_.clear();
     }
-    
+
     std::shared_ptr<IRenderData> createRenderData() override {
         return DummyRenderData::Create();
     }
@@ -71,4 +71,4 @@ protected:
     BasicRenderer() = default;
 };
 
-}
+} // namespace wg

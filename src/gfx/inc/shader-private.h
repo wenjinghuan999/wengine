@@ -1,7 +1,9 @@
 #pragma once
 
 #include "platform/inc/platform.inc"
+
 #include "gfx/shader.h"
+
 #include "common/owned-resources.h"
 
 namespace wg {

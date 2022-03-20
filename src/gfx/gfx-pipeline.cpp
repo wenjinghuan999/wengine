@@ -46,6 +46,15 @@ void GfxUniformLayout::clearDescriptions() {
     descriptions_.clear();
 }
 
+const UniformDescription* GfxUniformLayout::getDescription(uniform_attributes::UniformAttribute attribute) const {
+    for (const auto& description : descriptions_) {
+        if (description.attribute == attribute) {
+            return &description;
+        } 
+    }
+    return nullptr;
+}
+
 GfxSamplerLayout& GfxSamplerLayout::addDescription(SamplerDescription description) {
     AddDescriptionByBindingImplTemplate(descriptions_, description);
     return *this;
@@ -85,6 +94,9 @@ void Gfx::createPipelineResources(
     // Uniform layout
     if (!pipeline->uniform_layout_.descriptions_.empty()) {
         for (auto&& description : pipeline->uniform_layout_.descriptions_) {
+            if (description.binding == std::numeric_limits<uint32_t>::max()) {
+                continue;
+            }
             layout_bindings.emplace_back(
                 vk::DescriptorSetLayoutBinding{
                     .binding            = description.binding,
@@ -121,7 +133,21 @@ void Gfx::createPipelineResources(
         set_layouts.push_back(*resources->set_layout);
     }
 
-    auto push_constant_ranges = std::array<vk::PushConstantRange, 0>{};
+    // Push constant ranges
+    auto push_constant_ranges = std::vector<vk::PushConstantRange>();
+    for (auto&& description : pipeline->uniform_layout_.descriptions_) {
+        if (description.binding != std::numeric_limits<uint32_t>::max()) {
+            continue;
+        }
+        push_constant_ranges.emplace_back(
+            vk::PushConstantRange{
+                .stageFlags = GetShaderStageFlags(description.stages),
+                .offset = description.push_constant_offset,
+                .size = description.push_constant_size,
+            }
+        );
+    }
+    
     auto pipeline_layout_create_info = vk::PipelineLayoutCreateInfo{}
         .setSetLayouts(set_layouts)
         .setPushConstantRanges(push_constant_ranges);
@@ -312,8 +338,15 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     size_t image_count = resources->framebuffer_resources.size();
     std::vector<vk::DescriptorPoolSize> descriptor_pool_sizes;
     if (*pipeline_resources->set_layout) {
-        auto uniform_descriptors_count =
-            static_cast<uint32_t>(pipeline->uniform_layout().descriptions().size() * image_count);
+        auto uniform_descriptors_count = [&pipeline]() -> uint32_t {
+            uint32_t count = 0;
+            for (auto&& description : pipeline->uniform_layout().descriptions()) {
+                if (description.binding != std::numeric_limits<uint32_t>::max()) {
+                    count++;
+                }
+            }
+            return count;
+        }() * static_cast<uint32_t>(image_count);
         if (uniform_descriptors_count > 0) {
             descriptor_pool_sizes.emplace_back(
                 vk::DescriptorPoolSize{
@@ -366,11 +399,17 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
     // Create draw command resources
     for (size_t i = 0; i < image_count; ++i) {
         std::vector<std::shared_ptr<UniformBufferBase>> gpu_uniforms;
+        std::vector<std::shared_ptr<UniformBufferBase>> push_constants;
         for (auto&&[attribute, cpu_uniform] : draw_command->uniform_buffers_) {
-            auto& gpu_uniform = gpu_uniforms.emplace_back(UniformBufferBase::Create(attribute));
-            createUniformBufferResources(gpu_uniform);
-            if (cpu_uniform->has_cpu_data()) {
-                commitReferenceBuffer(cpu_uniform, gpu_uniform);
+            auto* description = pipeline->uniform_layout().getDescription(attribute);
+            if (description && description->binding == std::numeric_limits<uint32_t>::max()) {
+                push_constants.emplace_back(cpu_uniform);
+            } else {
+                auto& gpu_uniform = gpu_uniforms.emplace_back(UniformBufferBase::Create(attribute));
+                createUniformBufferResources(gpu_uniform);
+                if (cpu_uniform->has_cpu_data()) {
+                    commitReferenceBuffer(cpu_uniform, gpu_uniform);
+                }
             }
         }
         std::map<uint32_t, std::shared_ptr<Sampler>> samplers;
@@ -386,6 +425,13 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
         if (!render_target_pipeline_resources.descriptor_sets.empty()) {
             descriptor_set = *render_target_pipeline_resources.descriptor_sets[i];
         }
+        
+        std::vector<UniformDescription> push_constant_descriptions;
+        for (auto&& description : pipeline->uniform_layout().descriptions()) {
+            if (description.binding == std::numeric_limits<uint32_t>::max()) {
+                push_constant_descriptions.emplace_back(description);
+            }
+        }
 
         resources->draw_command_resources.back().emplace_back(
             RenderTargetDrawCommandResources{
@@ -394,6 +440,8 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
                 .descriptor_set  = descriptor_set,
                 .uniforms        = std::move(gpu_uniforms),
                 .samplers        = std::move(samplers),
+                .push_constants  = std::move(push_constants),
+                .push_constant_descriptions = std::move(push_constant_descriptions),
             }
         );
     }
@@ -439,6 +487,9 @@ void Gfx::createDrawCommandResourcesForRenderTarget(
 
         for (size_t j = 0; j < pipeline->uniform_layout_.descriptions_.size(); ++j) {
             auto& description = pipeline->uniform_layout_.descriptions_[j];
+            if (description.binding == std::numeric_limits<uint32_t>::max()) {
+                continue;
+            }
             auto write_description_set = vk::WriteDescriptorSet{
                 .dstSet          = *render_target_pipeline_resources.descriptor_sets[i],
                 .dstBinding      = description.binding,

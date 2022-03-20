@@ -40,8 +40,10 @@ struct GfxPipelineState {
 
 struct UniformDescription {
     uniform_attributes::UniformAttribute attribute;
-    uint32_t binding;
+    uint32_t binding; // use std::numeric_limits<uint32_t>::max() for push constants
     shader_stages::ShaderStages stages;
+    uint32_t push_constant_offset;
+    uint32_t push_constant_size;
 };
 
 class GfxUniformLayout {
@@ -49,6 +51,7 @@ public:
     GfxUniformLayout& addDescription(UniformDescription description);
     void clearDescriptions();
     [[nodiscard]] const std::vector<UniformDescription>& descriptions() const { return descriptions_; }
+    [[nodiscard]] const UniformDescription* getDescription(uniform_attributes::UniformAttribute attribute) const;
 
 protected:
     std::vector<UniformDescription> descriptions_;

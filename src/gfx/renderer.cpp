@@ -93,8 +93,9 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
 
     // Record commands
     for (size_t i = 0; i < image_count; i++) {
-        auto command_buffer = resources->framebuffer_resources[i].command_buffer;
-        
+        auto& framebuffer_resources = resources->framebuffer_resources[i];
+        auto command_buffer = framebuffer_resources.command_buffer;
+
         command_buffer.begin(
             {
                 .flags            = {},
@@ -133,6 +134,29 @@ void Gfx::submitDrawCommands(const std::shared_ptr<RenderTarget>& render_target)
                 );
             }
             command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, draw_command_resources.pipeline);
+
+            // push constants
+            for (auto&& description : draw_command_resources.push_constant_descriptions) {
+                const void* push_constant_data = [&description, &framebuffer_resources, &draw_command_resources]() -> const void* {
+                    for (const auto& push_constant : draw_command_resources.push_constants) {
+                        if (description.attribute == push_constant->description().attribute) {
+                            return push_constant->data();
+                        }
+                    }
+                    for (const auto& push_constant : framebuffer_resources.push_constants) {
+                        if (description.attribute == push_constant->description().attribute) {
+                            return push_constant->data();
+                        }
+                    }
+                    return nullptr;
+                }();
+                if (push_constant_data) {
+                    command_buffer.pushConstants(
+                        draw_command_resources.pipeline_layout, GetShaderStageFlags(description.stages),
+                        description.push_constant_offset, description.push_constant_size, push_constant_data
+                    );
+                }
+            }
             draw_command->getImpl()->draw(command_buffer);
         }
 

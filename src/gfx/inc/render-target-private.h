@@ -24,6 +24,9 @@ struct RenderTargetDrawCommandResources {
     std::vector<std::shared_ptr<UniformBufferBase>> uniforms;
     // <binding> => sampler 
     std::map<uint32_t, std::shared_ptr<Sampler>> samplers;
+    // Uniforms that has cpu data only and should be updated using push constant
+    std::vector<std::shared_ptr<UniformBufferBase>> push_constants;
+    std::vector<UniformDescription> push_constant_descriptions;
 };
 
 struct RenderTargetPipelineResources {
@@ -37,6 +40,8 @@ struct RenderTargetFramebufferResources {
     vk::CommandBuffer command_buffer{ nullptr };
     // Uniforms that has gpu data only
     std::vector<std::shared_ptr<UniformBufferBase>> uniforms;
+    // Uniforms that has cpu data only and should be updated using push constant
+    std::vector<std::shared_ptr<UniformBufferBase>> push_constants;
 };
 
 struct RenderTargetResources {

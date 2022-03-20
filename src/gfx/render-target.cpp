@@ -356,6 +356,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
     // Framebuffer uniform buffers
     for (size_t i = 0; i < image_count; ++i) {
         for (auto&&[attribute, cpu_uniform] : renderer->uniform_buffers_) {
+            // Framebuffer uniforms should always create cpu & gpu buffer because we are not sure if any pipeline would use it
             auto& gpu_uniform = resources->framebuffer_resources[i].uniforms.emplace_back(
                 UniformBufferBase::Create(attribute)
             );
@@ -363,6 +364,7 @@ void Gfx::createRenderTargetResources(const std::shared_ptr<RenderTarget>& rende
             if (cpu_uniform->has_cpu_data()) {
                 commitReferenceBuffer(cpu_uniform, gpu_uniform);
             }
+            resources->framebuffer_resources[i].push_constants.emplace_back(cpu_uniform);
         }
     }
 

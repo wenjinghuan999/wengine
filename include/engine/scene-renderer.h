@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/common.h"
+#include "gfx/render-target.h"
 #include "gfx/renderer.h"
 #include "engine/mesh-component.h"
 

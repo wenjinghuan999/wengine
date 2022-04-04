@@ -6,12 +6,12 @@ A toy game engine based on Vulkan.
 
 ### Dependencies
 
-- [Vulkan SDK 1.2.189.0](https://vulkan.lunarg.com/) or above
+- [Vulkan SDK 1.3.204.1](https://vulkan.lunarg.com/) or above
 - Other open source libraries on GitHub (configured by `FetchContent`)
 
 ### Setting up CMake
 
-This project uses CMake (3.21 or above). Most open source libraries are configured automatically using `FetchContent`, except for Vulkan. You need to make CMake `FindVulkan` work by either setting up proper environment variable, or using `-DCMAKE_PREFIX_PATH=/path/to/VulkanSDK/1.2.189.0`. Then you are ready to go.
+This project uses CMake (3.21 or above). Most open source libraries are configured automatically using `FetchContent`, except for Vulkan. You need to make CMake `FindVulkan` work by either setting up proper environment variable, or using `-DCMAKE_PREFIX_PATH=/path/to/VulkanSDK/1.3.204.1`. Then you are ready to go.
 
 Here are some examples.
 
@@ -22,18 +22,20 @@ Using VSCode and CMake plugin should make things easier. Create `settings.json` 
 ```json
 {
     "cmake.configureArgs": [
-        "-DCMAKE_PREFIX_PATH=/path/to/VulkanSDK/1.2.189.0"
+        "-DCMAKE_PREFIX_PATH=/path/to/VulkanSDK/1.3.204.1"
     ]
 }
 ```
 
 Remember to replace your VulkanSDK location. Then use command palette to configure your CMake. Type and select `CMake: Configure` in command palette and follow the instruction. Build the project, and you should except executables and libs in `binaries/bin` and `binaries/lib` folder.
 
+If you are using Visual Studio 2019, you should update to latest version. Otherwise there may be compile issue with `fmt` library.
+
 ### CLion (Windows/Linux/macOS)
 
 - Open `CMakeLists.txt` as project, and then go to [Settings - CMake](jetbrains://CLion/settings?name=Build%2C+Execution%2C+Deployment--CMake).
 - Choose your toolchain (probably `Visual Studio` on Windows).
-- Add `-DCMAKE_PREFIX_PATH=/path/to/VulkanSDK/1.2.189.0` to `CMake Options`.
+- Add `-DCMAKE_PREFIX_PATH=/path/to/VulkanSDK/1.3.204.1` to `CMake Options`.
 - Change `Build Directory` to `build` (as configured in `.gitignore`).
 
 ### Visual Studio (Windows)
@@ -43,7 +45,7 @@ Remember to replace your VulkanSDK location. Then use command palette to configu
 - Choose `Toolset` (maybe `msvc_x64_x64`).
 - Probably add your vcpkg.cmake to `CMake toolchain file`.
 - Change `Build root` to something like `${projectDir}\build\${name}`.
-- Add `-DCMAKE_PREFIX_PATH=/path/to/VulkanSDK/1.2.189.0` to `CMake command arguments`.
+- Add `-DCMAKE_PREFIX_PATH=/path/to/VulkanSDK/1.3.204.1` to `CMake command arguments`.
 
 ### CMake Command Line (Ubuntu/Other Linux)
 
@@ -58,8 +60,8 @@ sudo apt update && sudo apt install vulkan-sdk
 Or download and install Vulkan package manually.
 ```bash
 mkdir vulkansdk && cd vulkansdk
-curl https://sdk.lunarg.com/sdk/download/1.2.189.0/linux/vulkansdk-linux-x86_64-1.2.189.0.tar.gz --output vulkansdk-linux-x86_64-1.2.189.0.tar.gz
-tar -xzf vulkansdk-linux-x86_64-1.2.189.0.tar.gz
+curl https://sdk.lunarg.com/sdk/download/1.3.204.1/linux/vulkansdk-linux-x86_64-1.3.204.1.tar.gz --output vulkansdk-linux-x86_64-1.3.204.1.tar.gz
+tar -xzf vulkansdk-linux-x86_64-1.3.204.1.tar.gz
 ```
 
 We use a quite new version of CMake (3.21), so you probably need to install it.

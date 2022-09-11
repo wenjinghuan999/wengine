@@ -56,7 +56,7 @@ int main(int, char**) {
     quad_component->setMesh(quad_mesh);
     render_data.emplace_back(quad_component->createRenderData());
 
-    auto bunny_component = wg::MeshComponent::Create("triangle");
+    auto bunny_component = wg::MeshComponent::Create("bunny");
     bunny_component->setTransform(wg::Transform());
     bunny_component->setMaterial(grid_material);
     bunny_component->setMesh(bunny_mesh);

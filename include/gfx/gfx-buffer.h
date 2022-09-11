@@ -18,8 +18,9 @@ namespace vertex_attributes {
 enum VertexAttribute {
     none = 0,
     position = 1,
-    color = 2,
-    tex_coord = 3,
+    normal = 2,
+    color = 3,
+    tex_coord = 4,
 };
 
 } // namespace vertex_attributes
@@ -89,6 +90,7 @@ void AddDescriptionByBindingImplTemplate(std::vector<DescriptionType>& descripti
 
 struct SimpleVertex {
     glm::vec3 position;
+    glm::vec3 normal;
     glm::vec3 color;
     glm::vec2 tex_coord;
 
@@ -97,6 +99,10 @@ struct SimpleVertex {
             {
                 vertex_attributes::position,  gfx_formats::R32G32B32Sfloat,
                 sizeof(SimpleVertex), static_cast<uint32_t>(offsetof(SimpleVertex, position))
+            },
+            {
+                vertex_attributes::normal,  gfx_formats::R32G32B32Sfloat,
+                sizeof(SimpleVertex), static_cast<uint32_t>(offsetof(SimpleVertex, normal))
             },
             {
                 vertex_attributes::color,     gfx_formats::R32G32B32Sfloat,
@@ -118,6 +124,7 @@ template <>
 struct std::hash<wg::SimpleVertex> {
     std::size_t operator()(wg::SimpleVertex const& v) const noexcept {
         std::size_t h = std::hash<glm::vec3>{}(v.position);
+        h = (h << 1) ^ std::hash<glm::vec3>{}(v.normal);
         h = (h << 1) ^ std::hash<glm::vec3>{}(v.color);
         h = (h << 1) ^ std::hash<glm::vec2>{}(v.tex_coord);
         return h;

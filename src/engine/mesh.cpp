@@ -102,6 +102,7 @@ std::shared_ptr<Mesh> Mesh::CreateFromObjFile(
                 // OBJ: forward: -z; up: y
                 auto vertex = SimpleVertex{
                     .position = { vx, -vz, vy },
+                    .normal = { nx, -nz, ny },
                     .color = { red, green, blue },
                     .tex_coord = { tx, ty }
                 };

@@ -62,8 +62,9 @@ int main(int, char**) {
 
     auto vertex_factory = wg::GfxVertexFactory{
         { .attribute = wg::vertex_attributes::position, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 0 },
-        { .attribute = wg::vertex_attributes::color, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 1 },
-        { .attribute = wg::vertex_attributes::tex_coord, .format = wg::gfx_formats::R32G32Sfloat, .location = 2 },
+        { .attribute = wg::vertex_attributes::normal, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 1 },
+        { .attribute = wg::vertex_attributes::color, .format = wg::gfx_formats::R32G32B32Sfloat, .location = 2 },
+        { .attribute = wg::vertex_attributes::tex_coord, .format = wg::gfx_formats::R32G32Sfloat, .location = 3 },
     };
 
     auto simple_pipeline = wg::GfxPipeline::Create();

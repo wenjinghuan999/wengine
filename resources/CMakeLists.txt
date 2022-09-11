@@ -4,6 +4,7 @@ set(WG_RESOURCES_FILES
     img/statue.png
     img/statue_32x.png
     img/chessboard.png
+    img/uv.png
     model/bunny.obj
     model/cornell.obj
     model/cornell.mtl)

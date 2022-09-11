@@ -38,6 +38,9 @@ public:
     static std::shared_ptr<Mesh> CreateFromObjFile(
         const std::string& name, const std::string& filename
     );
+    static std::shared_ptr<Mesh> CreateSphere(
+        const std::string& name, int level = 6, glm::vec3 color = { 1.f, 1.f, 1.f }
+    );
 
     const std::vector<wg::SimpleVertex>& vertices() const { return vertices_; }
     const std::vector<uint32_t>& indices() const { return indices_; }

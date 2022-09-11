@@ -127,6 +127,87 @@ std::shared_ptr<Mesh> Mesh::CreateFromObjFile(
     return CreateFromVertices(name, vertices, indices);
 }
 
+std::shared_ptr<Mesh> Mesh::CreateSphere(
+    const std::string& name, int level, glm::vec3 color
+) {
+    auto mesh = std::shared_ptr<Mesh>(new Mesh(name));
+    
+    std::vector<SimpleVertex> vertices = {
+        { .position = { -1.f, 0.f, 0.f }, .normal = { -1.f, 0.f, 0.f }, .color = color, .tex_coord = { 0.f, 0.5f } },  // equator -180
+        { .position = { 0.f, 0.f, 1.f }, .normal = { 0.f, 0.f, 1.f }, .color = color, .tex_coord = { 0.125f, 0.f } },   // North Pole
+        { .position = { 0.f, 0.f, -1.f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 0.125f, 1.f } }, // South Pole
+        { .position = { 0.f, -1.f, 0.f }, .normal = { 0.f, -1.f, 0.f }, .color = color, .tex_coord = { 0.25f, 0.5f } }, // equator 270
+        { .position = { 0.f, 0.f, 1.f }, .normal = { 0.f, 0.f, 1.f }, .color = color, .tex_coord = { 0.375f, 0.f } },   // North Pole
+        { .position = { 0.f, 0.f, -1.f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 0.375f, 1.f } }, // South Pole
+        { .position = { 1.f, 0.f, 0.f }, .normal = { 1.f, 0.f, 0.f }, .color = color, .tex_coord = { 0.5f, 0.5f } },     // equator 0
+        { .position = { 0.f, 0.f, 1.f }, .normal = { 0.f, 0.f, 1.f }, .color = color, .tex_coord = { 0.625f, 0.f } },   // North Pole
+        { .position = { 0.f, 0.f, -1.f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 0.625f, 1.f } }, // South Pole
+        { .position = { 0.f, 1.f, 0.f }, .normal = { 0.f, 1.f, 0.f }, .color = color, .tex_coord = { 0.75f, 0.5f } },   // equator 90
+        { .position = { 0.f, 0.f, 1.f }, .normal = { 0.f, 0.f, 1.f }, .color = color, .tex_coord = { 0.875f, 0.f } },   // North Pole
+        { .position = { 0.f, 0.f, -1.f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 0.875f, 1.f } }, // South Pole
+        { .position = { -1.f, 0.f, 0.f }, .normal = { -1.f, 0.f, 0.f }, .color = color, .tex_coord = { 1.f, 0.5f } },  // equator 180
+    };
+    std::vector<uint32_t> indices = {
+        0, 3, 1, 0, 2, 3, 3, 6, 4, 3, 5, 6, 6, 9, 7, 6, 8, 9, 9, 12, 10, 9, 11, 12
+    };
+    
+    auto calcU = [](glm::vec3 p, SimpleVertex v0, SimpleVertex v1) {
+        if ((v0.tex_coord.x == 0.f || v0.tex_coord.x == 1.f) && glm::abs(v1.position.z) == 1.f) {
+            return v0.tex_coord.x;
+        }
+        if ((v1.tex_coord.x == 0.f || v1.tex_coord.x == 1.f) && glm::abs(v0.position.z) == 1.f) {
+            return v1.tex_coord.x;
+        }
+        if (v0.tex_coord.x == v1.tex_coord.x && (v0.tex_coord.x == 0.f || v0.tex_coord.x == 1.f)) {
+            return v0.tex_coord.x;
+        }
+        return glm::atan(p.y, p.x) / (2.f * glm::pi<float>()) + 0.5f;
+    };
+    auto calcV = [](glm::vec3 p) {
+        return glm::atan(glm::length(glm::vec2(p.x, p.y)), p.z) / glm::pi<float>();
+    };
+    
+    while (--level > 0) {
+        size_t n = indices.size();
+        std::vector<uint32_t> new_indices;
+        new_indices.reserve(4u * n);
+        for (size_t i = 0; i + 3u <= n; i += 3) {
+            const auto i0 = static_cast<uint32_t>(indices[i]);
+            const auto i1 = static_cast<uint32_t>(indices[i + 1]);
+            const auto i2 = static_cast<uint32_t>(indices[i + 2]);
+            
+            auto v0 = vertices[i0];
+            auto v1 = vertices[i1];
+            auto v2 = vertices[i2];
+            
+            auto p3 = glm::normalize(v0.position + v1.position);
+            auto p4 = glm::normalize(v1.position + v2.position);
+            auto p5 = glm::normalize(v2.position + v0.position);
+
+            auto u3 = glm::vec2{ calcU(p3, v0, v1), calcV(p3) };
+            auto u4 = glm::vec2{ calcU(p4, v1, v2), calcV(p4) };
+            auto u5 = glm::vec2{ calcU(p5, v2, v0), calcV(p5) };
+
+            const uint32_t i3 = static_cast<uint32_t>(vertices.size()), i4 = i3 + 1u, i5 = i3 + 2u;
+            vertices.insert(vertices.end(), {
+                { .position = p3, .normal = p3, .color = color, .tex_coord = u3 },
+                { .position = p4, .normal = p4, .color = color, .tex_coord = u4 },
+                { .position = p5, .normal = p5, .color = color, .tex_coord = u5 }
+            });
+            
+            new_indices.insert(new_indices.end(), {
+                i0, i3, i5, i3, i1, i4, i4, i2, i5, i3, i4, i5
+            });
+        }
+        indices = std::move(new_indices);
+    }
+    
+    mesh->setVertices(std::move(vertices));
+    mesh->setIndices(std::move(indices));
+    return mesh;
+}
+
+
 Mesh::Mesh(std::string name)
     : name_(std::move(name)) {
 }

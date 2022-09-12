@@ -130,8 +130,6 @@ std::shared_ptr<Mesh> Mesh::CreateFromObjFile(
 std::shared_ptr<Mesh> Mesh::CreateSphere(
     const std::string& name, int level, glm::vec3 color
 ) {
-    auto mesh = std::shared_ptr<Mesh>(new Mesh(name));
-    
     std::vector<SimpleVertex> vertices = {
         { .position = { -1.f, 0.f, 0.f }, .normal = { -1.f, 0.f, 0.f }, .color = color, .tex_coord = { 0.f, 0.5f } },  // equator -180
         { .position = { 0.f, 0.f, 1.f }, .normal = { 0.f, 0.f, 1.f }, .color = color, .tex_coord = { 0.125f, 0.f } },   // North Pole
@@ -202,11 +200,20 @@ std::shared_ptr<Mesh> Mesh::CreateSphere(
         indices = std::move(new_indices);
     }
     
-    mesh->setVertices(std::move(vertices));
-    mesh->setIndices(std::move(indices));
-    return mesh;
+    return CreateFromVertices(name, vertices, indices);
 }
 
+std::shared_ptr<Mesh> Mesh::CreateFullScreenTriangle(
+    const std::string& name, glm::vec3 color
+) {
+    std::vector<SimpleVertex> vertices = {
+        { .position = { -1.f, -1.f, 0.f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 0.f, 0.f } },
+        { .position = { -1.f, 3.f, 0.f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 0.f, 2.f } },
+        { .position = { 3.f, -1.f, 0.f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 2.f, 0.f } },
+    };
+
+    return CreateFromVertices(name, vertices);
+}
 
 Mesh::Mesh(std::string name)
     : name_(std::move(name)) {

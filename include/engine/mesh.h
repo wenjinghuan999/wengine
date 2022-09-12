@@ -44,11 +44,18 @@ public:
     static std::shared_ptr<Mesh> CreateFullScreenTriangle(
         const std::string& name, glm::vec3 color = { 1.f, 1.f, 1.f }
     );
+    static std::shared_ptr<Mesh> CreateCoordinates(
+        const std::string& name
+    );
 
-    const std::vector<wg::SimpleVertex>& vertices() const { return vertices_; }
-    const std::vector<uint32_t>& indices() const { return indices_; }
+    [[nodiscard]] const std::vector<wg::SimpleVertex>& vertices() const { return vertices_; }
+    [[nodiscard]] const std::vector<uint32_t>& indices() const { return indices_; }
+    [[nodiscard]] primitive_topologies::PrimitiveTopology primitive_topology() const { return primitive_topology_; }
     void setVertices(std::vector<wg::SimpleVertex> vertices) { vertices_ = std::move(vertices); }
     void setIndices(std::vector<uint32_t> indices) { indices_ = std::move(indices); }
+    void setPrimitiveTopology(primitive_topologies::PrimitiveTopology primitive_topology) {
+        primitive_topology_ = primitive_topology;
+    }
 
     [[nodiscard]] const std::string& name() const { return name_; }
 
@@ -59,6 +66,7 @@ protected:
     std::string name_;
     std::vector<wg::SimpleVertex> vertices_;
     std::vector<uint32_t> indices_;
+    primitive_topologies::PrimitiveTopology primitive_topology_{ primitive_topologies::triangle_list };
     std::shared_ptr<MeshRenderData> render_data_;
 
 protected:

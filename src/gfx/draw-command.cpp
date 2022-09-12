@@ -223,7 +223,7 @@ void Gfx::finishDrawCommand(const std::shared_ptr<DrawCommand>& draw_command) {
         .setVertexAttributeDescriptions(impl->vertex_attributes);
 
     impl->input_assembly_create_info = vk::PipelineInputAssemblyStateCreateInfo{
-        .topology = vk::PrimitiveTopology::eTriangleList,
+        .topology = primitive_topologies::ToVkPrimitiveTopology(draw_command->primitive_topology()),
         .primitiveRestartEnable = false
     };
 }

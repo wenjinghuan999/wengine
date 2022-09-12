@@ -1,6 +1,8 @@
 set(WG_STATIC_SHADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/simple.vert
     ${CMAKE_CURRENT_SOURCE_DIR}/simple.frag
+    ${CMAKE_CURRENT_SOURCE_DIR}/gizmos.vert
+    ${CMAKE_CURRENT_SOURCE_DIR}/gizmos.frag
     ${CMAKE_CURRENT_SOURCE_DIR}/grid.vert
     ${CMAKE_CURRENT_SOURCE_DIR}/grid.frag)
 set(WG_STATIC_SHADER_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shader/static)

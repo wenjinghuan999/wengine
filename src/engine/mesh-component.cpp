@@ -30,6 +30,7 @@ std::shared_ptr<IRenderData> MeshComponent::createRenderData() {
     render_data_->model_uniform_buffer = UniformBuffer<ModelUniform>::Create();
     render_data_->model_uniform_buffer->setUniformObject(createUniformObject());
     render_data_->draw_commands = { SimpleDrawCommand::Create(name_, material_render_data_->pipeline) };
+    render_data_->draw_commands[0]->setPrimitiveTopology(mesh_->primitive_topology());
     for (auto&& draw_command : render_data_->draw_commands) {
         draw_command->addVertexBuffer(mesh_->render_data()->vertex_buffer);
         if (mesh_->render_data()->index_buffer) {

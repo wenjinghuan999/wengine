@@ -215,6 +215,23 @@ std::shared_ptr<Mesh> Mesh::CreateFullScreenTriangle(
     return CreateFromVertices(name, vertices);
 }
 
+std::shared_ptr<Mesh> Mesh::CreateCoordinates(
+    const std::string& name
+) {
+    std::vector<SimpleVertex> vertices = {
+        { .position = { 0.f, 0.f, 0.f }, .normal = { 1.f, 0.f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.5f, 0.5f } },
+        { .position = { 1.f, 0.f, 0.f }, .normal = { 1.f, 0.f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 0.f } },
+        { .position = { 0.f, 0.f, 0.f }, .normal = { 0.f, 1.f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 0.5f, 0.5f } },
+        { .position = { 0.f, 1.f, 0.f }, .normal = { 0.f, 1.f, 0.f }, .color = { 0.f, 1.f, 0.f }, .tex_coord = { 1.f, 0.f } },
+        { .position = { 0.f, 0.f, 0.f }, .normal = { 0.f, 0.f, 1.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 0.5f, 0.5f } },
+        { .position = { 0.f, 0.f, 1.f }, .normal = { 0.f, 0.f, 1.f }, .color = { 0.f, 0.f, 1.f }, .tex_coord = { 1.f, 1.f } },
+    };
+
+    auto mesh = CreateFromVertices(name, vertices);
+    mesh->setPrimitiveTopology(primitive_topologies::line_list);
+    return mesh;
+}
+
 Mesh::Mesh(std::string name)
     : name_(std::move(name)) {
 }

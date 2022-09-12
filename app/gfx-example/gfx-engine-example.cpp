@@ -36,6 +36,12 @@ int main(int, char**) {
         "shader/static/grid.vert.spv", "shader/static/grid.frag.spv"
     );
     render_data.emplace_back(grid_material->createRenderData());
+    
+    auto gizmos_material = wg::Material::Create(
+        "gizmos material",
+        "shader/static/gizmos.vert.spv", "shader/static/gizmos.frag.spv"
+    );
+    render_data.emplace_back(gizmos_material->createRenderData());
 
     auto quad_vertices = std::vector<wg::SimpleVertex>{
         { .position = { -0.5f, -0.5f, 0.f }, .color = { 1.f, 0.f, 0.f }, .tex_coord = { 0.f, 1.f } },
@@ -49,6 +55,9 @@ int main(int, char**) {
 
     auto bunny_mesh = wg::Mesh::CreateFromObjFile("bunny", "resources/model/bunny.obj");
     render_data.emplace_back(bunny_mesh->createRenderData());
+    
+    auto gizmos_mesh = wg::Mesh::CreateCoordinates("coordinates");
+    render_data.emplace_back(gizmos_mesh->createRenderData());
 
     auto quad_component = wg::MeshComponent::Create("quad");
     quad_component->setTransform(wg::Transform());
@@ -61,6 +70,12 @@ int main(int, char**) {
     bunny_component->setMaterial(grid_material);
     bunny_component->setMesh(bunny_mesh);
     render_data.emplace_back(bunny_component->createRenderData());
+    
+    auto gizmos_component = wg::MeshComponent::Create("coordinates");
+    gizmos_component->setTransform(wg::Transform{ .transform = glm::scale(glm::mat4(1.f), glm::vec3(3.f)) });
+    gizmos_component->setMaterial(gizmos_material);
+    gizmos_component->setMesh(gizmos_mesh);
+    render_data.emplace_back(gizmos_component->createRenderData());
 
     auto render_target = gfx->createRenderTarget(window);
 
@@ -68,13 +83,14 @@ int main(int, char**) {
     auto framebuffer_size = window->extent();
     renderer->setCamera(
         {
-            .position = glm::vec3(0.0f, -5.0f, 5.0f),
+            .position = glm::vec3(1.0f, -5.0f, 5.0f),
             .center = glm::vec3(0.0f, 0.0f, 0.0f),
             .up = glm::vec3(0.0f, 0.0f, 1.0f),
             .aspect = static_cast<float>(framebuffer_size.x()) / static_cast<float>(framebuffer_size.y())
         }
     );
     renderer->setRenderTarget(render_target);
+    renderer->addComponent(gizmos_component);
     renderer->addComponent(bunny_component);
     renderer->addComponent(quad_component);
     render_data.emplace_back(renderer->createRenderData());

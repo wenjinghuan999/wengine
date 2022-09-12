@@ -11,6 +11,37 @@
 
 namespace wg {
 
+namespace primitive_topologies {
+
+inline vk::PrimitiveTopology ToVkPrimitiveTopology(PrimitiveTopology primitive_topology) {
+    switch (primitive_topology) {
+    case point_list:
+        return vk::PrimitiveTopology::ePointList;
+    case line_list:
+        return vk::PrimitiveTopology::eLineList;
+    case line_strip:
+        return vk::PrimitiveTopology::eLineStrip;
+    case triangle_list:
+        return vk::PrimitiveTopology::eTriangleList;
+    case triangle_strip:
+        return vk::PrimitiveTopology::eTriangleStrip;
+    case triangle_fan:
+        return vk::PrimitiveTopology::eTriangleFan;
+    case line_list_with_adjacency:
+        return vk::PrimitiveTopology::eLineListWithAdjacency;
+    case line_strip_with_adjacency:
+        return vk::PrimitiveTopology::eLineStripWithAdjacency;
+    case triangle_list_with_adjacency:
+        return vk::PrimitiveTopology::eTriangleListWithAdjacency;
+    case triangle_strip_with_adjacency:
+        return vk::PrimitiveTopology::eTriangleStripWithAdjacency;
+    default:
+        return vk::PrimitiveTopology::ePatchList;
+    }
+}
+
+} // namespace primitive_types
+
 struct DrawCommand::Impl {
     std::vector<vk::Buffer> vertex_buffers;
     std::vector<vk::DeviceSize> vertex_buffer_offsets;

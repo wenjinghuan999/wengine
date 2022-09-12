@@ -207,9 +207,9 @@ std::shared_ptr<Mesh> Mesh::CreateFullScreenTriangle(
     const std::string& name, glm::vec3 color
 ) {
     std::vector<SimpleVertex> vertices = {
-        { .position = { -1.f, -1.f, 0.f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 0.f, 0.f } },
-        { .position = { -1.f, 3.f, 0.f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 0.f, 2.f } },
-        { .position = { 3.f, -1.f, 0.f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 2.f, 0.f } },
+        { .position = { -1.f, -1.f, 1.f - 1e-4f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 0.f, 0.f } },
+        { .position = { -1.f, 3.f, 1.f - 1e-4f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 0.f, 2.f } },
+        { .position = { 3.f, -1.f, 1.f - 1e-4f }, .normal = { 0.f, 0.f, -1.f }, .color = color, .tex_coord = { 2.f, 0.f } },
     };
 
     return CreateFromVertices(name, vertices);

@@ -10,6 +10,19 @@
 
 namespace wg {
 
+namespace image_types {
+
+[[nodiscard]] inline std::tuple<vk::ImageType, vk::ImageViewType> ToVkImageAndViewType(image_types::ImageType image_type) {
+    if (image_type == image_types::image_cube) {
+        return { vk::ImageType::e2D, vk::ImageViewType::eCube };
+    }
+    else {
+        return { vk::ImageType::e2D, vk::ImageViewType::e2D };
+    }
+}
+
+} // namespace image_types
+
 namespace image_sampler {
 
 [[nodiscard]] inline Filter FromVkFilter(vk::Filter vk_filter) {
@@ -76,6 +89,7 @@ struct ImageResources {
     uint32_t width{ 0 };
     uint32_t height{ 0 };
     uint32_t mip_levels{ 0 };
+    uint32_t layer_count{ 1 };
     vk::Format format;
     vk::ImageLayout image_layout{};
     QueueInfoRef queue;

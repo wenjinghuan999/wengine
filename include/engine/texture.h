@@ -29,7 +29,8 @@ public:
     ~Texture() override = default;
 
     static std::shared_ptr<Texture> Load(
-        const std::string& filename, gfx_formats::Format image_format = gfx_formats::R8G8B8A8Unorm,
+        const std::string& filename, gfx_formats::Format image_format = gfx_formats::R8G8B8A8Unorm, 
+        image_types::ImageType image_type = image_types::image_2d,
         image_file_formats::ImageFileFormat file_format = image_file_formats::none
     );
 
@@ -48,7 +49,8 @@ protected:
 
 protected:
     explicit Texture(
-        const std::string& filename, gfx_formats::Format image_format, image_file_formats::ImageFileFormat file_format
+        const std::string& filename, gfx_formats::Format image_format, image_types::ImageType image_type, 
+        image_file_formats::ImageFileFormat file_format
     );
 };
 

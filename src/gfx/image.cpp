@@ -20,18 +20,20 @@ namespace {
 namespace wg {
 
 std::shared_ptr<Image> Image::Load(
-    const std::string& filename, gfx_formats::Format image_format,
+    const std::string& filename, gfx_formats::Format image_format, image_types::ImageType image_type,
     bool keep_cpu_data, image_file_formats::ImageFileFormat file_format
 ) {
-    return std::shared_ptr<Image>(new Image(filename, image_format, keep_cpu_data, file_format));
+    return std::shared_ptr<Image>(new Image(filename, image_format, image_type, keep_cpu_data, file_format));
 }
 
-Image::Image(const std::string& filename, gfx_formats::Format image_format, bool keep_cpu_data, image_file_formats::ImageFileFormat file_format)
+Image::Image(const std::string& filename, gfx_formats::Format image_format, image_types::ImageType image_type,
+    bool keep_cpu_data, image_file_formats::ImageFileFormat file_format)
     : GfxMemoryBase(keep_cpu_data), filename_(filename), impl_(std::make_unique<Image::Impl>()) {
-    load(filename, image_format, file_format);
+    load(filename, image_format, image_type, file_format);
 }
 
-bool Image::load(const std::string& filename, gfx_formats::Format image_format, image_file_formats::ImageFileFormat file_format) {
+bool Image::load(const std::string& filename, gfx_formats::Format image_format, image_types::ImageType image_type, 
+    image_file_formats::ImageFileFormat file_format) {
     logger().info("Loading image: {}", filename);
 
     int desired_channels = gfx_formats::GetChannels(image_format);
@@ -43,25 +45,67 @@ bool Image::load(const std::string& filename, gfx_formats::Format image_format, 
         logger().error("Unable to load image {}", filename);
         return false;
     }
+    
+    if (image_type == image_types::image_cube) {
+        if (width % 4 == 0 && height % 3 == 0) {
+            width /= 4;
+            height /= 3;
+            n_pixels = width * height * desired_channels * 6;
+        }
+        else {
+            logger().error("Image {} is not a valid cube map", filename);
+            return false;
+        }
+    }
 
     switch (image_format) {
     case gfx_formats::R8Unorm:
     case gfx_formats::R8G8Unorm:
     case gfx_formats::R8G8B8Unorm:
-    case gfx_formats::R8G8B8A8Unorm:
+    case gfx_formats::R8G8B8A8Unorm: {
         raw_data_.resize(n_pixels);
-        std::memcpy(raw_data_.data(), pixels, n_pixels);
+        if (image_type == image_types::image_cube) {
+            for (int face = 0; face < 6; ++face) {
+                int offset_src = CubeMapOffset(width, height, face) * desired_channels;
+                int offset_dst = width * height * desired_channels * face;
+                for (int y = 0; y < height; ++y) {
+                    std::memcpy(raw_data_.data() + offset_dst, pixels + offset_src, width * channels);
+                    offset_dst += width * desired_channels;
+                    offset_src += width * desired_channels * 4;
+                }
+            }
+        } else {
+            std::memcpy(raw_data_.data(), pixels, n_pixels);
+        }
         break;
+    }
     case gfx_formats::R32Sfloat:
     case gfx_formats::R32G32Sfloat:
     case gfx_formats::R32G32B32Sfloat:
-    case gfx_formats::R32G32B32A32Sfloat:
+    case gfx_formats::R32G32B32A32Sfloat: {
         raw_data_.resize(n_pixels * sizeof(float));
-        for (int i = 0; i < n_pixels; ++i) {
-            auto ptr = reinterpret_cast<float*>(raw_data_.data());
-            ptr[i] = static_cast<float>(pixels[i]) / 255.f;
+        auto ptr = reinterpret_cast<float*>(raw_data_.data());
+        if (image_type == image_types::image_cube) {
+            for (int face = 0; face < 6; ++face) {
+                int offset_src = CubeMapOffset(width, height, face) * desired_channels;
+                int offset_dst = width * height * desired_channels * face;
+                for (int y = 0; y < height; ++y) {
+                    for (int x = 0; x < width; ++x) {
+                        for (int c = 0; c < desired_channels; ++c) {
+                            ptr[offset_dst + x * desired_channels + c] = static_cast<float>(pixels[offset_src + x * desired_channels + c]) / 255.f;
+                        }
+                    }
+                    offset_dst += width * desired_channels;
+                    offset_src += width * desired_channels * 4;
+                }
+            }
+        } else {
+            for (int i = 0; i < n_pixels; ++i) {
+                ptr[i] = static_cast<float>(pixels[i]) / 255.f;
+            }
         }
         break;
+    }
     default:
         logger().error("Unsupported image format for loading: {}", gfx_formats::ToString(image_format));
         return false;
@@ -70,6 +114,7 @@ bool Image::load(const std::string& filename, gfx_formats::Format image_format, 
     filename_ = filename;
     file_format_ = file_format;
     image_format_ = image_format;
+    image_type_ = image_type;
     width_ = width;
     height_ = height;
     mip_levels_ = 1;
@@ -79,6 +124,29 @@ bool Image::load(const std::string& filename, gfx_formats::Format image_format, 
 
     stbi_image_free(pixels);
     return true;
+}
+
+int Image::CubeMapOffset(int width, int height, int face) {
+    switch (face) {
+    case 0:
+        // +X
+        return width * height * 4 + width * 2;
+    case 1:
+        // -X
+        return width * height * 4;
+    case 2:
+        // +Y
+        return width;
+    case 3:
+        // -Y
+        return width * height * 8 + width;
+    case 4:
+        // +Z
+        return width * height * 4 + width;
+    default:
+        // -Z
+        return width * height * 4 + width * 3;
+    }
 }
 
 void Image::clearCpuData() {
@@ -106,7 +174,8 @@ void Gfx::Impl::transitionImageLayout(
     }
 
     transitionImageLayout(
-        image_resources, image_resources->image_layout, new_layout, image_resources->queue, new_queue, 0, image_resources->mip_levels
+        image_resources, image_resources->image_layout, new_layout, image_resources->queue, new_queue, 
+        0, image_resources->mip_levels, image_resources->layer_count
     );
 
     image_resources->image_layout = new_layout;
@@ -117,7 +186,7 @@ void Gfx::Impl::transitionImageLayout(
     ImageResources* image_resources,
     vk::ImageLayout old_layout, vk::ImageLayout new_layout,
     const QueueInfoRef& old_queue, const QueueInfoRef& new_queue,
-    uint32_t base_mip, uint32_t mip_count
+    uint32_t base_mip, uint32_t mip_count, uint32_t layer_count
 ) {
     if (!image_resources) {
         logger().error("Cannot transition image layout because image resources are not available.");
@@ -138,7 +207,7 @@ void Gfx::Impl::transitionImageLayout(
             .baseMipLevel    = base_mip,
             .levelCount      = mip_count,
             .baseArrayLayer  = 0,
-            .layerCount      = 1
+            .layerCount      = layer_count
         }
     };
 
@@ -235,8 +304,8 @@ void Gfx::Impl::transitionImageLayout(
 }
 
 void Gfx::Impl::copyBufferToImage(
-    const QueueInfoRef& transfer_queue,
-    vk::Buffer src, vk::Image dst, uint32_t width, uint32_t height, vk::ImageLayout image_layout
+    const QueueInfoRef& transfer_queue, vk::Buffer src, vk::Image dst, 
+    uint32_t width, uint32_t height, vk::ImageLayout image_layout, uint32_t layer_count
 ) {
     auto buffer_image_copy = vk::BufferImageCopy{
         .bufferOffset       = 0,
@@ -246,7 +315,7 @@ void Gfx::Impl::copyBufferToImage(
             .aspectMask     = vk::ImageAspectFlagBits::eColor,
             .mipLevel       = 0,
             .baseArrayLayer = 0,
-            .layerCount     = 1,
+            .layerCount     = layer_count,
         },
         .imageOffset        = { 0, 0, 0 },
         .imageExtent        = { width, height, 1 }
@@ -292,17 +361,25 @@ void Gfx::Impl::createReferenceImageResources(
     if (!(format_properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eSampledImageFilterLinear)) {
         can_generate_mipmap = false;
     }
+    if (cpu_image->image_type_ == image_types::image_cube) {
+        can_generate_mipmap = false;
+    }
 
     gpu_image->width_ = cpu_image->width_;
     gpu_image->height_ = cpu_image->height_;
     gpu_image->mip_levels_ = cpu_image->mip_levels_;
+    gpu_image->image_type_ = cpu_image->image_type_;
+    
+    auto [vk_image_type, vk_view_type] = image_types::ToVkImageAndViewType(gpu_image->image_type_);
 
     auto resources = std::make_unique<ImageResources>();
     auto memory_resources = std::make_unique<GfxMemoryResources>();
 
     int real_mip_levels = can_generate_mipmap ? max_mip_levels : gpu_image->mip_levels_;
     createImage(
-        gpu_image->width_, gpu_image->height_, real_mip_levels, vk::SampleCountFlagBits::e1,
+        gpu_image->width_, gpu_image->height_, real_mip_levels, 
+        vk_image_type, vk_view_type,
+        vk::SampleCountFlagBits::e1,
         gfx_formats::ToVkFormat(cpu_image->image_format()),
         vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
         vk::ImageAspectFlagBits::eColor,
@@ -314,8 +391,8 @@ void Gfx::Impl::createReferenceImageResources(
 }
 
 void Gfx::Impl::createImage(
-    uint32_t width, uint32_t height, uint32_t mip_levels, vk::SampleCountFlagBits sample_count,
-    vk::Format vk_format, vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect,
+    uint32_t width, uint32_t height, uint32_t mip_levels, vk::ImageType vk_image_type, vk::ImageViewType vk_view_type,
+    vk::SampleCountFlagBits sample_count, vk::Format vk_format, vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect,
     ImageResources& out_image_resources, GfxMemoryResources& out_memory_resources
 ) {
     if (!gfx->logical_device_) {
@@ -330,10 +407,15 @@ void Gfx::Impl::createImage(
     }
 
     auto graphics_queue = gfx->logical_device_->impl_->queue_references[gfx_queues::graphics][0];
+    uint32_t layer_count = 1u;
+    if (vk_view_type == vk::ImageViewType::eCube) {
+        layer_count = 6u;
+    }
 
     out_image_resources.width = width;
     out_image_resources.height = height;
     out_image_resources.mip_levels = mip_levels;
+    out_image_resources.layer_count = layer_count;
     out_image_resources.image_layout = vk::ImageLayout::eUndefined;
     out_image_resources.format = vk_format;
     out_image_resources.queue = graphics_queue;
@@ -341,7 +423,7 @@ void Gfx::Impl::createImage(
 
     auto image_create_info = vk::ImageCreateInfo{
         .flags         = {},
-        .imageType     = vk::ImageType::e2D,
+        .imageType     = vk_image_type,
         .format        = vk_format,
         .extent        = {
             .width     = width,
@@ -357,6 +439,11 @@ void Gfx::Impl::createImage(
         .initialLayout = out_image_resources.image_layout
     }
         .setQueueFamilyIndices(queue_family_indices);
+    
+    if (vk_view_type == vk::ImageViewType::eCube) {
+        image_create_info.arrayLayers = 6;
+        image_create_info.flags |= vk::ImageCreateFlagBits::eCubeCompatible;
+    }
 
     out_image_resources.image = gfx->logical_device_->impl_->vk_device.createImage(image_create_info);
 
@@ -371,7 +458,7 @@ void Gfx::Impl::createImage(
 
     auto image_view_create_info = vk::ImageViewCreateInfo{
         .image              = *out_image_resources.image,
-        .viewType           = vk::ImageViewType::e2D,
+        .viewType           = vk_view_type,
         .format             = vk_format,
         .subresourceRange   = {
             .aspectMask     = aspect,
@@ -381,6 +468,11 @@ void Gfx::Impl::createImage(
             .layerCount     = 1
         }
     };
+    
+    if (vk_view_type == vk::ImageViewType::eCube) {
+        image_view_create_info.subresourceRange.layerCount = 6;
+    }
+    
     out_image_resources.image_view = gfx->logical_device_->impl_->vk_device.createImageView(image_view_create_info);
 
     QueueInfoRef transfer_queue;
@@ -593,7 +685,8 @@ void Gfx::commitReferenceImage(
     auto graphics_queue = resources->queue;
     impl_->transitionImageLayout(resources, vk::ImageLayout::eTransferDstOptimal, transfer_queue);
     impl_->copyBufferToImage(
-        transfer_queue, *staging_resources.buffer, *resources->image, resources->width, resources->height, resources->image_layout
+        transfer_queue, *staging_resources.buffer, *resources->image, 
+        resources->width, resources->height, resources->image_layout, resources->layer_count
     );
 
     // Generate mipmaps
@@ -666,12 +759,13 @@ void Gfx::commitReferenceImage(
 
         for (uint32_t i = 1; i < resources->mip_levels; ++i) {
             impl_->transitionImageLayout(
-                resources, vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, transfer_queue, graphics_queue, i - 1U, 1U
+                resources, vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, transfer_queue, graphics_queue, 
+                i - 1U, 1U, resources->layer_count
             );
         }
         impl_->transitionImageLayout(
             resources, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal, transfer_queue, graphics_queue,
-            resources->mip_levels - 1U, 1U
+            resources->mip_levels - 1U, 1U, resources->layer_count
         );
         resources->image_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
         resources->queue = graphics_queue;

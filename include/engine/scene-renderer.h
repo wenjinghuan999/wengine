@@ -29,7 +29,7 @@ struct Camera {
     glm::vec3 center{ 0.0f, 0.0f, 0.0f };
     glm::vec3 up{ 0.0f, 0.0f, 1.0f };
     float aspect = 4.0f / 3.0f;
-    float fov_y = 45.f;
+    float fov_y = glm::radians(45.f);
     float z_near = 0.1f;
     float z_far = 100.f;
 };

@@ -202,9 +202,19 @@ TEST_CASE("gfx raw" * doctest::timeout(10)) {
     CHECK(frag_shader->valid());
 
     auto camera_uniform_buffer = wg::UniformBuffer<wg::CameraUniform>::Create();
+    float aspect = 4.f / 3.f;
+    glm::vec2 fov = { 0.f, glm::radians(45.f) };
+    fov.x = fov.y * aspect;
+    glm::vec3 camera_eye = { 0.f, -2.f, 2.f };
+    glm::vec3 camera_center = { 0.f, 0.f, 0.f };
+    glm::vec3 camera_up = { 0.f, 0.f, 1.f };
     auto camera_uniform_object = wg::CameraUniform{
-        .view_mat = glm::lookAt(glm::vec3(0.0f, -2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-        .project_mat = glm::perspective(glm::radians(45.0f), 4.f / 3.f, 0.1f, 10.0f)
+        .view_mat = glm::lookAt(camera_eye, camera_center, camera_up),
+        .project_mat = glm::perspective(
+            fov.y, aspect, 0.1f, 10.0f
+        ),
+        .position = camera_eye,
+        .fov = fov
     };
     camera_uniform_object.project_mat[1][1] *= -1;
     camera_uniform_buffer->setUniformObject(camera_uniform_object);

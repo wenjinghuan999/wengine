@@ -3,6 +3,8 @@
 layout(binding = 0) uniform CameraUniform {
     mat4 view;
     mat4 proj;
+    vec3 position;
+    vec2 fov;
 } uCamera;
 layout(binding = 1) uniform ModelUniform {
     mat4 model;

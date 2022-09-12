@@ -300,8 +300,10 @@ bool Gfx::createSurfaceResources(const std::shared_ptr<Surface>& surface) {
         color_image_resources = std::make_unique<ImageResources>();
         color_memory_resources = std::make_unique<GfxMemoryResources>();
         impl_->createImage(
-            resources->vk_extent.width, resources->vk_extent.height, 1U, surface->impl_->sample_count,
-            resources->vk_format.format, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment,
+            resources->vk_extent.width, resources->vk_extent.height, 1U, 
+            vk::ImageType::e2D, vk::ImageViewType::e2D, 
+            surface->impl_->sample_count, resources->vk_format.format, 
+            vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment,
             vk::ImageAspectFlagBits::eColor, *color_image_resources, *color_memory_resources
         );
         impl_->transitionImageLayout(&*color_image_resources, vk::ImageLayout::eColorAttachmentOptimal, color_image_resources->queue);
@@ -329,8 +331,10 @@ bool Gfx::createSurfaceResources(const std::shared_ptr<Surface>& surface) {
         depth_aspect |= vk::ImageAspectFlagBits::eStencil;
     }
     impl_->createImage(
-        resources->vk_extent.width, resources->vk_extent.height, 1U, surface->impl_->sample_count,
-        gfx_formats::ToVkFormat(depth_image_format), vk::ImageUsageFlagBits::eDepthStencilAttachment, depth_aspect,
+        resources->vk_extent.width, resources->vk_extent.height, 1U, 
+        vk::ImageType::e2D, vk::ImageViewType::e2D,
+        surface->impl_->sample_count, gfx_formats::ToVkFormat(depth_image_format), 
+        vk::ImageUsageFlagBits::eDepthStencilAttachment, depth_aspect,
         *depth_image_resources, *depth_memory_resources
     );
     impl_->transitionImageLayout(&*depth_image_resources, vk::ImageLayout::eDepthStencilAttachmentOptimal, depth_image_resources->queue);

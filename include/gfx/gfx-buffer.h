@@ -318,6 +318,8 @@ struct SceneUniform {
 struct CameraUniform {
     glm::mat4 view_mat;
     glm::mat4 project_mat;
+    glm::vec3 position;
+    glm::vec2 fov;
 
     static UniformObjectDescription Description() {
         return { uniform_attributes::camera };

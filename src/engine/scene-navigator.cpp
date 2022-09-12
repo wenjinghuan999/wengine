@@ -103,7 +103,7 @@ void SceneNavigator::onCursorPos(float x, float y) {
             float y0 = y / sy - 0.5f;
             float x1 = last_cursor_pos_.first / sx - 0.5f;
             float y1 = last_cursor_pos_.second / sy - 0.5f;
-            float fy = 2.f * glm::length(look) * glm::tan(glm::radians(camera_.fov_y / 2.f));
+            float fy = 2.f * glm::length(look) * glm::tan(camera_.fov_y / 2.f);
             float fx = fy * camera_.aspect;
 
             auto p0 = right * x0 * fx - up * y0 * fy;

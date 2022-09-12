@@ -55,7 +55,9 @@ std::shared_ptr<IRenderData> SceneRenderer::createRenderData() {
 CameraUniform SceneRenderer::createUniformObject() const {
     auto camera_uniform = CameraUniform{
         .view_mat = glm::lookAt(camera_.position, camera_.center, camera_.up),
-        .project_mat = glm::perspective(glm::radians(camera_.fov_y), camera_.aspect, camera_.z_near, camera_.z_far)
+        .project_mat = glm::perspective(camera_.fov_y, camera_.aspect, camera_.z_near, camera_.z_far),
+        .position = camera_.position,
+        .fov = { camera_.aspect * camera_.fov_y, camera_.fov_y }
     };
     camera_uniform.project_mat[1][1] *= -1.f;
     return camera_uniform;

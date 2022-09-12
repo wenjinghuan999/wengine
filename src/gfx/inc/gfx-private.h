@@ -65,14 +65,14 @@ struct Gfx::Impl {
         ImageResources* image_resources,
         vk::ImageLayout old_layout, vk::ImageLayout new_layout,
         const QueueInfoRef& old_queue, const QueueInfoRef& new_queue,
-        uint32_t base_mip, uint32_t mip_count
+        uint32_t base_mip, uint32_t mip_count, uint32_t layer_count
     );
     void transitionImageLayout(
         ImageResources* image_resources, vk::ImageLayout new_layout, const QueueInfoRef& new_queue
     );
     void copyBufferToImage(
-        const QueueInfoRef& transfer_queue,
-        vk::Buffer src, vk::Image dst, uint32_t width, uint32_t height, vk::ImageLayout image_layout
+        const QueueInfoRef& transfer_queue, vk::Buffer src, vk::Image dst, 
+        uint32_t width, uint32_t height, vk::ImageLayout image_layout, uint32_t layer_count
     );
     void createImageResources(const std::shared_ptr<Image>& image);
     void createReferenceImageResources(
@@ -80,8 +80,8 @@ struct Gfx::Impl {
         const std::shared_ptr<Image>& gpu_image
     );
     void createImage(
-        uint32_t width, uint32_t height, uint32_t mip_levels, vk::SampleCountFlagBits sample_count,
-        vk::Format vk_format, vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect,
+        uint32_t width, uint32_t height, uint32_t mip_levels, vk::ImageType vk_image_type, vk::ImageViewType vk_view_type,
+        vk::SampleCountFlagBits sample_count, vk::Format vk_format, vk::ImageUsageFlags usage, vk::ImageAspectFlags aspect,
         ImageResources& out_image_resources, GfxMemoryResources& out_memory_resources
     );
     

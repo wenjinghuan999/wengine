@@ -19,13 +19,15 @@ void TextureRenderData::createGfxResources(Gfx& gfx) {
 }
 
 std::shared_ptr<Texture> Texture::Load(
-    const std::string& filename, gfx_formats::Format image_format, image_file_formats::ImageFileFormat file_format
+    const std::string& filename, gfx_formats::Format image_format, image_types::ImageType image_type, 
+    image_file_formats::ImageFileFormat file_format
 ) {
-    return std::shared_ptr<Texture>(new Texture(filename, image_format, file_format));
+    return std::shared_ptr<Texture>(new Texture(filename, image_format, image_type, file_format));
 }
 
-Texture::Texture(const std::string& filename, gfx_formats::Format image_format, image_file_formats::ImageFileFormat file_format) {
-    image_ = Image::Load(filename, image_format, true, file_format);
+Texture::Texture(const std::string& filename, gfx_formats::Format image_format, image_types::ImageType image_type,
+    image_file_formats::ImageFileFormat file_format) {
+    image_ = Image::Load(filename, image_format, image_type, true, file_format);
 }
 
 std::shared_ptr<IRenderData> Texture::createRenderData() {
